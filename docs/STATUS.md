@@ -55,6 +55,11 @@ locking will be revisited for sync and daemon coordination.
 
 ## Verification
 
+Agent PR workflow now requires waiting for CI and CodeRabbit, retrieving feedback,
+and addressing valid findings before reporting readiness. CodeRabbit's docstring
+coverage quota and generation suggestion are disabled to match our sparse-comment
+policy; useful documentation feedback remains welcome.
+
 Formatting, go vet, offline tests, and race tests passed. Native macOS and Linux
 amd64 builds passed. The hosted CI workflow runs the offline suite on Linux;
 see PR #1 for its current result. Real Linux browser integration is still untested.

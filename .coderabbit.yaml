@@ -5,6 +5,12 @@ reviews:
   request_changes_workflow: false
   poem: false
   in_progress_fortune: false
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+  finishing_touches:
+    docstrings:
+      enabled: false
   auto_review:
     enabled: true
     drafts: false
