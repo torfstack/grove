@@ -39,7 +39,7 @@ jobs:
         with:
           version: "2026.10.6"
           install_args: go
-      - uses: github/codeql-action/init@f3c49fd1ef3281abc41069b3dd22807a60c963f6
+      - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
