@@ -28,10 +28,10 @@ Updated: 2026-10-09.
 The user placed Desktop OAuth credentials at ~/google_client_secret.json.
 No real Google token has been obtained. The first implementation is on
 `feat/auth`, based on `docs/spec/000001-auth-design.md` and its approved plan.
-PR preparation is in progress. An empty main baseline was created so the first
-PR includes the full implementation; feat/auth now descends from that baseline.
-GitHub CLI authentication works. Local lint, tests, race tests, and build passed;
-the hosted Linux CI result is pending.
+[PR #1](https://github.com/torfstack/grove/pull/1) contains the initial auth
+implementation and Linux CI. An empty main baseline lets the PR include the full
+implementation; feat/auth descends from that baseline. Both branches are pushed.
+GitHub CLI authentication works. The PR checks show the current hosted CI result.
 Requirements and design specs live in `docs/spec/`. Implementation plans live in
 `docs/implementation-plans/` and reuse their corresponding spec's six-digit number.
 The user approved deferring auth advisory locking. Token writes remain atomic;
@@ -47,7 +47,8 @@ locking will be revisited for sync and daemon coordination.
 ## Verification
 
 Formatting, go vet, offline tests, and race tests passed. Native macOS and Linux
-amd64 builds passed. Linux runtime behavior has not been tested on Linux yet.
+amd64 builds passed. The hosted CI workflow runs the offline suite on Linux;
+see PR #1 for its current result. Real Linux browser integration is still untested.
 A fresh code review found a callback response shutdown race; a regression test
 reproduced EOF before the fix and passed afterward with race detection. Live
 Google consent and Drive API calls remain unverified.
