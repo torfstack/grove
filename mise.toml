@@ -1,0 +1,22 @@
+[tools]
+go = "1.27.2"
+
+[tasks.fmt]
+description = "Format Go source"
+run = "gofmt -w cmd internal"
+
+[tasks.vet]
+description = "Check Go code with vet"
+run = "go vet ./..."
+
+[tasks.test]
+description = "Run offline tests"
+run = "go test ./..."
+
+[tasks.test-race]
+description = "Run offline tests with race detection"
+run = "go test -race ./..."
+
+[tasks.build]
+description = "Build Grove"
+run = "go build -o bin/grove ./cmd/grove"
