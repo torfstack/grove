@@ -24,6 +24,10 @@ Formatting uses `mise run fmt` (gofmt). The pinned golangci-lint checks formatti
 unchecked errors, suspicious code, unused code, and ineffective assignments.
 Its explicit rule set is in `.golangci.yml` and includes test files.
 
+GitHub Actions runs lint/formatting checks, offline tests, race tests, and a build
+on Linux for pull requests and pushes to `main`. It uses the versions in
+`mise.toml`; live Drive tests are separate.
+
 Authenticate with a Google Desktop app client JSON:
 
 ```sh

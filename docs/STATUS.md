@@ -19,12 +19,18 @@ Updated: 2026-10-09.
 - Formatting, vet, offline tests, race tests, and builds are configured in mise.
 - golangci-lint 2.14.0 is pinned in mise with an explicit five-linter rule set
   and gofmt checks. `mise run lint` checks production and test code.
+- A minimal Linux GitHub Actions workflow runs lint/formatting, offline tests,
+  race tests, and build on pull requests and pushes to main. GitHub CLI is pinned
+  in mise for PR management.
 
 ## In progress
 
 The user placed Desktop OAuth credentials at ~/google_client_secret.json.
 No real Google token has been obtained. The first implementation is on
 `feat/auth`, based on `docs/spec/000001-auth-design.md` and its approved plan.
+PR preparation is in progress. The remote was empty; initialize main with an
+empty baseline so the first PR includes the full implementation. GitHub CLI
+browser authentication is pending before PR creation.
 Requirements and design specs live in `docs/spec/`. Implementation plans live in
 `docs/implementation-plans/` and reuse their corresponding spec's six-digit number.
 The user approved deferring auth advisory locking. Token writes remain atomic;

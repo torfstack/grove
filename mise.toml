@@ -1,6 +1,7 @@
 [tools]
 go = "1.27.2"
 golangci-lint = "2.14.0"
+github-cli = "2.102.0"
 
 [tasks.fmt]
 description = "Format Go source"
