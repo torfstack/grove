@@ -1,0 +1,58 @@
+package auth
+
+import (
+	"context"
+	"errors"
+	"path/filepath"
+	"runtime"
+	"time"
+)
+
+type Options struct{ ClientSecret, Access, TokenFile string }
+
+type Service struct{ Flow Flow }
+
+func (s Service) Authenticate(parent context.Context, opts Options) (string, error) {
+	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
+		return "", errors.New("authentication is supported on Linux and macOS only")
+	}
+	ctx, cancel := context.WithTimeout(parent, 5*time.Minute)
+	defer cancel()
+	scope, err := Scope(opts.Access)
+	if err != nil {
+		return "", err
+	}
+	if opts.ClientSecret == "" {
+		return "", errors.New("--client-secret is required")
+	}
+	client, err := LoadClient(opts.ClientSecret)
+	if err != nil {
+		return "", err
+	}
+	path := opts.TokenFile
+	if path == "" {
+		path, err = DefaultTokenPath()
+		if err != nil {
+			return "", err
+		}
+	}
+	path, err = filepath.Abs(path)
+	if err != nil {
+		return "", errors.New("cannot resolve token file path")
+	}
+	if err = checkDestination(path); err != nil {
+		return "", err
+	}
+	token, err := s.Flow.Authorize(ctx, client, scope)
+	if err != nil {
+		return "", err
+	}
+	if err = ctx.Err(); err != nil {
+		return "", err
+	}
+	record := Record{Version: 1, ClientID: client.ID, ClientSecretPath: client.Path, Scopes: []string{scope}, Token: token}
+	if err = SaveRecord(path, record); err != nil {
+		return "", err
+	}
+	return path, nil
+}
