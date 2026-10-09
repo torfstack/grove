@@ -5,6 +5,8 @@ Updated: 2026-10-09.
 ## Established
 
 - Project name: Grove; language: Go (the user has more experience with Go).
+- Repository: `git@github.com:torfstack/grove.git`; Go module:
+  `github.com/torfstack/grove`.
 - Linux first; Windows and macOS later.
 - One-shot `grove` CLI and later `groved` daemon sharing the sync engine.
 - Development tooling tracked in `mise.toml`.

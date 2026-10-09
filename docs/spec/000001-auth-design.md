@@ -56,8 +56,7 @@ only once, including when callbacks arrive concurrently.
 
 Use golang.org/x/oauth2 for OAuth requests and refresh behavior. Keep CLI parsing,
 browser launch, OAuth flow, and token storage separate so tests can substitute
-each external boundary. Choose the module path in the implementation plan;
-no repository hosting URL has been supplied yet.
+each external boundary. The module path is `github.com/torfstack/grove`.
 
 Store a versioned record containing the OAuth token, requested scopes, client ID,
 and client configuration path. Use owner-only permissions (0700 for newly created

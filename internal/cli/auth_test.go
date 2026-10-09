@@ -3,7 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
-	"grove/internal/auth"
+	"github.com/torfstack/grove/internal/auth"
 	"strings"
 	"testing"
 )

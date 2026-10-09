@@ -1,4 +1,4 @@
-module grove
+module github.com/torfstack/grove
 
 go 1.27.2
 

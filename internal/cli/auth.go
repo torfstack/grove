@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/spf13/cobra"
-	"grove/internal/auth"
+	"github.com/torfstack/grove/internal/auth"
 )
 
 func newAuth(authenticate AuthenticateFunc) *cobra.Command {

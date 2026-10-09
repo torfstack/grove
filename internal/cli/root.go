@@ -3,7 +3,7 @@ package cli
 import (
 	"context"
 	"github.com/spf13/cobra"
-	"grove/internal/auth"
+	"github.com/torfstack/grove/internal/auth"
 )
 
 type AuthenticateFunc func(context.Context, auth.Options) (string, error)

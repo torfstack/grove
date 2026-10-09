@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/torfstack/grove/internal/auth"
+	"github.com/torfstack/grove/internal/browser"
+	"github.com/torfstack/grove/internal/cli"
 	"golang.org/x/oauth2/google"
-	"grove/internal/auth"
-	"grove/internal/browser"
-	"grove/internal/cli"
 	"os"
 	"os/signal"
 )

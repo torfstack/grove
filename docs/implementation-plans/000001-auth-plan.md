@@ -19,8 +19,8 @@ and the Go standard library.
 Status: approved and implemented; manual live Google consent remains pending.
 Dependencies are pinned in go.mod/go.sum. Libraries belong in
 go.mod; development executables belong in mise.toml. No CLI generator is needed.
-Use `module grove` initially, since no hosting path is known; rename it when the
-repository hosting location is established.
+The module path is `github.com/torfstack/grove`, matching the repository supplied
+after initial implementation.
 
 ## Global constraints
 
