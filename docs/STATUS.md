@@ -22,6 +22,14 @@ Updated: 2026-10-09.
 - A minimal Linux GitHub Actions workflow runs lint/formatting, offline tests,
   race tests, and build on pull requests and pushes to main. GitHub CLI is pinned
   in mise for PR management.
+- Dependabot alerts and security updates are enabled. Secret scanning and push
+  protection were already enabled and were verified through the GitHub API.
+- Dependabot weekly version updates for Go and Actions, CodeQL for Go and Actions,
+  and high/critical dependency review are prepared in PR #1. Version-update
+  schedules become active after merging the configuration to main.
+- CodeRabbit advisory review configuration is prepared. The user has no paid
+  Copilot plan; use CodeRabbit's free reviews for this public repository instead.
+  Its GitHub app installation is still pending.
 
 ## In progress
 

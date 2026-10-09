@@ -28,6 +28,15 @@ GitHub Actions runs lint/formatting checks, offline tests, race tests, and a bui
 on Linux for pull requests and pushes to `main`. It uses the versions in
 `mise.toml`; live Drive tests are separate.
 
+CodeQL analyzes Go and Actions workflows on PRs, main pushes, and a weekly schedule.
+Dependency review rejects newly introduced known high or critical vulnerabilities.
+Dependabot checks Go modules and Actions weekly, grouping minor/patch updates and
+limiting routine PRs to three per ecosystem. These Dependabot schedules become
+active when the configuration reaches `main`.
+
+GitHub secret scanning and push protection are enabled. CodeRabbit's configuration
+is prepared for advisory PR reviews; install its GitHub app for Grove to activate it.
+
 Authenticate with a Google Desktop app client JSON:
 
 ```sh

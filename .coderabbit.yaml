@@ -1,0 +1,22 @@
+language: en-US
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  poem: false
+  in_progress_fortune: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_instructions:
+    - path: "**/*.go"
+      instructions: |
+        Prioritize correctness, security, cancellation, resource cleanup, and
+        useful behavioral tests. Follow AGENTS.md. Prefer simple readable code
+        and sparse comments; avoid requests for comments that restate the code.
+    - path: "internal/auth/**"
+      instructions: |
+        Check OAuth state and PKCE validation, secret redaction, callback lifecycle,
+        and preservation of existing tokens on failure. Token storage is plaintext
+        with owner-only permissions by design. Auth locking and Windows support
+        are explicitly deferred; simultaneous auth uses last-successful-write semantics.
