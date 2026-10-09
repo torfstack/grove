@@ -29,7 +29,8 @@ Updated: 2026-10-09.
   schedules become active after merging the configuration to main.
 - CodeRabbit advisory review configuration is prepared. The user has no paid
   Copilot plan; use CodeRabbit's free reviews for this public repository instead.
-  Its GitHub app installation is still pending.
+  Its GitHub app is installed; an initial skipped-review notice showed the
+  repository configuration was loaded. Main is explicitly enabled for reviews.
 
 ## In progress
 

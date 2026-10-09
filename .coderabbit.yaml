@@ -8,6 +8,8 @@ reviews:
   auto_review:
     enabled: true
     drafts: false
+    base_branches:
+      - "^main$"
   path_instructions:
     - path: "**/*.go"
       instructions: |

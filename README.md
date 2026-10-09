@@ -34,8 +34,8 @@ Dependabot checks Go modules and Actions weekly, grouping minor/patch updates an
 limiting routine PRs to three per ecosystem. These Dependabot schedules become
 active when the configuration reaches `main`.
 
-GitHub secret scanning and push protection are enabled. CodeRabbit's configuration
-is prepared for advisory PR reviews; install its GitHub app for Grove to activate it.
+GitHub secret scanning and push protection are enabled. CodeRabbit's GitHub app
+is installed and configured for advisory reviews of PRs targeting `main`.
 
 Authenticate with a Google Desktop app client JSON:
 
