@@ -35,7 +35,7 @@ func (f Flow) Authorize(parent context.Context, client Client, scope string) (*o
 	if err != nil {
 		return nil, errors.New("cannot start localhost authentication listener")
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 	random := make([]byte, 32)
 	if _, err = rand.Read(random); err != nil {
 		return nil, errors.New("cannot generate authentication state")
@@ -53,11 +53,11 @@ func (f Flow) Authorize(parent context.Context, client Client, scope string) (*o
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		if r.URL.Path != "/callback" {
-			http.Error(w, "Not found", 404)
+			http.Error(w, "Not found", http.StatusNotFound)
 			return
 		}
 		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", 405)
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		query, parseErr := url.ParseQuery(r.URL.RawQuery)
@@ -72,12 +72,12 @@ func (f Flow) Authorize(parent context.Context, client Client, scope string) (*o
 			return
 		}
 		if !consumed.CompareAndSwap(false, true) {
-			http.Error(w, "Authentication callback already received", 409)
+			http.Error(w, "Authentication callback already received", http.StatusConflict)
 			return
 		}
 		if errorPresent {
 			http.Error(w, "Authorization was declined. Return to the terminal.", 400)
-			results <- flowResult{err: errors.New("Google authorization was declined")}
+			results <- flowResult{err: errors.New("authorization with Google was declined")}
 			return
 		}
 		token, exchangeErr := config.Exchange(ctx, codes[0], oauth2.VerifierOption(verifier))
@@ -86,16 +86,16 @@ func (f Flow) Authorize(parent context.Context, client Client, scope string) (*o
 			if ctx.Err() != nil {
 				results <- flowResult{err: ctx.Err()}
 			} else {
-				results <- flowResult{err: errors.New("Google token exchange failed; retry grove auth")}
+				results <- flowResult{err: errors.New("token exchange with Google failed; retry grove auth")}
 			}
 			return
 		}
 		if token.AccessToken == "" || token.RefreshToken == "" {
 			http.Error(w, "Authorization did not provide complete credentials. Return to the terminal.", 400)
-			results <- flowResult{err: errors.New("Google did not supply an access and refresh token; retry grove auth and grant consent")}
+			results <- flowResult{err: errors.New("missing access or refresh token from Google; retry grove auth and grant consent")}
 			return
 		}
-		fmt.Fprintln(w, "Google authorization received. Return to the terminal to confirm token storage.")
+		_, _ = fmt.Fprintln(w, "Google authorization received. Return to the terminal to confirm token storage.")
 		results <- flowResult{token: token}
 	})
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 5 * time.Second, BaseContext: func(net.Listener) context.Context { return ctx }}

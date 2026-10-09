@@ -1,5 +1,6 @@
 [tools]
 go = "1.27.2"
+golangci-lint = "2.14.0"
 
 [tasks.fmt]
 description = "Format Go source"
@@ -8,6 +9,10 @@ run = "gofmt -w cmd internal"
 [tasks.vet]
 description = "Check Go code with vet"
 run = "go vet ./..."
+
+[tasks.lint]
+description = "Check Go code and formatting"
+run = "golangci-lint run --config .golangci.yml ./..."
 
 [tasks.test]
 description = "Run offline tests"

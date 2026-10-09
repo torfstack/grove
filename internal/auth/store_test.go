@@ -91,7 +91,9 @@ func TestAtomicSaveFailurePreservesToken(t *testing.T) {
 func TestRejectSymlinkDestination(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "target")
-	os.WriteFile(target, []byte("unchanged"), 0600)
+	if err := os.WriteFile(target, []byte("unchanged"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	p := filepath.Join(dir, "token.json")
 	if err := os.Symlink(target, p); err != nil {
 		t.Fatal(err)
@@ -110,7 +112,9 @@ func TestRejectSymlinkDestination(t *testing.T) {
 
 func TestLoadUnsupportedVersion(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "token.json")
-	os.WriteFile(p, []byte(`{"version":2}`), 0600)
+	if err := os.WriteFile(p, []byte(`{"version":2}`), 0600); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := LoadRecord(p); err == nil {
 		t.Fatal("unsupported version accepted")
 	}
@@ -118,7 +122,9 @@ func TestLoadUnsupportedVersion(t *testing.T) {
 
 func TestRecordErrorsRedacted(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "token.json")
-	os.WriteFile(p, []byte(`{"token":ACCESS_SENTINEL`), 0600)
+	if err := os.WriteFile(p, []byte(`{"token":ACCESS_SENTINEL`), 0600); err != nil {
+		t.Fatal(err)
+	}
 	_, err := LoadRecord(p)
 	if err == nil || strings.Contains(err.Error(), "ACCESS_SENTINEL") {
 		t.Fatal("invalid error", err)
@@ -127,8 +133,12 @@ func TestRecordErrorsRedacted(t *testing.T) {
 
 func TestReplacementPermissions(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "token.json")
-	os.WriteFile(p, []byte("old"), 0644)
-	os.Chmod(p, 0644)
+	if err := os.WriteFile(p, []byte("old"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(p, 0644); err != nil {
+		t.Fatal(err)
+	}
 	if err := SaveRecord(p, testRecord()); err != nil {
 		t.Fatal(err)
 	}

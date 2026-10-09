@@ -35,7 +35,9 @@ func TestLoadClient(t *testing.T) {
 		})
 	}
 	t.Chdir(t.TempDir())
-	os.WriteFile("client.json", []byte(`{"installed":{"client_id":"id","client_secret":"secret"}}`), 0600)
+	if err := os.WriteFile("client.json", []byte(`{"installed":{"client_id":"id","client_secret":"secret"}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
 	c, err := LoadClient("client.json")
 	if err != nil || !filepath.IsAbs(c.Path) {
 		t.Fatal("relative path not resolved", err)

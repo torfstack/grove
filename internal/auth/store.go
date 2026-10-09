@@ -64,8 +64,8 @@ func saveRecord(path string, r Record, rename func(string, string) error) error 
 	if err != nil {
 		return errors.New("cannot create temporary token file")
 	}
-	defer os.Remove(file.Name())
-	defer file.Close()
+	defer func() { _ = os.Remove(file.Name()) }()
+	defer func() { _ = file.Close() }()
 	if _, err = file.Write(append(data, '\n')); err != nil {
 		return errors.New("cannot write token file")
 	}

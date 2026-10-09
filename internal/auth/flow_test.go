@@ -32,7 +32,11 @@ func newFlowFixture(t *testing.T, tokenBody string, stall bool) *flowFixture {
 	f := &flowFixture{}
 	f.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.calls.Add(1)
-		r.ParseForm()
+		if err := r.ParseForm(); err != nil {
+			t.Error(err)
+			http.Error(w, "invalid form", http.StatusBadRequest)
+			return
+		}
 		digest := sha256.Sum256([]byte(r.Form.Get("code_verifier")))
 		if f.request == nil || base64.RawURLEncoding.EncodeToString(digest[:]) != f.request.Get("code_challenge") || r.Form.Get("redirect_uri") != f.request.Get("redirect_uri") || r.Form.Get("code") != "CODE_SENTINEL" {
 			t.Error("incorrect code exchange/PKCE")
@@ -44,7 +48,7 @@ func newFlowFixture(t *testing.T, tokenBody string, stall bool) *flowFixture {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, tokenBody)
+		_, _ = fmt.Fprint(w, tokenBody)
 	}))
 	t.Cleanup(f.server.Close)
 	f.flow = Flow{Endpoint: oauth2.Endpoint{AuthURL: f.server.URL + "/auth", TokenURL: f.server.URL + "/token", AuthStyle: oauth2.AuthStyleInParams}, HTTPClient: f.server.Client(), Output: &f.output}
@@ -63,7 +67,7 @@ func (f *flowFixture) callback(t *testing.T, query url.Values, path, method stri
 		t.Errorf("callback: %v", err)
 		return 0
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	body, _ := io.ReadAll(response.Body)
 	if response.Header.Get("Referrer-Policy") != "no-referrer" {
 		t.Error("missing referrer policy")
@@ -149,7 +153,7 @@ func TestInvalidCallbacksLeaveLoginPending(t *testing.T) {
 					if err != nil {
 						t.Error(err)
 					} else {
-						resp.Body.Close()
+						_ = resp.Body.Close()
 						if resp.StatusCode < 400 {
 							t.Error("accepted malformed query")
 						}
@@ -241,7 +245,7 @@ func TestFlowCancellationClosesListener(t *testing.T) {
 					req, _ := http.NewRequestWithContext(ctx, "GET", u, nil)
 					resp, _ := http.DefaultClient.Do(req)
 					if resp != nil {
-						resp.Body.Close()
+						_ = resp.Body.Close()
 					}
 				}
 			})
@@ -263,7 +267,7 @@ func TestFlowCancellationClosesListener(t *testing.T) {
 			c := http.Client{Timeout: time.Second}
 			resp, err := c.Get(u)
 			if resp != nil {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 			}
 			if err == nil {
 				t.Fatal("listener still open")
@@ -304,7 +308,7 @@ func TestCallbackResponseSurvivesFlowCompletion(t *testing.T) {
 				responseDone <- err
 				return
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			body, err := io.ReadAll(resp.Body)
 			if err == nil && !strings.Contains(string(body), "Return to the terminal") {
 				err = fmt.Errorf("missing completion message")

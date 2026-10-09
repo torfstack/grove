@@ -15,6 +15,8 @@ Updated: 2026-10-09.
 - Offline tests cover CLI validation, fake-provider OAuth, invalid and concurrent
   callbacks, cancellation, token persistence, and save failure preservation.
 - Formatting, vet, offline tests, race tests, and builds are configured in mise.
+- golangci-lint 2.14.0 is pinned in mise with an explicit five-linter rule set
+  and gofmt checks. `mise run lint` checks production and test code.
 
 ## In progress
 
@@ -29,10 +31,8 @@ locking will be revisited for sync and daemon coordination.
 ## Next steps
 
 1. Complete a manual browser auth check with the dedicated test account.
-2. Configure golangci-lint with a small explicit rule set, pinning it in mise.
-   The user requested this after the auth implementation's first pass.
-3. Refine fixture tooling interfaces and plan them before implementation.
-4. Seed a fresh remote run, inspect it, and
+2. Refine fixture tooling interfaces and plan them before implementation.
+3. Seed a fresh remote run, inspect it, and
    validate initial sync against its manifest.
 
 ## Verification

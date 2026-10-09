@@ -72,9 +72,22 @@ func TestAuthenticateFailurePreservesToken(t *testing.T) {
 					return
 				}
 				if kind == "save-failure" {
-					os.Remove(p)
-					os.Symlink(filepath.Join(filepath.Dir(p), "original.json"), p)
-					os.WriteFile(filepath.Join(filepath.Dir(p), "original.json"), before, 0600)
+					if err := os.Remove(p); err != nil {
+						t.Error(err)
+						cancel()
+						return
+					}
+					original := filepath.Join(filepath.Dir(p), "original.json")
+					if err := os.Symlink(original, p); err != nil {
+						t.Error(err)
+						cancel()
+						return
+					}
+					if err := os.WriteFile(original, before, 0600); err != nil {
+						t.Error(err)
+						cancel()
+						return
+					}
 				}
 				q := url.Values{"state": {f.request.Get("state")}, "code": {"CODE_SENTINEL"}}
 				if kind == "denied" {

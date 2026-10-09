@@ -28,8 +28,10 @@
 - Deliver Linux first while keeping platform-specific behavior behind boundaries.
 - Share the sync engine between `grove` and `groved`.
 - Prefer deterministic tests for sync planning and failure recovery.
-- Once a Go module exists, run formatting, `go vet ./...`, and `go test ./...`
-  for Go changes. Use race detection where concurrency is involved and supported.
+- For Go changes, run `mise run fmt`, `mise run lint`, and `mise run test`.
+  Use `mise run test-race` where concurrency is involved and supported.
+  Keep `.golangci.yml`'s linter list explicit; preserve gofmt as the formatter.
+  Check errors that affect behavior; explicitly discard only best-effort errors.
 - Live Drive tests must be explicitly enabled and use the dedicated test profile,
   disposable local directories, and fixture-owned remote data.
 - Keep credentials, tokens, generated Drive IDs, and synced data out of Git and

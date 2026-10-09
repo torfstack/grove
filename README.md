@@ -17,7 +17,12 @@ mise run build
 mise run test
 mise run test-race
 mise run vet
+mise run lint
 ```
+
+Formatting uses `mise run fmt` (gofmt). The pinned golangci-lint checks formatting,
+unchecked errors, suspicious code, unused code, and ineffective assignments.
+Its explicit rule set is in `.golangci.yml` and includes test files.
 
 Authenticate with a Google Desktop app client JSON:
 
