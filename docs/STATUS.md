@@ -28,9 +28,10 @@ Updated: 2026-10-09.
 The user placed Desktop OAuth credentials at ~/google_client_secret.json.
 No real Google token has been obtained. The first implementation is on
 `feat/auth`, based on `docs/spec/000001-auth-design.md` and its approved plan.
-PR preparation is in progress. The remote was empty; initialize main with an
-empty baseline so the first PR includes the full implementation. GitHub CLI
-browser authentication is pending before PR creation.
+PR preparation is in progress. An empty main baseline was created so the first
+PR includes the full implementation; feat/auth now descends from that baseline.
+GitHub CLI authentication works. Local lint, tests, race tests, and build passed;
+the hosted Linux CI result is pending.
 Requirements and design specs live in `docs/spec/`. Implementation plans live in
 `docs/implementation-plans/` and reuse their corresponding spec's six-digit number.
 The user approved deferring auth advisory locking. Token writes remain atomic;
