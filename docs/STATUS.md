@@ -32,7 +32,7 @@ Updated: 2026-10-10.
   Its GitHub app is installed; an initial skipped-review notice showed the
   repository configuration was loaded. Main is explicitly enabled for reviews.
 
-## In progress
+## Completed initial download sync
 
 Fixture tooling and initial download sync are implemented together on
 `feat/initial-sync`, following approved [spec 000002](spec/000002-initial-sync-design.md)
@@ -45,7 +45,7 @@ macOS on 2026-10-10: seed, inspect, sync, independent verification, no-op repeat
 and fixture-owned remote cleanup. Token contents were not printed. Whole-branch independent
 review found three valid issues (filesystem-alias exclusion, refresh redirects,
 and fixture root ordering); regression tests reproduced them and all are fixed.
-[PR #5](https://github.com/torfstack/grove/pull/5) is open. Linux CI and security
+[PR #5](https://github.com/torfstack/grove/pull/5) is merged into main at `2805575`. Linux CI and security
 checks passed on the original implementation. CodeRabbit's three findings are
 fixed: fixture cleanup now processes the root last, destination preflight checks
 hardlink publication support, and the auth exclusion test reaches the token lock.
@@ -53,7 +53,7 @@ Formatting, lint, offline tests, and race tests passed after these fixes. Latest
 main (Dependabot PRs #2–#4) is merged into the branch. Linux CI, dependency review,
 CodeQL, and CodeRabbit passed on `29e775e`. CodeRabbit's latest review generated no
 actionable comments and marked the three original threads resolved. Live
-acceptance passed with the user; PR #5 remains open and unmerged.
+acceptance passed with the user; PR #5 is merged.
 
 The user previously placed Desktop OAuth credentials at ~/google_client_secret.json.
 Dedicated test-account browser authentication succeeded. The initial auth
@@ -66,8 +66,17 @@ remain atomic, and concurrent writers for a token or sync profile are refused.
 
 ## Next steps
 
-1. Review and merge PR #5 when explicitly authorized.
-2. Design incremental sync before expanding the initial-only behavior.
+1. The user approved [spec 000003](spec/000003-incremental-download-design.md)
+   for incremental downloads: remote additions, updates, and moves, with persisted
+   local-change detection. Conflicts stop the run and preserve content; automatic
+   conflict resolution and remote-deletion propagation remain deferred.
+2. Review the [implementation plan](implementation-plans/000003-incremental-download-plan.md)
+   and select native or delegated execution. Eight tasks cover state compatibility,
+   focused refactoring, planning, native move primitives, replacements/moves and
+   recovery, integration, fixture acceptance, and final verification. No product
+   code changed and no live tests ran during planning. Documentation checks passed.
+   The user requested maintainable, extensible, simple code after the large
+   initial implementation. Uploads and deletion propagation remain later slices.
 
 ## Verification
 
