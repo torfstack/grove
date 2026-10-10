@@ -10,19 +10,34 @@ import (
 	"path/filepath"
 )
 
-func Run(ctx context.Context, opts Options) (Result, error) {
-	registry, err := registryPath()
-	if err != nil {
-		return Result{}, err
-	}
-	return run(ctx, opts, registry, func(ctx context.Context) (drive.API, func() error, error) {
-		session, err := auth.OpenSession(ctx, opts.TokenFile, "read-only")
-		if err != nil {
-			return nil, nil, err
-		}
-		return drive.NewClient(session.HTTPClient, drive.ClientOptions{}), session.Close, nil
-	})
+type Service struct {
+	RegistryDir string
+	OpenAPI     func(context.Context, string) (drive.API, func() error, error)
 }
+
+func Run(ctx context.Context, opts Options) (Result, error) { return (Service{}).Run(ctx, opts) }
+func (s Service) Run(ctx context.Context, opts Options) (Result, error) {
+	registry := s.RegistryDir
+	if registry == "" {
+		var err error
+		registry, err = registryPath()
+		if err != nil {
+			return Result{}, err
+		}
+	}
+	open := s.OpenAPI
+	if open == nil {
+		open = func(ctx context.Context, token string) (drive.API, func() error, error) {
+			session, err := auth.OpenSession(ctx, token, "read-only")
+			if err != nil {
+				return nil, nil, err
+			}
+			return drive.NewClient(session.HTTPClient, drive.ClientOptions{}), session.Close, nil
+		}
+	}
+	return run(ctx, opts, registry, func(ctx context.Context) (drive.API, func() error, error) { return open(ctx, opts.TokenFile) })
+}
+
 func run(ctx context.Context, opts Options, registry string, open func(context.Context) (drive.API, func() error, error)) (result Result, err error) {
 	opts, err = canonicalOptions(opts)
 	if err != nil {
