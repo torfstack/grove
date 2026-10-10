@@ -34,13 +34,18 @@ Updated: 2026-10-10.
 
 ## In progress
 
-The user placed Desktop OAuth credentials at ~/google_client_secret.json.
-No real Google token has been obtained. The first implementation is on
-`feat/auth`, based on `docs/spec/000001-auth-design.md` and its approved plan.
-[PR #1](https://github.com/torfstack/grove/pull/1) contains the initial auth
-implementation and Linux CI. An empty main baseline lets the PR include the full
-implementation; feat/auth descends from that baseline. Both branches are pushed.
-GitHub CLI authentication works. The PR checks show the current hosted CI result.
+Fixture tooling and initial download sync are being designed together on
+`feat/initial-sync`. The user agreed to a fresh API-seeded fixture per live run,
+ordinary files and folders, and an empty initial destination; native documents,
+shortcuts, and duplicate sibling names are deferred. The proposed written design
+is [000002-initial-sync-design.md](spec/000002-initial-sync-design.md), awaiting
+review. No fixture or sync code has been implemented, no live test was run, and
+the paired implementation plan follows written-spec approval.
+
+The user previously placed Desktop OAuth credentials at ~/google_client_secret.json.
+Live authentication remains unverified in this session. The initial auth
+implementation and Linux CI from
+[PR #1](https://github.com/torfstack/grove/pull/1) are merged into main.
 Requirements and design specs live in `docs/spec/`. Implementation plans live in
 `docs/implementation-plans/` and reuse their corresponding spec's six-digit number.
 The user approved deferring auth advisory locking. Token writes remain atomic;
@@ -49,7 +54,7 @@ locking will be revisited for sync and daemon coordination.
 ## Next steps
 
 1. Complete a manual browser auth check with the dedicated test account.
-2. Refine fixture tooling interfaces and plan them before implementation.
+2. Review spec 000002, then write and review its paired implementation plan.
 3. Seed a fresh remote run, inspect it, and
    validate initial sync against its manifest.
 
