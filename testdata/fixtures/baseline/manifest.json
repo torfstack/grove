@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "root",
+      "name": "grove-fixture",
+      "kind": "folder"
+    },
+    {
+      "id": "nested",
+      "parent": "root",
+      "name": "nested",
+      "kind": "folder"
+    },
+    {
+      "id": "empty-folder",
+      "parent": "root",
+      "name": "empty-folder",
+      "kind": "folder"
+    },
+    {
+      "id": "hello.txt",
+      "parent": "nested",
+      "name": "hello.txt",
+      "kind": "file",
+      "payload": "payloads/hello.txt",
+      "size": 14,
+      "sha256": "0978577fba46f9c3c3b0ed89a68b2d2ba7eb8be2c6816d0795032aef228ed4b3"
+    },
+    {
+      "id": "empty.bin",
+      "parent": "root",
+      "name": "empty.bin",
+      "kind": "file",
+      "payload": "payloads/empty.bin",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "binary.bin",
+      "parent": "root",
+      "name": "binary.bin",
+      "kind": "file",
+      "payload": "payloads/binary.bin",
+      "size": 5,
+      "sha256": "0150a92bb1212cd00516b65fde0704614760000963874fcbb11eaa734ee87809"
+    },
+    {
+      "id": "unicode.txt",
+      "parent": "root",
+      "name": "Grüße.txt",
+      "kind": "file",
+      "payload": "payloads/unicode.txt",
+      "size": 13,
+      "sha256": "6e836a7168e21316a6e763c35dad6479c7deee98f880ae499f21ab64c6cc280f"
+    },
+    {
+      "id": "second.txt",
+      "parent": "root",
+      "name": "second.txt",
+      "kind": "file",
+      "payload": "payloads/second.txt",
+      "size": 15,
+      "sha256": "c8112f431bd2c4c35ae1fb869f3f63b2acebc5b9bb0b34d1c5930f867f7633da"
+    },
+    {
+      "id": "deep",
+      "parent": "nested",
+      "name": "deep",
+      "kind": "folder"
+    }
+  ]
+}
