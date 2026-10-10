@@ -28,6 +28,8 @@ type Pending struct {
 	Phase          string `json:"phase"`
 }
 type State struct {
+	ProbePath          string      `json:"probe_path,omitempty"`
+	ProbeEntries       []Entry     `json:"probe_entries,omitempty"`
 	Version            int         `json:"version"`
 	Binding            Binding     `json:"binding"`
 	Completed          []Completed `json:"completed"`
