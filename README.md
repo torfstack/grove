@@ -130,6 +130,10 @@ in private records outside Git. Successful runs retain local records; failed
 runs also retain remote data for inspection. No token needs to be pasted into
 chat or added to CI. Default tests never load live credentials.
 
+Both paths must be outside every ancestor directory containing a `.git` entry.
+If your home contains `.git` solely for global hooks, the conservative guard also
+rejects these example paths. Use private paths outside that directory instead.
+
 For a retained run, use its reported directory:
 
 ```sh

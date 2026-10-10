@@ -20,7 +20,7 @@ executables or Drive SDK dependency are needed.
 **Spec:** [000002-initial-sync-design.md](../spec/000002-initial-sync-design.md)
 
 Status: approved for native execution; implementation and offline checks complete,
-independent review findings fixed; PR feedback and live acceptance pending.
+independent and CodeRabbit review findings fixed; macOS live acceptance passed.
 All work remains on `feat/initial-sync`. This plan is not evidence that code exists.
 
 ## Global Constraints
@@ -396,7 +396,7 @@ docs/STATUS.md, TESTBED.md, ARCHITECTURE.md, PRODUCT.md, ROADMAP.md as applicabl
   bin/grove-linux-amd64 ./cmd/grove`; require exit 0. Run `git diff --check`.
   Cross-compilation is not evidence of Linux lock/filesystem runtime behavior;
   Linux CI must exercise those subprocess and publication tests.
-- [ ] Run live tests only when explicitly enabled with the dedicated local token.
+- [x] Run live tests only when explicitly enabled with the dedicated local token.
   Record actual outcomes; if authentication is unavailable, finish offline work
   and record live acceptance as pending rather than claiming full demonstration.
 - [x] Commit verified code/doc changes. Review the full branch against the spec
@@ -425,7 +425,9 @@ coverage and the complete CLI HTTP workflow. Destination registrations retain
 ownership until a future reset operation; this limitation is documented.
 
 Offline/race suites and formatting/lint passed; native and Linux builds passed.
-Live tests remain explicitly disabled pending dedicated-account authentication.
+Dedicated-account live acceptance passed on macOS on 2026-10-10 in 40.70 seconds:
+seed → inspect → sync → independent verify → no-op repeat → cleanup. Linux offline
+CI passed; Linux browser/live Drive acceptance remains untested.
 An optional live cancellation case is deferred: cancellation/recovery has
 repeatable offline coverage; the enabled live suite demonstrates the baseline.
 
