@@ -10,6 +10,12 @@ import (
 )
 
 func (e *executor) recover(ctx context.Context, snapshot Snapshot) error {
+	if e.state.Transaction != nil {
+		if e.state.Transaction.Operation.Kind == OpReplace {
+			return e.recoverReplace(ctx)
+		}
+		return errors.New("unsupported pending operation")
+	}
 	p := e.state.Pending
 	if p == nil {
 		return nil

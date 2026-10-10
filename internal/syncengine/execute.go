@@ -35,6 +35,9 @@ func (e *executor) finish(entry Entry, hash string) error {
 	return e.save()
 }
 func (e *executor) execute(ctx context.Context, op Operation) error {
+	if op.Kind == OpReplace {
+		return e.replace(ctx, op)
+	}
 	if op.Kind == "skip" {
 		return nil
 	}

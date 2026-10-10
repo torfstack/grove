@@ -216,18 +216,18 @@ x/sys dependency; do not expose platform calls to planner or CLI.
 **Interfaces:** Produce `(*executor).replace(context.Context, Operation) error`
 and `(*executor).recoverReplace(context.Context) error`; consume Tasks 1 and 3.
 
-- [ ] Write `TestReplaceVerified` asserting old bytes replaced, one baseline per
+- [x] Write `TestReplaceVerified` asserting old bytes replaced, one baseline per
   remote ID, new SHA-256, and no artifacts. Write `TestReplacePreservesLocalEdit`
   asserting an edit after planning stops replacement without overwriting it.
-- [ ] Run `mise exec -- go test ./internal/syncengine -run TestReplace -count=1`; confirm failures.
-- [ ] Implement the replacement transitions and observation-based recovery matrix.
+- [x] Run `mise exec -- go test ./internal/syncengine -run TestReplace -count=1`; confirm failures.
+- [x] Implement the replacement transitions and observation-based recovery matrix.
   Keep pending until cleanup is durable; share staged transfer verification.
-- [ ] Write `TestReplaceRecoveryMatrix`: inject save/mutation/sync failures before
+- [x] Write `TestReplaceRecoveryMatrix`: inject save/mutation/sync failures before
   and after each transition, reload state from disk, restart, and independently
   assert old/new hashes, membership, and retained ownership. Include checksum and
   version mismatch, cancellation, occupied stage/backup, changed backup bytes,
   failed cleanup, and changed remote after publication. Unexpected bytes survive.
-- [ ] Run `mise exec -- go test -race ./internal/syncengine -run 'TestReplace|TestRecovery' -count=1`; require PASS.
+- [x] Run `mise exec -- go test -race ./internal/syncengine -run 'TestReplace|TestRecovery' -count=1`; require PASS.
   Commit as `feat: recover incremental file replacements`.
 
 ## Task 5: Recoverable file and folder moves
