@@ -26,7 +26,7 @@ the agreed model in [decision 0004](../decisions/0004-local-upload-proposal.md).
 - A missing policy in valid older state defaults to `ask`.
 - Never issue a remote write without explicit two-way opt-in and read-write authorization.
 - Never retry a create blindly; persist and reuse a Drive-generated ID and operation marker.
-- Before an existing-file update, the remote must match the saved baseline and its current binary revision must be pinned.
+- Before an existing-file update, the remote must match the saved baseline and its current binary revision and modification time must be recorded and pinned.
 - Drive updates are unconditional; immediately recover and pin divergent revisions created during an upload.
 - Retain the immutable local stage and journal until the new head is verified and all conflict candidates are preserved.
 - Use exclusive profile and destination locks and atomic private profile records.
@@ -138,14 +138,13 @@ the agreed model in [decision 0004](../decisions/0004-local-upload-proposal.md).
 
 **Interfaces:**
 - Consumes: guarded `drive.SyncMutationAPI` from Task 4 and typed upload operations from Task 3.
-- Produces: version-3 journal records for upload create/update phases, preflight head revision pin, discovered competing revisions, immutable local/cloud stages with ownership identities and hashes, and restart reconciliation that preserves ambiguity.
+- Produces: version-3 state and journal schemas for upload create/update phases, preflight head revision pin, discovered competing revisions, immutable local/cloud stages with ownership identities and hashes, and stage validation on restart.
 
-- [ ] Add failure-injection tests for stage creation/ownership persistence, journal intent, upload session, uncertain response, remote verification, baseline save, and stage cleanup.
-- [ ] Add recovery tests for reused create IDs, operation-marker mismatch, preflight revision pin failure, post-write competing revisions, failed revision capture, changed local bytes, changed remote version, malformed phase, and v1/v2 download recovery before migration.
-- [ ] Run `go test ./internal/syncengine -run 'Test(Upload|RecoverUpload|Migrate).*' -count=1`; confirm failures before implementation.
-- [ ] Implement stage ownership and upload journal transitions. Persist intent before every remote write; reconcile existing IDs and never allocate a second ID for an uncertain create.
-- [ ] Verify uploaded size/MD5 and independently read back SHA-256 with stable remote metadata checks. Release the preflight pin only after no competing revision is found and the new baseline is durable.
-- [ ] Run `go test ./internal/syncengine -count=1` and commit.
+- [x] Add tests for private staging, immutable source snapshots, ownership persistence failure, version-3 migration, and malformed upload journals.
+- [x] Run focused upload/migration tests first; they failed because stage and journal interfaces were missing.
+- [x] Implement version-3 state migration, private local stages, durable upload intent, journal validation, and restart verification that preserves pending stages.
+- [x] Run focused tests and the full sync-engine suite; existing v1/v2 download recovery remains covered under its original semantics.
+- [ ] Keep upload-session reconciliation, remote revision capture, baseline save, and pin cleanup in Task 6, where the service has the read-write mutation API lifecycle.
 
 ## Task 6: Integrate policy, sync execution, and profile service operations
 
@@ -165,6 +164,7 @@ the agreed model in [decision 0004](../decisions/0004-local-upload-proposal.md).
 - Produces: two-way execution that requires complete populated state, explicit opt-in, and read-write API access; existing download-only execution remains read-only.
 
 - [ ] Add service tests proving download-only mode never opens a mutation API, new profiles cannot enter two-way mode, read-only authorization cannot issue writes, and option policy routes the expected conflict action.
+- [ ] Add failure/restart tests for upload session uncertainty, remote verification, changed local bytes, preflight pin failure, competing revision capture and verification, baseline save, and pin cleanup. Never blindly repeat a remote update.
 - [ ] Add durable `ask` conflict tests: first run records pending conflict with no mutation; repeat reports the same conflict; restart without `--two-way` reports pending work without mutation.
 - [ ] Add stale resolution tests: alter local bytes or remote version after listing, resolve by ID, and assert the engine rejects the stale choice while preserving both candidates.
 - [ ] Implement service methods under the existing profile lock and use normal transactional executor methods for a selected side; re-scan candidate state before journaling resolution.

@@ -2,6 +2,7 @@ package syncengine
 
 import (
 	"context"
+	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
@@ -98,6 +99,97 @@ func TestMigrateVersion2StatePreservesBaselineAndDefaultsPolicy(t *testing.T) {
 	}
 	if got := policyValue(t, upgraded); got != "ask" {
 		t.Fatalf("policy = %q, want ask", got)
+	}
+}
+
+func TestMigrateVersion2StateForUploads(t *testing.T) {
+	dir := t.TempDir()
+	baseline := baselineFile("a", "a", []byte("kept"))
+	if err := saveState(dir, State{Version: 2, Completed: []Completed{baseline}, PopulationComplete: true}); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := loadState(dir, Binding{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	upgraded, err := migrateUploadState(dir, loaded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if upgraded.Version != 3 || len(upgraded.Completed) != 1 || upgraded.Completed[0] != baseline || upgraded.ConflictPolicy != ConflictAsk {
+		t.Fatalf("upload migration changed profile state: %#v", upgraded)
+	}
+	loaded, err = loadState(dir, Binding{})
+	if err != nil || loaded.Version != 3 || loaded.Completed[0] != baseline {
+		t.Fatalf("version 3 state did not reload: %#v %v", loaded, err)
+	}
+}
+
+func TestMigrateUploadStateRejectsPendingDownload(t *testing.T) {
+	dir := t.TempDir()
+	state := State{Version: 2, Pending: &Pending{Entry: Entry{Path: "a", Remote: file("a", "a")}, Phase: "intent"}}
+	if _, err := migrateUploadState(dir, state); err == nil {
+		t.Fatal("state with pending download migrated")
+	}
+}
+
+func TestStateAcceptsVersion3PinnedUploadJournal(t *testing.T) {
+	dir := t.TempDir()
+	baseline := baselineFile("a", "a", []byte("old"))
+	baseline.HeadRevisionID = "revision-1"
+	remote := file("a", "a")
+	remote.HeadRevisionID = "revision-1"
+	stageHash := sha256.Sum256([]byte("local edit"))
+	stageMD5 := md5.Sum([]byte("local edit"))
+	journal := Journal{
+		Operation:           Operation{Kind: OpUpload, Entry: Entry{Path: "a", Remote: remote}, Local: LocalEntry{Path: "a", Kind: "file", SHA256: hex.EncodeToString(stageHash[:]), Size: 10}, Before: []Completed{baseline}},
+		Phase:               "pinned",
+		StagePath:           ".grove-upload-stage",
+		StageIdentity:       &FileIdentity{Device: 1, Inode: 2},
+		StageSHA256:         hex.EncodeToString(stageHash[:]),
+		StageMD5:            hex.EncodeToString(stageMD5[:]),
+		StageSize:           10,
+		PreflightRevisionID: "revision-1",
+		PinnedRevisionID:    "revision-1",
+	}
+	if err := saveState(dir, State{Version: 3, Completed: []Completed{baseline}, PopulationComplete: true, Transaction: &journal}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadState(dir, Binding{}); err != nil {
+		t.Fatalf("valid pinned upload journal rejected: %v", err)
+	}
+}
+
+func TestStateRejectsMalformedVersion3UploadJournal(t *testing.T) {
+	baseline := baselineFile("a", "a", []byte("old"))
+	baseline.HeadRevisionID = "revision-1"
+	remote := file("a", "a")
+	remote.HeadRevisionID = "revision-1"
+	stageHash := sha256.Sum256([]byte("local edit"))
+	stageMD5 := md5.Sum([]byte("local edit"))
+	valid := Journal{
+		Operation: Operation{Kind: OpUpload, Entry: Entry{Path: "a", Remote: remote}, Local: LocalEntry{Path: "a", Kind: "file", SHA256: hex.EncodeToString(stageHash[:]), Size: 10}, Before: []Completed{baseline}},
+		Phase:     "pinned", StagePath: ".grove-upload-stage", StageIdentity: &FileIdentity{Device: 1, Inode: 2},
+		StageSHA256: hex.EncodeToString(stageHash[:]), StageMD5: hex.EncodeToString(stageMD5[:]), StageSize: 10,
+		PreflightRevisionID: "revision-1", PinnedRevisionID: "revision-1",
+	}
+	for name, mutate := range map[string]func(*Journal){
+		"unknown phase":            func(j *Journal) { j.Phase = "retry" },
+		"escaping stage":           func(j *Journal) { j.StagePath = "../outside" },
+		"missing owner":            func(j *Journal) { j.StageIdentity = nil },
+		"wrong preflight revision": func(j *Journal) { j.PreflightRevisionID = "other" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			journal := valid
+			mutate(&journal)
+			dir := t.TempDir()
+			if err := saveState(dir, State{Version: 3, Completed: []Completed{baseline}, PopulationComplete: true, Transaction: &journal}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := loadState(dir, Binding{}); err == nil {
+				t.Fatal("malformed upload journal accepted")
+			}
+		})
 	}
 }
 func TestV1PendingRecoveryBeforeMigration(t *testing.T) {

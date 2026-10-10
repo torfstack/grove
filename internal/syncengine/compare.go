@@ -40,5 +40,5 @@ func remapBaseline(before []Completed, source, target string) []Completed {
 	return after
 }
 func completedEntry(entry Entry, hash string) Completed {
-	return Completed{Path: entry.Path, RemoteID: entry.Remote.ID, Version: entry.Remote.Version, MD5: entry.Remote.MD5, SHA256: hash, Kind: entryKind(entry), Size: entry.Remote.Size}
+	return Completed{Path: entry.Path, RemoteID: entry.Remote.ID, Version: entry.Remote.Version, ModifiedTime: entry.Remote.ModifiedTime, HeadRevisionID: entry.Remote.HeadRevisionID, MD5: entry.Remote.MD5, SHA256: hash, Kind: entryKind(entry), Size: entry.Remote.Size}
 }

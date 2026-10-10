@@ -17,6 +17,8 @@ func (e *executor) recover(ctx context.Context, snapshot Snapshot) error {
 			err = e.recoverMove(ctx)
 		case OpReplace:
 			err = e.recoverReplace(ctx)
+		case OpUpload, OpCreate:
+			err = e.recoverUpload(ctx)
 		default:
 			return errors.New("unsupported pending operation")
 		}

@@ -24,8 +24,13 @@ func validateCompleted(entries []Completed) error {
 }
 func validateJournal(j Journal, baseline []Completed) error {
 	op := j.Operation
-	if op.Kind != OpReplace && op.Kind != OpMove {
+	if op.Kind != OpReplace && op.Kind != OpMove && op.Kind != OpUpload && op.Kind != OpCreate {
 		return errors.New("invalid journal operation")
+	}
+	if op.Kind == OpUpload || op.Kind == OpCreate {
+		if err := validateUploadJournal(j, baseline); err != nil {
+			return err
+		}
 	}
 	if !safeRelative(op.Entry.Path) || len(op.Before) == 0 {
 		return errors.New("invalid journal target")
@@ -36,7 +41,11 @@ func validateJournal(j Journal, baseline []Completed) error {
 	if err := validateCompleted(j.After); err != nil {
 		return err
 	}
-	if op.Kind == OpReplace {
+	if op.Kind == OpUpload || op.Kind == OpCreate {
+		if j.TempPath != "" || j.BackupPath != "" || j.VerifiedSHA256 != "" {
+			return errors.New("upload journal contains download artifacts")
+		}
+	} else if op.Kind == OpReplace {
 		if len(op.Before) != 1 || op.Before[0].Kind != "file" || op.Before[0].Path != op.Entry.Path || op.Before[0].RemoteID != op.Entry.Remote.ID {
 			return errors.New("invalid replacement identity")
 		}
@@ -103,6 +112,57 @@ func validateJournal(j Journal, baseline []Completed) error {
 		if err := applyBaseline(&candidate, op.Before, op.Before); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func validateUploadJournal(j Journal, baseline []Completed) error {
+	op := j.Operation
+	if op.Kind == OpUpload {
+		if j.Phase != "staged" && j.Phase != "pin-intent" && j.Phase != "pinned" && j.Phase != "upload-intent" && j.Phase != "uploaded" && j.Phase != "conflict-captured" && j.Phase != "committed" {
+			return errors.New("invalid upload phase")
+		}
+		if !safeRelative(op.Entry.Path) || op.Local.Path != op.Entry.Path || op.Local.Kind != "file" || len(op.Before) != 1 || op.Before[0].Kind != "file" || op.Before[0].Path != op.Entry.Path || op.Before[0].RemoteID != op.Entry.Remote.ID || j.PreflightRevisionID == "" || j.PreflightRevisionID != op.Entry.Remote.HeadRevisionID {
+			return errors.New("invalid upload baseline")
+		}
+		if err := validateCompleted(op.Before); err != nil {
+			return err
+		}
+	} else if op.Kind == OpCreate {
+		if j.Phase != "staged" && j.Phase != "create-intent" && j.Phase != "created" && j.Phase != "verified" && j.Phase != "committed" {
+			return errors.New("invalid create phase")
+		}
+		if !safeRelative(op.Local.Path) || op.Local.Path != op.Entry.Path || (op.Local.Kind != "file" && op.Local.Kind != "folder") || len(op.Before) != 0 || j.AllocatedID == "" || op.Entry.Remote.ID != j.AllocatedID || j.OperationMarker == "" || j.PreflightRevisionID != "" || j.PinnedRevisionID != "" {
+			return errors.New("invalid create intent")
+		}
+	} else {
+		return errors.New("invalid upload operation")
+	}
+	if op.Local.Kind == "file" {
+		if !safeRelative(j.StagePath) || !strings.HasPrefix(filepath.Base(j.StagePath), ".grove-upload-") || j.StageIdentity == nil || j.StageIdentity.Inode == 0 || !validHash(j.StageSHA256, 32) || !validHash(j.StageMD5, 16) || j.StageSize < 0 || j.StageSize != op.Local.Size || j.StageSHA256 != op.Local.SHA256 {
+			return errors.New("invalid upload stage record")
+		}
+	} else if j.StagePath != "" || j.StageIdentity != nil || j.StageSHA256 != "" || j.StageMD5 != "" || j.StageSize != 0 {
+		return errors.New("folder create has upload stage")
+	}
+	if op.Kind == OpUpload && j.Phase != "staged" && j.Phase != "pin-intent" && j.PinnedRevisionID != j.PreflightRevisionID {
+		return errors.New("preflight revision is not pinned")
+	}
+	seen := map[string]bool{}
+	for _, id := range j.CompetingRevisionIDs {
+		if id == "" || seen[id] {
+			return errors.New("invalid competing revision identity")
+		}
+		seen[id] = true
+	}
+	if j.Phase == "conflict-captured" && (j.CloudStagePath == "" || j.CloudStageIdentity == nil || !validHash(j.CloudSHA256, 32)) {
+		return errors.New("conflict revision was not preserved")
+	}
+	if j.Phase != "committed" && len(j.After) != 0 {
+		return errors.New("uncommitted upload has a result baseline")
+	}
+	if j.Phase == "committed" && len(j.After) != 1 {
+		return errors.New("committed upload has no result baseline")
 	}
 	return nil
 }

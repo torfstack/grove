@@ -11,10 +11,11 @@ import (
 )
 
 type executor struct {
-	root  *os.Root
-	api   drive.API
-	state *State
-	save  func() error
+	root       *os.Root
+	profileDir string
+	api        drive.API
+	state      *State
+	save       func() error
 }
 
 func (e *executor) parentSync(path string) error {
@@ -30,7 +31,7 @@ func (e *executor) parentSync(path string) error {
 	return nil
 }
 func (e *executor) finish(entry Entry, hash string) error {
-	e.state.Completed = append(e.state.Completed, Completed{Path: entry.Path, RemoteID: entry.Remote.ID, Version: entry.Remote.Version, MD5: entry.Remote.MD5, SHA256: hash, Kind: entryKind(entry), Size: entry.Remote.Size})
+	e.state.Completed = append(e.state.Completed, Completed{Path: entry.Path, RemoteID: entry.Remote.ID, Version: entry.Remote.Version, ModifiedTime: entry.Remote.ModifiedTime, HeadRevisionID: entry.Remote.HeadRevisionID, MD5: entry.Remote.MD5, SHA256: hash, Kind: entryKind(entry), Size: entry.Remote.Size})
 	e.state.Pending = nil
 	return e.save()
 }

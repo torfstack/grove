@@ -23,19 +23,28 @@ For an existing-file edit, Grove re-fetches the remote file and compares its
 identity, path, version, size, and MD5 with the saved baseline. If they differ,
 Grove does not upload and instead applies the configured conflict policy. If they
 match, Grove pins the observed headRevisionId before uploading the immutable
-local stage. A pin failure, missing revision ID, or exhausted pin quota blocks
-the write before mutation. The upload uses the normal resumable update path; Drive
-does not enforce a conditional write.
+local stage and records its modifiedTime as the revision-history boundary. A pin
+failure, missing revision ID, or exhausted pin quota blocks the write before
+mutation. The upload uses the normal resumable update path; Drive does not enforce
+a conditional write.
 
-After upload, Grove inspects the new head and revision history. If the uploaded
-bytes are the only new content, it records the new baseline and unpins the old
-head. If another content revision appeared during the upload, Grove pins and
-downloads that revision, verifies it independently, and records a pending
-conflict with both candidates. The Drive head may temporarily contain the local
+After upload, Grove inspects the new head and every page of revision history. It
+requires both the pinned preflight head and current head to appear. Revisions with
+modifiedTime at or after the preflight boundary, excluding those two known heads,
+are treated as possible competitors; equal timestamps are handled conservatively
+as conflicts. Grove pins and downloads each candidate before recording a pending
+conflict. If the uploaded bytes are the only new content, it records the new
+baseline and unpins the old head. The Drive head may temporarily contain the local
 candidate. The ask policy waits for an explicit choice; keep-local or keep-cloud
 applies the configured choice after revalidating both candidates. Missing,
 unpinnable, or unverifiable revisions retain the local stage and journal and stop
 for recovery; they never authorize another blind upload.
+
+Drive may omit older entries when a revision list is incomplete; Grove anchors
+the scan to the pinned preflight revision and requires the returned current head.
+If either anchor is missing, recovery stops with the journal retained. Revision
+timestamps do not provide a transactional boundary, so a revision with the same
+timestamp is kept as a possible conflict.
 
 Drive limits keepForever to 200 revisions per file and may purge unpinned
 revisions earlier than 30 days after 100 unpinned revisions accumulate. Pre-pinning

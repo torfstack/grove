@@ -152,14 +152,14 @@ func TestCrossOriginRedirect(t *testing.T) {
 }
 func TestMetadataFields(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.URL.Query().Get("fields"), "headRevisionId") {
-			t.Error("head revision was not requested")
+		if !strings.Contains(r.URL.Query().Get("fields"), "headRevisionId") || !strings.Contains(r.URL.Query().Get("fields"), "modifiedTime") {
+			t.Error("revision metadata was not requested")
 		}
-		_, _ = io.WriteString(w, `{"id":"f","size":"7","version":"9","headRevisionId":"revision-9","ownedByMe":true,"capabilities":{"canDownload":true}}`)
+		_, _ = io.WriteString(w, `{"id":"f","size":"7","version":"9","modifiedTime":"2026-10-10T10:00:00.000Z","headRevisionId":"revision-9","ownedByMe":true,"capabilities":{"canDownload":true}}`)
 	}))
 	defer s.Close()
 	f, err := NewClient(s.Client(), ClientOptions{BaseURL: s.URL}).Get(context.Background(), "f")
-	if err != nil || f.Size != 7 || f.Version != "9" || f.HeadRevisionID != "revision-9" || !f.OwnedByMe {
+	if err != nil || f.Size != 7 || f.Version != "9" || f.ModifiedTime != "2026-10-10T10:00:00.000Z" || f.HeadRevisionID != "revision-9" || !f.OwnedByMe {
 		t.Fatal("metadata lost", err)
 	}
 }

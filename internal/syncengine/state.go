@@ -32,7 +32,7 @@ func loadState(profile string, binding Binding) (State, error) {
 	if err = privatefs.ReadJSON(path, &s); err != nil {
 		return State{}, err
 	}
-	if (s.Version != 1 && s.Version != 2) || s.Binding != binding {
+	if (s.Version != 1 && s.Version != 2 && s.Version != 3) || s.Binding != binding {
 		return State{}, errors.New("unsupported state or changed profile binding")
 	}
 	if s.ConflictPolicy == "" {
@@ -54,7 +54,7 @@ func loadState(profile string, binding Binding) (State, error) {
 		ids[c.RemoteID] = true
 	}
 	if len(s.Conflicts) > 0 {
-		if s.Version != 2 || s.Transaction != nil || s.Pending != nil {
+		if (s.Version != 2 && s.Version != 3) || s.Transaction != nil || s.Pending != nil {
 			return State{}, errors.New("invalid pending conflict state")
 		}
 		if err = validateConflicts(s.Conflicts, s.Completed); err != nil {
@@ -93,7 +93,7 @@ func loadState(profile string, binding Binding) (State, error) {
 		}
 	}
 	if s.Transaction != nil {
-		if s.Version != 2 || s.Pending != nil {
+		if (s.Version != 2 && s.Version != 3) || s.Pending != nil {
 			return State{}, errors.New("invalid journal version")
 		}
 		if err := validateJournal(*s.Transaction, s.Completed); err != nil {
@@ -165,6 +165,27 @@ func migrateState(profile string, state State) (State, error) {
 	}
 	next := state
 	next.Version = 2
+	if err := saveState(profile, next); err != nil {
+		return state, err
+	}
+	return next, nil
+}
+
+func migrateUploadState(profile string, state State) (State, error) {
+	if state.Version == 3 {
+		return state, nil
+	}
+	if state.Version != 2 || state.Pending != nil || state.Transaction != nil || state.ProbePath != "" {
+		return state, errors.New("legacy recovery required before upload migration")
+	}
+	if state.ConflictPolicy == "" {
+		state.ConflictPolicy = ConflictAsk
+	}
+	if err := validateConflictPolicy(state.ConflictPolicy); err != nil {
+		return state, err
+	}
+	next := state
+	next.Version = 3
 	if err := saveState(profile, next); err != nil {
 		return state, err
 	}

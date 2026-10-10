@@ -35,7 +35,7 @@ func NewClient(client *http.Client, opts ClientOptions) *Client {
 	return &Client{http: &copy, base: strings.TrimRight(opts.BaseURL, "/"), pageSize: opts.PageSize}
 }
 
-const fields = "id,name,mimeType,parents,size,md5Checksum,version,headRevisionId,driveId,ownedByMe,trashed,appProperties,capabilities(canDownload)"
+const fields = "id,name,mimeType,parents,size,md5Checksum,version,modifiedTime,headRevisionId,driveId,ownedByMe,trashed,appProperties,capabilities(canDownload)"
 
 var ErrNotFound = errors.New("drive object is missing")
 
