@@ -14,11 +14,11 @@ Milestones are ordered proposals; detailed implementation plans come before code
    [spec 000003](spec/000003-incremental-download-design.md): incremental downloads
    with local-change detection, remote additions/updates/moves, and focused
    refactoring. It is merged into main with offline verification and macOS
-   incremental live acceptance. The next approved slice is explicit local uploads
-   in [spec 000004](spec/000004-local-upload-design.md), approved with preflight
-   remote checks and revision-aware conflict recovery for existing-file updates.
-   Deletion
-   propagation and automatic conflict resolution follow later.
+   incremental live acceptance. Explicit local uploads and conflict policy in
+   [spec 000004](spec/000004-local-upload-design.md) are implemented with preflight
+   revision checks, durable conflict candidates, CLI controls, and macOS live
+   acceptance. Deletion propagation, multi-competitor UI recovery, and automatic
+   conflict resolution follow later.
 4. **Linux daemon**: scheduling, watching, remote polling, profile locking,
    observable status, and systemd user service integration.
 5. **Windows and macOS**: native lifecycle integration and platform-specific

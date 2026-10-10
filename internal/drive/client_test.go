@@ -7,9 +7,25 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestForbiddenDriveErrorIncludesReasonWithoutResponseMessage(t *testing.T) {
+	client := NewClient(&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		body := `{"error":{"code":403,"message":"PRIVATE_ERROR_MESSAGE","errors":[{"reason":"insufficientFilePermissions"}]}}`
+		return &http.Response{StatusCode: http.StatusForbidden, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body))}, nil
+	})}, ClientOptions{BaseURL: "https://drive.invalid"})
+	_, err := client.request(context.Background(), http.MethodGet, "https://drive.invalid/drive/v3/revisions", url.Values{}, nil, "", true)
+	if err == nil || !strings.Contains(err.Error(), "insufficientFilePermissions") || strings.Contains(err.Error(), "PRIVATE_ERROR_MESSAGE") {
+		t.Fatalf("forbidden error was not safely diagnosed: %v", err)
+	}
+}
 
 func TestListAllPages(t *testing.T)       { testPages(t, false, false) }
 func TestEmptyPageContinues(t *testing.T) { testPages(t, false, true) }

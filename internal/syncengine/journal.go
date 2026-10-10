@@ -96,7 +96,7 @@ func (e *executor) currentRemote(ctx context.Context, entry Entry) error {
 	if err != nil {
 		return err
 	}
-	if current.Trashed || !current.OwnedByMe || current.Name != entry.Remote.Name || len(current.Parents) != 1 || len(entry.Remote.Parents) != 1 || current.Parents[0] != entry.Remote.Parents[0] || current.Version != entry.Remote.Version || current.MD5 != entry.Remote.MD5 || current.Size != entry.Remote.Size {
+	if current.Trashed || !current.OwnedByMe || current.Name != entry.Remote.Name || len(current.Parents) != 1 || len(entry.Remote.Parents) != 1 || current.Parents[0] != entry.Remote.Parents[0] || current.Version != entry.Remote.Version || current.MD5 != entry.Remote.MD5 || current.Size != entry.Remote.Size || current.HeadRevisionID != entry.Remote.HeadRevisionID || current.ModifiedTime != entry.Remote.ModifiedTime {
 		return errPendingRemoteChanged
 	}
 	return nil

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"slices"
@@ -60,7 +61,7 @@ func (e *executor) stageDownload(ctx context.Context, entry Entry, path string) 
 		return "", err
 	}
 	if fresh.Name != entry.Remote.Name || !slices.Equal(fresh.Parents, entry.Remote.Parents) || fresh.ID != entry.Remote.ID || fresh.Version != entry.Remote.Version || fresh.MD5 != entry.Remote.MD5 || fresh.Size != entry.Remote.Size || fresh.Trashed || !fresh.OwnedByMe {
-		return "", errors.New("remote file changed during download")
+		return "", fmt.Errorf("remote file changed during download (identity=%t parents=%t version=%t content=%t owned=%t trashed=%t)", fresh.ID == entry.Remote.ID && fresh.Name == entry.Remote.Name, slices.Equal(fresh.Parents, entry.Remote.Parents), fresh.Version == entry.Remote.Version, fresh.MD5 == entry.Remote.MD5 && fresh.Size == entry.Remote.Size, fresh.OwnedByMe, !fresh.Trashed)
 	}
 	if err = ctx.Err(); err != nil {
 		return "", err

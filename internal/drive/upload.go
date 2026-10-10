@@ -33,12 +33,12 @@ func (c *Client) GenerateIDs(ctx context.Context, count int) ([]string, error) {
 		return nil, err
 	}
 	if len(result.IDs) != count {
-		return nil, errors.New("Drive returned an invalid ID count")
+		return nil, errors.New("drive returned an invalid ID count")
 	}
 	seen := make(map[string]bool, count)
 	for _, id := range result.IDs {
 		if id == "" || seen[id] {
-			return nil, errors.New("Drive returned invalid IDs")
+			return nil, errors.New("drive returned invalid IDs")
 		}
 		seen[id] = true
 	}
@@ -201,9 +201,11 @@ func (c *Client) ListRevisions(ctx context.Context, id string) ([]Revision, erro
 	var revisions []Revision
 	for range 10000 {
 		query := url.Values{
-			"fields":    {"nextPageToken,revisions(id,md5Checksum,modifiedTime,size,keepForever)"},
-			"pageSize":  {"100"},
-			"pageToken": {token},
+			"fields":   {"nextPageToken,revisions(id,md5Checksum,modifiedTime,size,keepForever)"},
+			"pageSize": {"100"},
+		}
+		if token != "" {
+			query.Set("pageToken", token)
 		}
 		resp, err := c.request(ctx, http.MethodGet, c.base+"/files/"+url.PathEscape(id)+"/revisions", query, nil, "", true)
 		if err != nil {
@@ -224,7 +226,7 @@ func (c *Client) ListRevisions(ctx context.Context, id string) ([]Revision, erro
 		}
 		for _, item := range page.Revisions {
 			if item.ID == "" {
-				return nil, errors.New("Drive returned an invalid revision")
+				return nil, errors.New("drive returned an invalid revision")
 			}
 			revision := Revision{ID: item.ID, MD5: item.MD5, ModifiedTime: item.ModifiedTime, KeepForever: item.KeepForever}
 			if item.Size != nil {
@@ -236,12 +238,12 @@ func (c *Client) ListRevisions(ctx context.Context, id string) ([]Revision, erro
 			return revisions, nil
 		}
 		if seenTokens[page.Next] {
-			return nil, errors.New("Drive repeated a revision page token")
+			return nil, errors.New("drive repeated a revision page token")
 		}
 		seenTokens[page.Next] = true
 		token = page.Next
 	}
-	return nil, errors.New("Drive returned too many revision pages")
+	return nil, errors.New("drive returned too many revision pages")
 }
 
 func (c *Client) SetRevisionKeepForever(ctx context.Context, id, revisionID string, keep bool) error {
@@ -262,7 +264,7 @@ func (c *Client) SetRevisionKeepForever(ctx context.Context, id, revisionID stri
 		KeepForever bool   `json:"keepForever"`
 	}
 	if err = decode(resp, &result); err != nil || result.ID != revisionID || result.KeepForever != keep {
-		return errors.New("Drive revision state was not confirmed")
+		return errors.New("drive revision state was not confirmed")
 	}
 	return nil
 }
@@ -277,7 +279,7 @@ func (c *Client) DownloadRevision(ctx context.Context, id, revisionID string, ds
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if _, err = io.Copy(dst, resp.Body); err != nil {
-		return errors.New("Drive revision download failed")
+		return errors.New("drive revision download failed")
 	}
 	return nil
 }

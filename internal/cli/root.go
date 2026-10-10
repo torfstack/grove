@@ -12,12 +12,15 @@ import (
 type AuthenticateFunc func(context.Context, auth.Options) (string, error)
 type FixtureOptions struct{ Manifest, RunDir, LocalDir, TokenFile string }
 type Services struct {
-	Authenticate AuthenticateFunc
-	Seed         func(context.Context, FixtureOptions) (string, error)
-	Inspect      func(context.Context, FixtureOptions) (fixture.Report, error)
-	Verify       func(context.Context, FixtureOptions) (fixture.Report, error)
-	Cleanup      func(context.Context, FixtureOptions) error
-	Sync         func(context.Context, syncengine.Options) (syncengine.Result, error)
+	Authenticate      AuthenticateFunc
+	Seed              func(context.Context, FixtureOptions) (string, error)
+	Inspect           func(context.Context, FixtureOptions) (fixture.Report, error)
+	Verify            func(context.Context, FixtureOptions) (fixture.Report, error)
+	Cleanup           func(context.Context, FixtureOptions) error
+	Sync              func(context.Context, syncengine.Options) (syncengine.Result, error)
+	SetConflictPolicy func(context.Context, syncengine.Options, syncengine.ConflictPolicy) error
+	ListConflicts     func(context.Context, syncengine.Options) ([]syncengine.Conflict, error)
+	ResolveConflict   func(context.Context, syncengine.Options, string, syncengine.ConflictSide) error
 }
 
 func NewRoot(services Services) *cobra.Command {
@@ -27,7 +30,7 @@ func NewRoot(services Services) *cobra.Command {
 			return "", errors.New("authentication service unavailable")
 		}
 	}
-	root.AddCommand(newAuth(services.Authenticate), newFixture(services), newSync(services.Sync))
+	root.AddCommand(newAuth(services.Authenticate), newFixture(services), newSync(services.Sync), newConfig(services), newConflicts(services))
 	return root
 }
 func noArgs(_ *cobra.Command, args []string) error {

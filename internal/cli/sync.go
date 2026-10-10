@@ -28,5 +28,6 @@ func newSync(run func(context.Context, syncengine.Options) (syncengine.Result, e
 	cmd.Flags().StringVar(&opts.RemoteRoot, "remote-root", "", "Selected Drive folder ID (required)")
 	cmd.Flags().StringVar(&opts.LocalDir, "local-dir", "", "Destination directory (required)")
 	cmd.Flags().StringVar(&opts.TokenFile, "token-file", "", "Authentication record path (required)")
+	cmd.Flags().BoolVar(&opts.TwoWay, "two-way", false, "Enable uploads and conflict handling for this run")
 	return cmd
 }

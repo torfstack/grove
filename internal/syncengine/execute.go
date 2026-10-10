@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"errors"
+	"fmt"
 	"github.com/torfstack/grove/internal/drive"
 	"io"
 	"os"
@@ -11,11 +12,14 @@ import (
 )
 
 type executor struct {
-	root       *os.Root
-	profileDir string
-	api        drive.API
-	state      *State
-	save       func() error
+	root          *os.Root
+	profileDir    string
+	remoteRoot    string
+	api           drive.API
+	mutation      drive.SyncMutationAPI
+	resumeUploads bool
+	state         *State
+	save          func() error
 }
 
 func (e *executor) parentSync(path string) error {
@@ -54,6 +58,21 @@ func (e *executor) execute(ctx context.Context, op Operation) error {
 	}
 	if op.Kind == OpReplace {
 		return e.replace(ctx, op)
+	}
+	if op.Kind == OpUpload || op.Kind == OpCreate {
+		return e.upload(ctx, op)
+	}
+	if op.Kind == OpConflict {
+		if err := e.recordConflict(ctx, op); err != nil {
+			return fmt.Errorf("record conflict: %w", err)
+		}
+		if op.ResolutionSide == "" {
+			return nil
+		}
+		if err := e.resolveConflictOperation(ctx, op); err != nil {
+			return fmt.Errorf("resolve conflict: %w", err)
+		}
+		return nil
 	}
 	if op.Kind == "skip" {
 		return nil

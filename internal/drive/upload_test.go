@@ -107,9 +107,16 @@ func TestUpdateContentUploadsZeroBytes(t *testing.T) {
 func TestRevisionMethodsListPinAndDownload(t *testing.T) {
 	var downloaded bytes.Buffer
 	var pinStates []bool
+	revisionPages := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/files/file/revisions"):
+			revisionPages++
+			if revisionPages == 1 {
+				if _, exists := r.URL.Query()["pageToken"]; exists {
+					t.Error("first revision request must omit pageToken")
+				}
+			}
 			if r.URL.Query().Get("pageToken") == "next" {
 				_, _ = io.WriteString(w, "{\"revisions\":[{\"id\":\"r2\",\"keepForever\":true,\"md5Checksum\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"size\":\"3\"}]}")
 				return

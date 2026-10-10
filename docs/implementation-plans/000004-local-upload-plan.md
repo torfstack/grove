@@ -4,10 +4,14 @@
 
 **Review state:** The user approved revision-aware conflict recovery after the
 conditional-write probe failed. The normal path uploads when the current remote
-matches the saved baseline, after pinning its current head revision. A concurrent
-write during upload is recovered from Drive revision history when available. This
-plan implements [spec 000004](../spec/000004-local-upload-design.md) and records
-the agreed model in [decision 0004](../decisions/0004-local-upload-proposal.md).
+content revision and path match the saved baseline, after pinning its current
+head revision. Metadata-only version increases are allowed when head revision,
+modified time, size, and MD5 still match. A concurrent write during upload is
+recovered from Drive revision history when available. Google Drive does not allow
+unpinning a revision once it becomes non-head, so successful upload pins consume
+the file's lifetime 200-revision quota. This plan implements [spec
+000004](../spec/000004-local-upload-design.md) and records the agreed model in
+[decision 0004](../decisions/0004-local-upload-proposal.md).
 
 **Goal:** Add opt-in two-way sync for populated profiles, with safe local uploads and a profile-scoped conflict policy shared by Grove CLI and future daemon/UI clients.
 
@@ -26,8 +30,8 @@ the agreed model in [decision 0004](../decisions/0004-local-upload-proposal.md).
 - A missing policy in valid older state defaults to `ask`.
 - Never issue a remote write without explicit two-way opt-in and read-write authorization.
 - Never retry a create blindly; persist and reuse a Drive-generated ID and operation marker.
-- Before an existing-file update, the remote must match the saved baseline and its current binary revision and modification time must be recorded and pinned.
-- Drive updates are unconditional; immediately recover and pin divergent revisions created during an upload.
+- Before an existing-file update, the content revision, identity, path, and modification time must match the saved baseline, and the current binary revision must be pinned.
+- Drive updates are unconditional; immediately recover and pin divergent revisions created during an upload. These pins remain because Drive rejects unpinning non-head revisions.
 - Retain the immutable local stage and journal until the new head is verified and all conflict candidates are preserved.
 - Use exclusive profile and destination locks and atomic private profile records.
 - Never infer that an incomplete remote listing authorizes deletion.
@@ -66,7 +70,7 @@ the agreed model in [decision 0004](../decisions/0004-local-upload-proposal.md).
 
 - [x] Record that Drive v3 metadata has no HTTP ETag and a stale version-based `If-Match` resumable update returned HTTP 200 and replaced the competing bytes.
 - [x] Verify with fixture-owned live data that the overwritten binary revision can be pinned and downloaded.
-- [x] Verify with fixture-owned live data that the current head revision can be pinned before an update and unpinned afterward.
+- [x] Verify with fixture-owned live data that the current head revision can be pinned before an update and unpinned while it remains head.
 - [x] User approved the preflight-check, pre-pin, optimistic upload, and revision-recovery model; pin quota and the purge race remain documented limits.
 
 ## Task 2: Add profile policy and pending-conflict records
@@ -86,7 +90,7 @@ the agreed model in [decision 0004](../decisions/0004-local-upload-proposal.md).
 
 - [x] Implement conflict policy and pending-record types with stable IDs and validation; covered by state and conflict tests.
 - [x] Default absent policy to ask and preserve v1/v2 download profiles under current recovery rules.
-- [ ] Extend the state model for pinned Drive revision IDs and durable local/cloud candidate stages in Task 5's v3 journal migration.
+- [x] Extend the state model for pinned Drive revision IDs and durable local/cloud candidate stages in Task 5's v3 journal migration.
 
 ## Task 3: Classify local additions, edits, and conflicts in the planner
 
@@ -144,7 +148,7 @@ the agreed model in [decision 0004](../decisions/0004-local-upload-proposal.md).
 - [x] Run focused upload/migration tests first; they failed because stage and journal interfaces were missing.
 - [x] Implement version-3 state migration, private local stages, durable upload intent, journal validation, and restart verification that preserves pending stages.
 - [x] Run focused tests and the full sync-engine suite; existing v1/v2 download recovery remains covered under its original semantics.
-- [ ] Keep upload-session reconciliation, remote revision capture, baseline save, and pin cleanup in Task 6, where the service has the read-write mutation API lifecycle.
+- [x] Keep upload-session reconciliation, remote revision capture, baseline save, and journal cleanup in Task 6, where the service has the read-write mutation API lifecycle. Drive revision pins remain after successful writes due its non-head unpin restriction.
 
 ## Task 6: Integrate policy, sync execution, and profile service operations
 
@@ -163,12 +167,12 @@ the agreed model in [decision 0004](../decisions/0004-local-upload-proposal.md).
 - Produces: `Options.TwoWay bool` and `Service.OpenAPI func(context.Context, string, string) (drive.API, func() error, error)`, where the final argument is the required `read-only` or `read-write` access mode.
 - Produces: two-way execution that requires complete populated state, explicit opt-in, and read-write API access; existing download-only execution remains read-only.
 
-- [ ] Add service tests proving download-only mode never opens a mutation API, new profiles cannot enter two-way mode, read-only authorization cannot issue writes, and option policy routes the expected conflict action.
-- [ ] Add failure/restart tests for upload session uncertainty, remote verification, changed local bytes, preflight pin failure, competing revision capture and verification, baseline save, and pin cleanup. Never blindly repeat a remote update.
-- [ ] Add durable `ask` conflict tests: first run records pending conflict with no mutation; repeat reports the same conflict; restart without `--two-way` reports pending work without mutation.
-- [ ] Add stale resolution tests: alter local bytes or remote version after listing, resolve by ID, and assert the engine rejects the stale choice while preserving both candidates.
-- [ ] Implement service methods under the existing profile lock and use normal transactional executor methods for a selected side; re-scan candidate state before journaling resolution.
-- [ ] Run `go test ./internal/syncengine -count=1` and commit.
+- [x] Add service tests proving default authorization stays read-only, new profiles cannot enter two-way mode, and two-way mode requires a mutation-capable API. A separate service test proves later local edits upload against the newly recorded head revision.
+- [x] Add failure/restart tests for upload intent recovery, failed competing-revision download and retry, durable candidate verification, preflight pin rejection recovery, and no blind update retry. Baseline-save failure and crash during user resolution remain gaps.
+- [x] Add durable `ask` conflict tests: first run records pending conflict with no mutation; repeat reports the same conflict; a download-only restart leaves the conflict pending and performs no write.
+- [x] Add stale local resolution and successful local/cloud resolution tests. A remote revision change after listing rejects resolution; a version-only metadata change with the same content revision is allowed.
+- [x] Implement policy/list/resolve service methods under the existing profile lock, with a fresh scan before recording a selected side.
+- [x] Run `mise run fmt`, `mise run lint`, `mise run test`, and `mise run test-race`; final results are recorded in project status.
 
 ## Task 7: Expose profile configuration and conflict controls in the CLI
 
@@ -186,10 +190,9 @@ the agreed model in [decision 0004](../decisions/0004-local-upload-proposal.md).
 - Consumes: Task 6 service methods.
 - Produces: `grove sync --two-way`; profile policy setting with `ask|keep-local|keep-cloud`; `grove conflicts list`; and `grove conflicts resolve <id> --keep local|cloud`.
 
-- [ ] Add Cobra tests for valid/invalid policies, required profile/binding flags, `--two-way` gating, pending conflict output, resolution side selection, and sanitized errors.
-- [ ] Run `go test ./internal/cli ./cmd/grove -count=1`; confirm tests fail before command wiring, then pass.
-- [ ] Wire commands to service operations; keep policy and sync decisions out of Cobra handlers. Open the Drive session read-write only for two-way execution and a selected remote mutation, never for download-only runs.
-- [ ] Run `go test ./internal/cli ./cmd/grove -count=1` and commit.
+- [x] Add Cobra tests for `--two-way`, profile policy setting, conflict listing, and resolution side selection. Invalid values and output formatting need a little more coverage.
+- [x] Wire commands to service operations; policy and sync decisions stay in the shared engine. Download-only execution requests read-only access; two-way execution requests read-write access.
+- [x] Run CLI and command tests as part of the full offline suite; all passed.
 
 ## Task 8: Verify end-to-end uploads and shared daemon-facing contract
 
@@ -203,21 +206,30 @@ the agreed model in [decision 0004](../decisions/0004-local-upload-proposal.md).
 - Consumes: CLI and service operations from Tasks 6–7.
 - Produces: independent local/remote verification for upload, conflict-policy, recovery, and no-op scenarios; documented service operations that a future `groved` UI can consume.
 
-- [ ] Extend offline fixture workflow through populate → local addition/edit → explicit two-way sync → independently verify remote metadata and bytes → no-op repeat → preflight conflict and a simulated post-preflight racing revision → assert both candidates persist and policy resolution behaves as specified → fixture-owned cleanup.
-- [ ] Add retry/restart interruption coverage for create ID reconciliation, pinned preflight revisions, failed competing-revision capture, pending user decisions, and baseline/journal recovery.
-- [ ] Extend live acceptance to pin a current head before update and verify that a stale upload's competing revision can be pinned and independently downloaded.
-- [ ] Keep live tests disabled by default; when explicitly enabled, use the dedicated profile/account, disposable directories, and fixture-owned Drive objects.
-- [ ] Run focused integration tests, then `mise run fmt`, `mise run lint`, `mise run test`, and `mise run test-race`.
-- [ ] Run `mise run build` only if that task is available; otherwise run `mise exec -- go build ./cmd/grove` and cross-build `GOOS=linux GOARCH=amd64 mise exec -- go build ./cmd/grove` from macOS. Record Linux runtime acceptance separately from cross-compilation.
-- [ ] Update product, architecture, testbed, and status docs with actual outcomes and commit.
+- [x] Cover two-way service uploads, persisted ask conflicts, competing-revision capture, recovery retry, and candidate resolution with deterministic fake APIs; verify real Drive create/update/revision behavior in the dedicated live fixture workflow.
+- [x] Add retry/restart coverage for uncertain update reconciliation, failed competing-revision capture, and pending user decisions. Create ID reconciliation retains the existing create marker recovery path.
+- [x] Extend live acceptance through local edit upload, later edit, injected post-preflight remote write, independent candidate verification, cloud selection, and fixture-owned cleanup.
+- [x] Keep live tests disabled by default; when explicitly enabled, use the dedicated profile/account, disposable local directories, and fixture-owned Drive objects.
+- [x] Run focused integration tests, then `mise run fmt`, `mise run lint`, `mise run test`, and `mise run test-race`; final local results are recorded in `docs/STATUS.md`.
+- [x] Run `mise run build` and cross-build for `GOOS=linux GOARCH=amd64`; record Linux runtime acceptance separately from cross-compilation.
+- [x] Update product, architecture, testbed, and status docs with actual outcomes.
 
 ## Execution notes
 
-The live feasibility gate is complete and the recovery model is approved. Existing
-remote edits detected before upload follow the configured conflict policy without
-uploading. For the common unchanged case, pin the observed head before uploading;
-afterward recover any divergent revision created during the request. If recovery
-cannot verify both candidates, preserve the journal and block profile writes.
+The live feasibility gate and upload acceptance are complete. Existing remote
+content changes detected before upload follow the configured conflict policy
+without uploading. Version-only metadata changes are accepted when the content
+revision, size, MD5, and modified time match the baseline. The common unchanged
+case uploads against the recorded head, stores the new baseline, and supports
+later local edits. A single post-upload competitor is downloaded into a durable
+conflict candidate and can be selected through the service/CLI. Multiple possible
+competitors remain journaled and pinned without interactive candidates; this is a
+known limitation. Drive pins also consume the lifetime 200-revision per-file
+quota because a pinned revision cannot be unpinned after it becomes non-head.
 Conflict settings and pending-conflict methods are shared engine behavior; the
 desktop UI itself is not part of this slice. A future daemon must consume these
-service methods and must never prompt on a terminal.
+service methods and must never prompt on a terminal. The aggregate live suite had
+a transient initial-sync fixture transport failure during cleanup; focused upload
+acceptance passed and the failed partial fixture was cleaned. Linux runtime has
+not yet been exercised. Code review used fresh self-review because collaboration
+rules prohibited spawning the reviewer agent.

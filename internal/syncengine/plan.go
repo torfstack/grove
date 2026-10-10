@@ -208,6 +208,15 @@ func BuildTwoWayPlan(remote Snapshot, local []LocalEntry, state State) (Plan, er
 			continue
 		}
 		localEntry := localByPath[completed.Path]
+		if pending, side := conflictResolutionForPath(state.Conflicts, completed.Path, state.ConflictPolicy); pending != nil {
+			entry, exists := remoteByID[completed.RemoteID]
+			if !exists || entry.Path != completed.Path {
+				return Plan{}, errors.New("selected conflict overlaps a remote structural change")
+			}
+			plan.Operations = withoutOperationForRemote(plan.Operations, completed.RemoteID)
+			plan.Operations = append(plan.Operations, Operation{Kind: OpConflict, Entry: entry, Local: localEntry, Conflict: pending, ResolutionSide: side, Before: []Completed{completed}})
+			continue
+		}
 		if matchesLocal(completed, localEntry) {
 			continue
 		}
@@ -215,23 +224,31 @@ func BuildTwoWayPlan(remote Snapshot, local []LocalEntry, state State) (Plan, er
 		if !exists || entry.Path != completed.Path {
 			return Plan{}, errors.New("local edit overlaps a remote structural change")
 		}
-		unchanged := same(entry, completed)
+		unchanged := sameUploadBaseline(entry, completed)
 		plan.Operations = withoutOperationForRemote(plan.Operations, completed.RemoteID)
 		if unchanged {
 			plan.Operations = append(plan.Operations, Operation{Kind: OpUpload, Entry: entry, Local: localEntry, Before: []Completed{completed}})
 			continue
 		}
-		conflict := Conflict{Path: completed.Path, Baseline: completed, LocalSHA256: localEntry.SHA256, LocalSize: localEntry.Size, RemoteID: entry.Remote.ID, RemoteVersion: entry.Remote.Version, RemoteMD5: entry.Remote.MD5, RemoteSize: entry.Remote.Size}
+		conflict := Conflict{Path: completed.Path, Baseline: completed, LocalSHA256: localEntry.SHA256, LocalSize: localEntry.Size, RemoteID: entry.Remote.ID, RemoteVersion: entry.Remote.Version, RemoteMD5: entry.Remote.MD5, RemoteSize: entry.Remote.Size, RemoteRevisionID: entry.Remote.HeadRevisionID, CloudRevisionID: entry.Remote.HeadRevisionID, CloudMD5: entry.Remote.MD5, CloudSize: entry.Remote.Size}
 		conflict.ID = conflictID(conflict)
 		operation := Operation{Kind: OpConflict, Entry: entry, Local: localEntry, Conflict: &conflict, Before: []Completed{completed}}
-		switch state.ConflictPolicy {
-		case "", ConflictAsk:
-		case ConflictKeepLocal:
-			operation.ResolutionSide = SideLocal
-		case ConflictKeepCloud:
-			operation.ResolutionSide = SideCloud
-		default:
-			return Plan{}, errors.New("invalid conflict policy")
+		for _, pending := range state.Conflicts {
+			if pending.ID == conflict.ID {
+				operation.ResolutionSide = pending.SelectedSide
+				break
+			}
+		}
+		if operation.ResolutionSide == "" {
+			switch state.ConflictPolicy {
+			case "", ConflictAsk:
+			case ConflictKeepLocal:
+				operation.ResolutionSide = SideLocal
+			case ConflictKeepCloud:
+				operation.ResolutionSide = SideCloud
+			default:
+				return Plan{}, errors.New("invalid conflict policy")
+			}
 		}
 		plan.Operations = append(plan.Operations, operation)
 	}
@@ -244,17 +261,25 @@ func BuildTwoWayPlan(remote Snapshot, local []LocalEntry, state State) (Plan, er
 				return Plan{}, errors.New("local and remote structural additions share a path")
 			}
 			plan.Operations = withoutOperationForRemote(plan.Operations, remoteEntry.Remote.ID)
-			conflict := Conflict{Path: entry.Path, LocalSHA256: entry.SHA256, LocalSize: entry.Size, RemoteID: remoteEntry.Remote.ID, RemoteVersion: remoteEntry.Remote.Version, RemoteMD5: remoteEntry.Remote.MD5, RemoteSize: remoteEntry.Remote.Size}
+			conflict := Conflict{Path: entry.Path, LocalSHA256: entry.SHA256, LocalSize: entry.Size, RemoteID: remoteEntry.Remote.ID, RemoteVersion: remoteEntry.Remote.Version, RemoteMD5: remoteEntry.Remote.MD5, RemoteSize: remoteEntry.Remote.Size, RemoteRevisionID: remoteEntry.Remote.HeadRevisionID, CloudRevisionID: remoteEntry.Remote.HeadRevisionID, CloudMD5: remoteEntry.Remote.MD5, CloudSize: remoteEntry.Remote.Size}
 			conflict.ID = conflictID(conflict)
 			operation := Operation{Kind: OpConflict, Entry: remoteEntry, Local: entry, Conflict: &conflict}
-			switch state.ConflictPolicy {
-			case "", ConflictAsk:
-			case ConflictKeepLocal:
-				operation.ResolutionSide = SideLocal
-			case ConflictKeepCloud:
-				operation.ResolutionSide = SideCloud
-			default:
-				return Plan{}, errors.New("invalid conflict policy")
+			for _, pending := range state.Conflicts {
+				if pending.ID == conflict.ID {
+					operation.ResolutionSide = pending.SelectedSide
+					break
+				}
+			}
+			if operation.ResolutionSide == "" {
+				switch state.ConflictPolicy {
+				case "", ConflictAsk:
+				case ConflictKeepLocal:
+					operation.ResolutionSide = SideLocal
+				case ConflictKeepCloud:
+					operation.ResolutionSide = SideCloud
+				default:
+					return Plan{}, errors.New("invalid conflict policy")
+				}
 			}
 			plan.Operations = append(plan.Operations, operation)
 			continue
@@ -268,6 +293,33 @@ func BuildTwoWayPlan(remote Snapshot, local []LocalEntry, state State) (Plan, er
 		plan.Operations = append(plan.Operations, Operation{Kind: OpCreate, Local: entry})
 	}
 	return plan, nil
+}
+
+func sameUploadBaseline(entry Entry, completed Completed) bool {
+	return entry.Path == completed.Path && entry.Remote.ID == completed.RemoteID && entryKind(entry) == "file" && completed.Kind == "file" && completed.HeadRevisionID != "" && entry.Remote.HeadRevisionID == completed.HeadRevisionID && completed.ModifiedTime != "" && entry.Remote.ModifiedTime == completed.ModifiedTime && entry.Remote.MD5 == completed.MD5 && entry.Remote.Size == completed.Size
+}
+
+func conflictResolutionForPath(conflicts []Conflict, path string, policy ConflictPolicy) (*Conflict, ConflictSide) {
+	for i := range conflicts {
+		if conflicts[i].Path != path {
+			continue
+		}
+		side := conflicts[i].SelectedSide
+		if side == "" {
+			switch policy {
+			case ConflictKeepLocal:
+				side = SideLocal
+			case ConflictKeepCloud:
+				side = SideCloud
+			}
+		}
+		if side != "" {
+			pending := conflicts[i]
+			pending.SelectedSide = side
+			return &pending, side
+		}
+	}
+	return nil, ""
 }
 
 func withoutOperationForRemote(operations []Operation, id string) []Operation {

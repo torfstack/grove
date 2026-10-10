@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -97,7 +96,7 @@ func TestPinCurrentHeadRevisionLive(t *testing.T) {
 	decodeErr = json.NewDecoder(patchResp.Body).Decode(&result)
 	_ = patchResp.Body.Close()
 	if patchResp.StatusCode != http.StatusOK || decodeErr != nil || !result.KeepForever {
-		t.Fatal(fmt.Sprintf("Drive rejected pinning the current head revision with HTTP %d", patchResp.StatusCode))
+		t.Fatalf("Drive rejected pinning the current head revision with HTTP %d", patchResp.StatusCode)
 	}
 	patchReq, err = http.NewRequestWithContext(ctx, http.MethodPatch, patchURL+"?fields=id,keepForever", bytes.NewBufferString(`{"keepForever":false}`))
 	if err != nil {
@@ -110,7 +109,7 @@ func TestPinCurrentHeadRevisionLive(t *testing.T) {
 	}
 	_ = patchResp.Body.Close()
 	if patchResp.StatusCode != http.StatusOK {
-		t.Fatal(fmt.Sprintf("Drive rejected unpinning the revision with HTTP %d", patchResp.StatusCode))
+		t.Fatalf("Drive rejected unpinning the revision with HTTP %d", patchResp.StatusCode)
 	}
 	t.Log("current head revision can be pinned and unpinned")
 }

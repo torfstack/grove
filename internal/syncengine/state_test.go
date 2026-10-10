@@ -12,7 +12,8 @@ import (
 
 func baselineFile(path, id string, data []byte) Completed {
 	sum := sha256.Sum256(data)
-	return Completed{Path: path, RemoteID: id, Version: "1", Kind: "file", Size: int64(len(data)), MD5: "d41d8cd98f00b204e9800998ecf8427e", SHA256: hex.EncodeToString(sum[:])}
+	md5sum := md5.Sum(data)
+	return Completed{Path: path, RemoteID: id, Version: "1", Kind: "file", Size: int64(len(data)), MD5: hex.EncodeToString(md5sum[:]), SHA256: hex.EncodeToString(sum[:])}
 }
 func TestStateRejectsMalformedBaseline(t *testing.T) {
 	good := baselineFile("a", "a", nil)

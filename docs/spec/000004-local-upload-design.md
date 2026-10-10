@@ -16,29 +16,34 @@ The user approved prioritizing ordinary local uploads when the remote still
 matches the saved baseline, with revision-aware recovery for the rare race where
 another client writes after Grove's preflight check. A live spike confirmed that
 the previous binary revision can be pinned and downloaded after a stale update;
-a focused live test also confirmed that Drive allows Grove to pin and unpin the
-current head before an update.
+a focused live test confirmed that Drive permits pinning and unpinning the current
+head before an update. A later live upload found that Drive rejects unpinning a
+revision after it is no longer the head (`illegalKeepForeverModification`).
 
 For an existing-file edit, Grove re-fetches the remote file and compares its
-identity, path, version, size, and MD5 with the saved baseline. If they differ,
-Grove does not upload and instead applies the configured conflict policy. If they
-match, Grove pins the observed headRevisionId before uploading the immutable
-local stage and records its modifiedTime as the revision-history boundary. A pin
-failure, missing revision ID, or exhausted pin quota blocks the write before
-mutation. The upload uses the normal resumable update path; Drive does not enforce
-a conditional write.
+identity, path, headRevisionId, modifiedTime, size, and MD5 with the saved
+baseline. A version-only metadata increase is allowed when the same head revision,
+modifiedTime, size, and MD5 still match; Drive can increase `version` when Grove
+pins a revision without changing its content. A content revision or path change
+still applies the configured conflict policy. If content matches, Grove pins the
+observed headRevisionId before uploading the immutable local stage and records its
+modifiedTime as the revision-history boundary. A pin failure, missing revision
+ID, or exhausted pin quota blocks the write before mutation. The upload uses the
+normal resumable update path; Drive does not enforce a conditional write.
 
 After upload, Grove inspects the new head and every page of revision history. It
 requires both the pinned preflight head and current head to appear. Revisions with
 modifiedTime at or after the preflight boundary, excluding those two known heads,
 are treated as possible competitors; equal timestamps are handled conservatively
-as conflicts. Grove pins and downloads each candidate before recording a pending
-conflict. If the uploaded bytes are the only new content, it records the new
-baseline and unpins the old head. The Drive head may temporarily contain the local
-candidate. The ask policy waits for an explicit choice; keep-local or keep-cloud
-applies the configured choice after revalidating both candidates. Missing,
+as conflicts. Grove pins and downloads a single candidate before recording a
+pending conflict. The Drive head may temporarily contain the local candidate. The
+ask policy waits for an explicit choice; keep-local or keep-cloud applies the
+configured choice after revalidating both candidates. Choosing a historical cloud
+candidate installs it locally and uploads it as the selected head. Missing,
 unpinnable, or unverifiable revisions retain the local stage and journal and stop
-for recovery; they never authorize another blind upload.
+for recovery; they never authorize another blind upload. If multiple possible
+competitors appear in one scan, Grove pins them and retains the journal, but does
+not yet publish a conflict candidate; manual recovery is required.
 
 Drive may omit older entries when a revision list is incomplete; Grove anchors
 the scan to the pinned preflight revision and requires the returned current head.
@@ -47,11 +52,15 @@ timestamps do not provide a transactional boundary, so a revision with the same
 timestamp is kept as a possible conflict.
 
 Drive limits keepForever to 200 revisions per file and may purge unpinned
-revisions earlier than 30 days after 100 unpinned revisions accumulate. Pre-pinning
-the observed head protects the known baseline and makes a full pin quota fail
-before write. Recovery of a new competitor revision still depends on Drive
-retaining it until Grove can pin and download it, so the narrow concurrent-write
-race remains a documented limitation rather than a server-enforced guarantee.
+revisions earlier than 30 days after 100 unpinned revisions accumulate. A
+preflight revision that becomes non-head cannot be unpinned through Drive's API,
+so successful uploads retain that pin permanently. Captured competitor pins also
+remain after conflict resolution. This gives later recovery access to known
+revisions but consumes the 200-pin quota over time; when the quota is full, Grove
+fails closed before the next upload. Recovery of a new competitor revision still
+depends on Drive retaining it until Grove can pin and download it, so the narrow
+concurrent-write race remains a documented limitation rather than a
+server-enforced guarantee.
 
 This model is approved. Continue with the paired plan after rewriting its upload,
 journal, recovery, and live-acceptance tasks to match this behavior.
@@ -157,29 +166,34 @@ paths may share a plan.
 ## Remote write and revision recovery
 
 Before uploading an existing file, fetch its current metadata and require its
-identity, path, version, size, and MD5 to match the saved baseline. A mismatch is
-a conflict before mutation. For a match, require the binary headRevisionId and
-pin it with keepForever. If the revision ID is missing or pinning fails, do not
-upload. The pin also fails closed when Drive's 200-pinned-revision limit is full.
+identity, path, headRevisionId, modifiedTime, size, and MD5 to match the saved
+baseline. Ignore a version-only increase when those content and path fields still
+match. A changed revision or path is a conflict before mutation. For a match,
+require the binary headRevisionId and pin it with keepForever. If the revision ID
+is missing or pinning fails, do not upload. The pin also fails closed when
+Drive's 200-pinned-revision limit is full.
 
 Drive does not enforce the version or ETag precondition used by the earlier
 experiment. Upload through the normal resumable update interface and keep the
 immutable local stage and transaction journal until post-write verification
 finishes. List revisions immediately after upload. If the uploaded content is the
-only new revision, verify the head and update the baseline, then unpin the saved
-preflight revision. If a distinct revision appeared after preflight, pin and
-download it before recording a pending conflict. Validate the downloaded size,
-MD5, and SHA-256; keep its private stage and the local upload stage as the two
-conflict candidates.
+only new revision, verify the head and update the baseline. The preflight pin is
+retained because Drive rejects unpinning it after it becomes non-head. If one
+distinct revision appeared after preflight, pin and download it before recording a
+pending conflict. Validate the downloaded size, MD5, and SHA-256; keep its private
+stage and the local upload stage as the two conflict candidates. If multiple
+distinct revisions appear, keep them pinned in the journal and stop for manual
+recovery until multi-candidate conflict records are implemented.
 
 If listing, pinning, download, or verification fails after the write, retain the
 local stage, preflight pin, and journal, and block further profile writes for
 recovery. Never retry the update blindly. Recovery must reconcile the recorded
 revision IDs and head identity before proceeding. A competing revision can still
 be purged between Drive creating it and Grove pinning it; this residual race is
-documented and tested as far as Drive permits. The known preflight head is pinned
-before mutation, and ordinary uploads proceed when preflight confirms the remote
-is unchanged.
+documented and tested as far as Drive permits. Pins cannot be reclaimed after
+their revision becomes non-head, so the 200-pin limit is a lifetime per-file
+upload bound unless Drive changes this behavior. Ordinary uploads proceed when
+preflight confirms the remote content revision is unchanged.
 
 For creation, allocate a Drive-generated ID and durably associate it with the
 operation before issuing the create. Use the same ID on reconciliation/retry,

@@ -27,7 +27,8 @@ func validateJournal(j Journal, baseline []Completed) error {
 	if op.Kind != OpReplace && op.Kind != OpMove && op.Kind != OpUpload && op.Kind != OpCreate {
 		return errors.New("invalid journal operation")
 	}
-	if op.Kind == OpUpload || op.Kind == OpCreate {
+	switch op.Kind {
+	case OpUpload, OpCreate:
 		if err := validateUploadJournal(j, baseline); err != nil {
 			return err
 		}
@@ -41,11 +42,12 @@ func validateJournal(j Journal, baseline []Completed) error {
 	if err := validateCompleted(j.After); err != nil {
 		return err
 	}
-	if op.Kind == OpUpload || op.Kind == OpCreate {
+	switch op.Kind {
+	case OpUpload, OpCreate:
 		if j.TempPath != "" || j.BackupPath != "" || j.VerifiedSHA256 != "" {
 			return errors.New("upload journal contains download artifacts")
 		}
-	} else if op.Kind == OpReplace {
+	case OpReplace:
 		if len(op.Before) != 1 || op.Before[0].Kind != "file" || op.Before[0].Path != op.Entry.Path || op.Before[0].RemoteID != op.Entry.Remote.ID {
 			return errors.New("invalid replacement identity")
 		}
@@ -72,7 +74,7 @@ func validateJournal(j Journal, baseline []Completed) error {
 		} else if !validHash(j.VerifiedSHA256, 32) || len(j.After) != 1 || !reflect.DeepEqual(j.After[0], completedEntry(op.Entry, j.VerifiedSHA256)) {
 			return errors.New("invalid verified replacement result")
 		}
-	} else {
+	default:
 		if j.Phase != "intent" && j.Phase != "committed" {
 			return errors.New("invalid move phase")
 		}
@@ -118,8 +120,9 @@ func validateJournal(j Journal, baseline []Completed) error {
 
 func validateUploadJournal(j Journal, baseline []Completed) error {
 	op := j.Operation
-	if op.Kind == OpUpload {
-		if j.Phase != "staged" && j.Phase != "pin-intent" && j.Phase != "pinned" && j.Phase != "upload-intent" && j.Phase != "uploaded" && j.Phase != "conflict-captured" && j.Phase != "committed" {
+	switch op.Kind {
+	case OpUpload:
+		if j.Phase != "staged" && j.Phase != "pin-intent" && j.Phase != "pinned" && j.Phase != "upload-intent" && j.Phase != "uploaded" && j.Phase != "capture-intent" && j.Phase != "conflict-captured" && j.Phase != "committed" {
 			return errors.New("invalid upload phase")
 		}
 		if !safeRelative(op.Entry.Path) || op.Local.Path != op.Entry.Path || op.Local.Kind != "file" || len(op.Before) != 1 || op.Before[0].Kind != "file" || op.Before[0].Path != op.Entry.Path || op.Before[0].RemoteID != op.Entry.Remote.ID || j.PreflightRevisionID == "" || j.PreflightRevisionID != op.Entry.Remote.HeadRevisionID {
@@ -128,14 +131,14 @@ func validateUploadJournal(j Journal, baseline []Completed) error {
 		if err := validateCompleted(op.Before); err != nil {
 			return err
 		}
-	} else if op.Kind == OpCreate {
+	case OpCreate:
 		if j.Phase != "staged" && j.Phase != "create-intent" && j.Phase != "created" && j.Phase != "verified" && j.Phase != "committed" {
 			return errors.New("invalid create phase")
 		}
 		if !safeRelative(op.Local.Path) || op.Local.Path != op.Entry.Path || (op.Local.Kind != "file" && op.Local.Kind != "folder") || len(op.Before) != 0 || j.AllocatedID == "" || op.Entry.Remote.ID != j.AllocatedID || j.OperationMarker == "" || j.PreflightRevisionID != "" || j.PinnedRevisionID != "" {
 			return errors.New("invalid create intent")
 		}
-	} else {
+	default:
 		return errors.New("invalid upload operation")
 	}
 	if op.Local.Kind == "file" {
@@ -155,13 +158,16 @@ func validateUploadJournal(j Journal, baseline []Completed) error {
 		}
 		seen[id] = true
 	}
-	if j.Phase == "conflict-captured" && (j.CloudStagePath == "" || j.CloudStageIdentity == nil || !validHash(j.CloudSHA256, 32)) {
+	if j.Phase == "capture-intent" && (!safeRelative(j.CloudStagePath) || !strings.HasPrefix(filepath.Base(j.CloudStagePath), ".grove-cloud-conflict-") || j.CloudStageIdentity == nil || j.CloudStageIdentity.Inode == 0 || j.CloudRevisionID == "" || !validHash(j.CloudMD5, 16) || j.CloudSize < 0 || len(j.After) != 1) {
+		return errors.New("invalid cloud conflict capture intent")
+	}
+	if j.Phase == "conflict-captured" && (j.CloudStagePath == "" || j.CloudStageIdentity == nil || !validHash(j.CloudSHA256, 32) || j.CloudRevisionID == "" || !validHash(j.CloudMD5, 16) || j.CloudSize < 0 || len(j.After) != 1) {
 		return errors.New("conflict revision was not preserved")
 	}
-	if j.Phase != "committed" && len(j.After) != 0 {
+	if j.Phase != "committed" && j.Phase != "uploaded" && j.Phase != "capture-intent" && j.Phase != "conflict-captured" && len(j.After) != 0 {
 		return errors.New("uncommitted upload has a result baseline")
 	}
-	if j.Phase == "committed" && len(j.After) != 1 {
+	if (j.Phase == "committed" || j.Phase == "uploaded" || j.Phase == "capture-intent" || j.Phase == "conflict-captured") && len(j.After) != 1 {
 		return errors.New("committed upload has no result baseline")
 	}
 	return nil

@@ -108,27 +108,47 @@ manual inspection. CodeRabbit retained this nonblocking reliability concern,
 consistent with the accepted ownership-safety boundary. An operator reconciliation
 command remains a future proposal.
 
-## Next steps
+## Approved local upload sync
 
-1. Implement approved [spec 000004](spec/000004-local-upload-design.md) on
-   `docs/local-upload-design`, following its paired plan. Profile conflict-policy
-   and pending-conflict state are implemented and verified. The server-enforced
-   conditional-write gate failed its dedicated-account live experiment: Drive v3
-   metadata omitted an HTTP ETag, and a stale version-based `If-Match` on a
-   resumable media update returned HTTP 200 and replaced the competing bytes.
-   The test restored those bytes and cleaned up its fixture-owned objects. A
-   separate spike recovered the overwritten bytes from a pinned Drive revision,
-   and a focused live test confirmed the current head can be pinned before upload.
-   The user approved the preflight-match, pre-pin, upload, and revision-recovery
-   model, prioritizing normal local uploads when the remote is unchanged. Upload
-   implementation is now unblocked on docs/local-upload-design.
-2. Linux live integration is optional follow-up; the macOS dedicated-account
-   initial and incremental live workflows have passed.
+Implementation of approved [spec 000004](spec/000004-local-upload-design.md) is
+complete for the current scope on `docs/local-upload-design`, following its
+paired plan. Grove now has an explicit `grove sync --two-way` path; the normal
+path remains read-only. The
+shared engine uploads local edits when Drive's head revision and modification time
+match the saved baseline, persists the new revision as the next baseline, and
+uploads a later local edit on a subsequent run. It also has durable `ask` conflict
+candidates, profile policy/list/resolve service operations, and CLI controls for
+`ask`, `keep-local`, and `keep-cloud`.
+
+The engine detects remote changes before upload, captures a single post-preflight
+competing revision into a durable conflict, and supports `ask`, `keep-local`, and
+`keep-cloud` through profile service methods and CLI commands. The opt-in live
+acceptance passed on macOS: an ordinary upload, a later local edit, a remote
+write injected during upload, independent verification of the preserved revision,
+and cloud-side resolution back to Drive. The focused live test used the dedicated
+test token and fixture-owned remote data; cleanup completed. The broader
+`mise run test-live` passed incremental sync, current-head
+pinning, conditional-upload probing, and upload/race recovery, but the initial
+sync case hit a transient fixture transport error during cleanup. A standalone
+retry then failed while seeding; its partial fixture was cleaned successfully.
+
+Live testing also fixed the initial empty `pageToken` that Drive rejected with
+HTTP 403 `pageTokenExpired`. Drive rejects unpinning an old revision after it
+becomes non-head, so successful uploads and captured conflict revisions retain
+their keepForever pins. The 200-pinned-revision per-file quota is therefore a
+lifetime limit; Grove fails closed when full. Pinning can increment Drive's
+metadata version without changing its content revision, so version-only increases
+are allowed when head revision, modifiedTime, size, MD5, identity, and path still
+match. Multiple simultaneous post-preflight candidates remain pinned and
+journaled, but are not yet exposed for interactive resolution. Linux live runtime
+acceptance remains untested; Linux amd64 cross-build passed.
+
+Final local verification on 2026-10-10: `mise run fmt`, `git diff --check`,
+`mise run lint`, `mise run test`, `mise run test-race`, native build, and Linux
+amd64 cross-build passed. The full live-suite limitation above remains open.
 
 The preexisting status correction recording PR #6's merge was committed as
-`9ba3d41` on the design branch. This session changed documentation only; spec
-self-review, local Markdown-link validation, and `git diff --check` are the
-appropriate checks. No Go or live tests were run for the design work.
+`9ba3d41` on the design branch.
 
 ## Verification
 

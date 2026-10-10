@@ -1,15 +1,16 @@
 # Architecture
 
 Authentication, the Drive fixture lifecycle, and initial/incremental download sync
-are implemented. Uploads, deletion propagation, and daemon orchestration remain
-to be designed.
+are implemented. Explicit local uploads and revision-aware conflict resolution
+are implemented in the shared sync engine. Deletion propagation and daemon
+orchestration remain to be designed.
 
-[Spec 000004](spec/000004-local-upload-design.md) proposes uploads within the
-existing engine, with profile-scoped conflict policy and pending-conflict state
-shared by the CLI and daemon, a guarded streaming Drive-write boundary, private
-immutable staging and version-3 upload intents. It is awaiting review; conditional
-media-write safety must be established before planning existing-file updates.
-Current engine behavior and state format remain as described below.
+[Spec 000004](spec/000004-local-upload-design.md) records the upload and
+conflict-recovery contract. The engine uses a guarded streaming Drive-write
+boundary, private immutable staging, version-3 upload journals, revision
+preservation, profile-scoped conflict state, and service methods consumed by the
+CLI and future daemon/UI. Drive does not provide conditional writes; see the spec
+for revision-retention and quota limits.
 
 ## Current authentication implementation
 
@@ -79,10 +80,10 @@ CLI commands receive injected services. The engine's injectable `Service` suppor
 HTTP integration tests and the future daemon without spawning the CLI.
 
 State and fixtures remain outside the downloaded tree. Spec 000003 extends the
-same engine with remote additions, replacements, and moves. Local conflicts and
-remote removals stop preflight; no upload or deletion propagation exists. This is
-not a transactionally consistent remote snapshot. Baseline live acceptance passed
-on macOS; incremental live acceptance also passed on macOS on 2026-10-10.
+same engine with remote additions, replacements, and moves. Spec 000004 adds
+two-way uploads and durable conflict choices. Remote removals stop preflight, and
+this is not a transactionally consistent remote snapshot. Baseline, incremental,
+and two-way upload/race-recovery live acceptance passed on macOS on 2026-10-10.
 Linux live integration remains untested.
 
 ## Incremental reconciliation and recovery
@@ -114,3 +115,22 @@ existing read-only API contract. ApplyChanges accepts loader-validated payloads,
 checks owned complete membership, journals each create/update, and reconciles
 uncertain outcomes through owned identity and expected content. It adds no new
 CLI mutation command or second fixture lifecycle.
+
+## Two-way uploads and conflict resolution
+
+Two-way sync requires a populated profile, explicit `--two-way`, and read-write
+Drive authorization. The same deterministic planner combines remote downloads
+with local create/update operations. Existing-file uploads require the saved
+content revision and path to match; a metadata-version-only increase is allowed
+when head revision, modified time, size, and MD5 remain unchanged. Local content
+is staged privately and journaled before mutation. Upload recovery reconciles an
+uncertain result without retrying the remote write.
+
+The engine pins the observed head before updating and scans revision history
+afterward. One detected competitor is downloaded into a private conflict
+candidate; the local upload and cloud candidate remain available to the profile
+service and CLI. Conflict policy and resolution stay in the shared service
+boundary so a future desktop daemon can expose them without a second sync engine.
+Drive does not permit unpinning non-head keepForever revisions, so successful
+uploads consume the per-file 200-revision pin quota. Multiple possible competitors
+remain journaled and pinned for manual recovery.

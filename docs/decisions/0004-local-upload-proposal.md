@@ -23,10 +23,24 @@ Drive head can temporarily contain the local upload while the conflict is
 pending. If the competing revision cannot be captured, retain the local stage,
 pinned baseline, and journal and stop further profile writes.
 
+Follow-up live acceptance on 2026-10-10 confirmed two additional Drive behaviors.
+First, the initial `revisions.list` request must omit `pageToken`; sending an
+empty token returns HTTP 403 `pageTokenExpired`. Second, Drive rejects setting
+`keepForever` to false after a pinned revision becomes non-head with
+`illegalKeepForeverModification`. Successful uploads and resolved competitor
+revisions therefore retain their pins. The engine fails closed when Drive's
+200-pinned-revision per-file quota is exhausted. A version-only increase is
+treated as unchanged when head revision ID, modifiedTime, size, MD5, identity,
+and path still match; pin operations can advance the metadata version without
+changing the content revision.
+
 This model optimizes the expected common case and accepts the narrow risk that
 Drive may purge a competing revision before Grove pins it. The known preflight
 revision is protected before mutation; Drive permits at most 200 pinned revisions
-per file. When the quota is full, fail closed before uploading.
+per file. Because pins cannot be reclaimed after a revision becomes non-head,
+each successful upload consumes a slot. When the quota is full, fail closed
+before uploading. More than one possible competitor in a post-upload scan remains
+journaled and pinned but is not yet exposed as a user-resolvable conflict.
 
 ## Live feasibility evidence
 
@@ -46,6 +60,12 @@ competing bytes, and cleaned up the fixture. A subsequent focused live test
 verified that the current head can be pinned before an update and unpinned after.
 The user accepted revision-aware recovery, prioritizing normal uploads when the
 preflight remote matches the baseline.
+
+The completed live acceptance also verified a normal local upload, a later local
+edit, a remote write injected between preflight and upload, capture of the
+competing revision, and cloud-side conflict resolution back to Drive. The
+revision-list and keepForever constraints above are reflected in the recovery
+model and implementation.
 
 ## Consequences and review
 

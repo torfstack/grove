@@ -70,7 +70,7 @@ func httpService(t *testing.T) (Service, Options, *remoteHTTP) {
 	r.put("b", "b", "root", "same")
 	server := httptest.NewServer(http.HandlerFunc(r.serve))
 	t.Cleanup(server.Close)
-	service := Service{RegistryDir: registry, OpenAPI: func(context.Context, string) (drive.API, func() error, error) {
+	service := Service{RegistryDir: registry, OpenAPI: func(context.Context, string, string) (drive.API, func() error, error) {
 		return drive.NewClient(server.Client(), drive.ClientOptions{BaseURL: server.URL + "/drive/v3"}), func() error { return nil }, nil
 	}}
 	return service, opts, r
@@ -117,6 +117,49 @@ func TestServiceIncrementalHTTP(t *testing.T) {
 	stateAfter, _ := os.ReadFile(filepath.Join(opts.ProfileDir, "state.json"))
 	if string(stateBefore) != string(stateAfter) {
 		t.Fatal("no-op rewrote state")
+	}
+}
+
+func TestServiceUsesReadOnlyAccessByDefault(t *testing.T) {
+	service, opts, _ := httpService(t)
+	access := ""
+	original := service.OpenAPI
+	service.OpenAPI = func(ctx context.Context, token, mode string) (drive.API, func() error, error) {
+		access = mode
+		return original(ctx, token, mode)
+	}
+	if _, err := service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	if access != "read-only" {
+		t.Fatalf("download-only run requested %q access", access)
+	}
+}
+
+func TestTwoWayRejectsNewProfileBeforeOpeningDrive(t *testing.T) {
+	service, opts, _ := httpService(t)
+	opened := false
+	service.OpenAPI = func(context.Context, string, string) (drive.API, func() error, error) {
+		opened = true
+		return nil, nil, errors.New("unexpected Drive session")
+	}
+	opts.TwoWay = true
+	if _, err := service.Run(context.Background(), opts); err == nil || opened {
+		t.Fatalf("new profile entered two-way mode: opened=%v err=%v", opened, err)
+	}
+}
+
+func TestTwoWayRequiresSyncMutationAPI(t *testing.T) {
+	service, opts, _ := httpService(t)
+	if _, err := service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	service.OpenAPI = func(context.Context, string, string) (drive.API, func() error, error) {
+		return tree(), func() error { return nil }, nil
+	}
+	opts.TwoWay = true
+	if _, err := service.Run(context.Background(), opts); err == nil {
+		t.Fatal("two-way run accepted a read-only API")
 	}
 }
 func TestServicePreflightPreservesDestination(t *testing.T) {

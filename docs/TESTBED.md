@@ -90,10 +90,20 @@ A fixture-owned live spike uploaded stale content after a competing edit, found
 the competing bytes in Drive's revision list, marked that revision `keepForever`,
 and downloaded it for independent verification. A focused live test also
 confirmed that the current head can be pinned and unpinned before an update.
-Revision recovery is approved: the normal upload proceeds when preflight confirms
-the remote matches the baseline; a race after preflight may temporarily replace
-the head while Grove captures the competing revision. The implementation must
-retain its journal and candidates if capture or verification fails.
+End-to-end upload acceptance passed: Grove uploaded a local edit, uploaded a
+later local edit, recovered a remote write injected during an upload, verified
+the captured revision bytes, and resolved the conflict by installing and
+uploading the cloud candidate.
+
+The live run found that the initial revisions request must omit an empty
+`pageToken`, and Drive rejects unpinning a revision after it becomes non-head
+(`illegalKeepForeverModification`). Therefore successful updates and recovered
+conflict revisions keep their pins. Drive allows at most 200 pinned revisions per
+file, so repeated uploads consume that quota and further uploads stop safely when
+it is full. Pin operations may also increment metadata `version` without changing
+the head content revision; Grove treats that version-only change as unchanged
+when revision ID, modified time, size, MD5, identity, and path match. Multiple
+possible racing revisions remain journaled for manual recovery.
 
 ## Incremental acceptance
 

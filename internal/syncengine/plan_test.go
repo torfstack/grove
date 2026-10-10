@@ -27,7 +27,7 @@ func (treeAPI) Create(context.Context, drive.Create, io.Reader) (drive.File, err
 }
 func (treeAPI) Trash(context.Context, string) error { return errors.New("unexpected trash") }
 func file(id, name string) drive.File {
-	return drive.File{ID: id, Name: name, MIMEType: "text/plain", Version: "1", OwnedByMe: true, CanDownload: true, HasSize: true, Size: 0, MD5: "d41d8cd98f00b204e9800998ecf8427e", Parents: []string{"root"}}
+	return drive.File{ID: id, Name: name, MIMEType: "text/plain", Version: "1", ModifiedTime: "2026-01-01T00:00:00Z", HeadRevisionID: "rev-1", OwnedByMe: true, CanDownload: true, HasSize: true, Size: 0, MD5: "d41d8cd98f00b204e9800998ecf8427e", Parents: []string{"root"}}
 }
 func tree() treeAPI {
 	return treeAPI{root: drive.File{ID: "root", Name: "root", MIMEType: drive.FolderMIME, OwnedByMe: true}, children: []drive.File{file("a", "a"), file("b", "b")}}
@@ -76,7 +76,7 @@ func TestPlanStableOrder(t *testing.T) {
 	}
 }
 func completed() Completed {
-	return Completed{Path: "a", RemoteID: "a", Version: "1", MD5: "d41d8cd98f00b204e9800998ecf8427e", SHA256: "verified", Kind: "file", Size: 0}
+	return Completed{Path: "a", RemoteID: "a", Version: "1", ModifiedTime: "2026-01-01T00:00:00Z", HeadRevisionID: "rev-1", MD5: "d41d8cd98f00b204e9800998ecf8427e", SHA256: "verified", Kind: "file", Size: 0}
 }
 func TestPlanResume(t *testing.T) {
 	a := Snapshot{Entries: []Entry{{Path: "a", Remote: file("a", "a")}, {Path: "b", Remote: file("b", "b")}}}
@@ -207,6 +207,22 @@ func TestBuildTwoWayPlanUploadsLocalEditWhenRemoteMatchesBaseline(t *testing.T) 
 	}
 	if len(plan.Operations) != 1 || plan.Operations[0].Kind != OpUpload || plan.Operations[0].Local.SHA256 != "local-edit" {
 		t.Fatalf("local edit was not planned for upload: %+v", plan.Operations)
+	}
+}
+
+func TestBuildTwoWayPlanIgnoresVersionOnlyChangeWhenRevisionIsUnchanged(t *testing.T) {
+	remote := file("a", "a")
+	remote.Version = "2"
+	plan, err := BuildTwoWayPlan(
+		Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}},
+		[]LocalEntry{{Path: "a", Kind: "file", SHA256: "local-edit", Size: 11}},
+		State{Completed: []Completed{completed()}, PopulationComplete: true},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Operations) != 1 || plan.Operations[0].Kind != OpUpload {
+		t.Fatalf("version-only metadata change blocked an unchanged-content upload: %+v", plan.Operations)
 	}
 }
 

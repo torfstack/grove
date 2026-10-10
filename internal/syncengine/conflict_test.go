@@ -77,6 +77,41 @@ func TestLoadStateValidatesPendingConflicts(t *testing.T) {
 	}
 }
 
+func TestLoadStateAcceptsCommittedUploadJournalWithCapturedConflict(t *testing.T) {
+	dir := t.TempDir()
+	current := baselineFile("a", "remote-a", []byte("uploaded local"))
+	current.Version, current.ModifiedTime, current.HeadRevisionID = "3", "2026-01-03T00:00:00Z", "revision-3"
+	localHash := current.SHA256
+	cloudMD5 := md5Text("competing cloud")
+	conflict := Conflict{
+		Path: "a", Baseline: current, LocalSHA256: localHash, LocalSize: current.Size,
+		RemoteID: current.RemoteID, RemoteVersion: current.Version, RemoteMD5: current.MD5, RemoteSize: current.Size, RemoteRevisionID: current.HeadRevisionID,
+		CloudRevisionID: "revision-2", CloudMD5: cloudMD5, CloudSize: int64(len("competing cloud")),
+		LocalStagePath: ".grove-upload-local", LocalStageIdentity: &FileIdentity{Device: 1, Inode: 2},
+		CloudStagePath: ".grove-cloud-conflict-remote", CloudStageIdentity: &FileIdentity{Device: 1, Inode: 3}, CloudSHA256: hashText("competing cloud"),
+	}
+	conflict.ID = conflictID(conflict)
+	before := baselineFile("a", "remote-a", []byte("old"))
+	before.HeadRevisionID = "revision-1"
+	remote := file("remote-a", "a")
+	remote.HeadRevisionID = before.HeadRevisionID
+	journal := Journal{
+		Operation: Operation{Kind: OpUpload, Entry: Entry{Path: "a", Remote: remote}, Local: LocalEntry{Path: "a", Kind: "file", SHA256: localHash, Size: current.Size}, Before: []Completed{before}},
+		Phase:     "committed", StagePath: conflict.LocalStagePath, StageIdentity: conflict.LocalStageIdentity,
+		StageSHA256: localHash, StageMD5: md5Text("uploaded local"), StageSize: current.Size,
+		PreflightRevisionID: before.HeadRevisionID, PinnedRevisionID: before.HeadRevisionID,
+		CloudStagePath: conflict.CloudStagePath, CloudStageIdentity: conflict.CloudStageIdentity, CloudSHA256: conflict.CloudSHA256,
+		CloudRevisionID: conflict.CloudRevisionID, CloudMD5: conflict.CloudMD5, CloudSize: conflict.CloudSize, After: []Completed{current},
+	}
+	state := State{Version: 3, Completed: []Completed{current}, Conflicts: []Conflict{conflict}, Transaction: &journal, PopulationComplete: true}
+	if err := saveState(dir, state); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadState(dir, Binding{}); err != nil {
+		t.Fatalf("committed upload and captured conflict did not survive restart: %v", err)
+	}
+}
+
 func TestConflictIDIsStableForSameSnapshots(t *testing.T) {
 	conflict := Conflict{Path: "a", RemoteID: "id", Baseline: Completed{SHA256: "baseline"}, LocalSHA256: "local", RemoteVersion: "2", RemoteMD5: "remote", RemoteSize: 3}
 	if first, second := conflictID(conflict), conflictID(conflict); first == "" || first != second {
