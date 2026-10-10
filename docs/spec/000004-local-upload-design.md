@@ -10,8 +10,9 @@ in the same shared engine. The user requested this spec after selecting uploads
 as the next design. The detailed behavior below is proposed, not yet agreed.
 
 Success means independently verified remote bytes, a durable baseline, no duplicate
-creates after interruption, and preservation of conflicting content. Linux remains
-the primary acceptance target. Deletion propagation, local rename detection,
+creates after interruption, and preservation of conflicting content until an
+explicit conflict policy or user choice selects a side. Linux remains the primary
+acceptance target. Deletion propagation, local rename detection,
 automatic conflict resolution, daemon orchestration, native documents, shortcuts,
 shared drives, exclusions, and arbitrary path rearrangements remain outside scope.
 
