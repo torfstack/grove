@@ -173,19 +173,19 @@ returns verified SHA-256 after fsync/close and metadata revalidation.
 **Interfaces:** Consume Task 1 operation contract. Preserve `BuildPlan` signature;
 produce stable operations whose `Before` values use simulated paths after moves.
 
-- [ ] Write table tests `TestPlanIncremental` asserting exact operations for a
+- [x] Write table tests `TestPlanIncremental` asserting exact operations for a
   new folder/file, same-path changed content, file rename, folder move, metadata-only
   version change (`record`, zero download), and move-plus-content-update.
-- [ ] Write `TestPlanRejectsConflicts` asserting error and empty plan for local
+- [x] Write `TestPlanRejectsConflicts` asserting error and empty plan for local
   edit/deletion/addition, remote removal, type change, duplicate identity, swaps,
   cycles, occupied destination, and path reuse; include a simultaneous local and
   remote edit. `TestPlanNestedMoves` asserts ancestor move once, then independently
   relocated child once, with edits after its final path is established.
-- [ ] Run `mise exec -- go test ./internal/syncengine -run TestPlan -count=1`; confirm failures.
-- [ ] Implement ID/path indexes and small comparison helpers, validate the whole
+- [x] Run `mise exec -- go test ./internal/syncengine -run TestPlan -count=1`; confirm failures.
+- [x] Implement ID/path indexes and small comparison helpers, validate the whole
   baseline locally first, and build/topologically order operations as specified.
   Same MD5 and size with a newer version produces `record`; preserve local SHA-256.
-- [ ] Run the same command; require PASS and stable order under permuted inputs.
+- [x] Run the same command; require PASS and stable order under permuted inputs.
   Commit as `feat: plan incremental downloads and moves`.
 
 ## Task 3: Native move boundary and capability preflight
