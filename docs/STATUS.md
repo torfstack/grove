@@ -111,10 +111,11 @@ command remains a future proposal.
 ## Next steps
 
 1. Review proposed [spec 000004](spec/000004-local-upload-design.md) for explicit
-   two-way uploads on established profiles. Drafted on `docs/local-upload-design`;
-   implementation is not approved. Existing-file updates require demonstrated
-   server-enforced conditional-write safety; additions-only is the proposed
-   fallback if that cannot be established. Resolve this before the paired plan.
+   two-way uploads on established profiles and shared conflict policy for CLI and
+   daemon. Updated on `docs/local-upload-design`; implementation is not approved.
+   Existing-file updates require demonstrated server-enforced conditional-write
+   safety; additions-only is the proposed fallback if that cannot be established.
+   Resolve this before the paired plan.
 2. Linux live integration is optional follow-up; the macOS dedicated-account
    initial and incremental live workflows have passed.
 

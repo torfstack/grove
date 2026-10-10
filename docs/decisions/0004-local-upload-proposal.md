@@ -6,9 +6,11 @@ Date: 2026-10-10. Status: proposal; detailed design awaits user review.
 
 The user requested a local-upload spec after completion of incremental downloads.
 [Spec 000004](../spec/000004-local-upload-design.md) proposes extending the shared
-engine with per-invocation two-way opt-in on established profiles. Preserve local
-and remote conflicts, journal immutable upload snapshots, and reconcile uncertain
-creates through durable pre-generated IDs. Deletions and local moves are deferred.
+engine with per-invocation two-way opt-in on established profiles. Profile-scoped
+conflict policy (`ask`, `keep-local`, `keep-cloud`) and pending records are owned
+by the shared engine and consumed through service methods by both CLI and daemon.
+Journal immutable upload snapshots and reconcile uncertain creates through durable
+pre-generated IDs. Deletions and local moves are deferred.
 
 Existing-file updates must have demonstrated server-enforced preconditions;
 preflight metadata checks alone cannot protect competing remote edits. The current

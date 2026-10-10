@@ -59,8 +59,8 @@ path swaps/cycles, and same-run reuse of tracked vacated paths fail safely.
 
 [Spec 000004](spec/000004-local-upload-design.md) proposes explicit `--two-way`
 sync on populated profiles: new local files/folders and guarded local content
-updates, retaining downloads and strict conflict preservation. Download-only
-remains the default. Existing-file updates depend on demonstrated server-enforced
-conditional writes; additions-only is the fallback proposal. This design is not
-approved or implemented. Deletions, local renames, and automatic conflict
-resolution remain deferred.
+updates, retaining downloads and a profile-scoped conflict policy shared by the
+CLI and daemon. The proposed choices are ask (default), keep local, and keep cloud.
+Download-only remains the default. Existing-file updates depend on demonstrated
+server-enforced conditional writes; additions-only is the fallback proposal. This
+design is not approved or implemented. Deletions and local renames remain deferred.

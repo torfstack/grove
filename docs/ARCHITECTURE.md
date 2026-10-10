@@ -4,11 +4,12 @@ Authentication, the Drive fixture lifecycle, and initial/incremental download sy
 are implemented. Uploads, deletion propagation, and daemon orchestration remain
 to be designed.
 
-[Spec 000004](spec/000004-local-upload-design.md) now proposes uploads within the
-existing engine, with a guarded streaming Drive-write boundary, private immutable
-staging and version-3 upload intents. It is awaiting review; conditional media-write
-safety must be established before planning existing-file updates. Current engine
-behavior and state format remain as described below.
+[Spec 000004](spec/000004-local-upload-design.md) proposes uploads within the
+existing engine, with profile-scoped conflict policy and pending-conflict state
+shared by the CLI and daemon, a guarded streaming Drive-write boundary, private
+immutable staging and version-3 upload intents. It is awaiting review; conditional
+media-write safety must be established before planning existing-file updates.
+Current engine behavior and state format remain as described below.
 
 ## Current authentication implementation
 

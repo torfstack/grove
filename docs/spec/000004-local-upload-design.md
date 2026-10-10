@@ -52,15 +52,32 @@ Errors omit credentials, generated IDs, upload session URLs, and file contents.
 Compare a complete local scan and complete supported remote scan with the durable
 baseline. Local timestamps cannot establish unchanged content. A failed or incomplete
 scan starts no new local or remote mutations. Preflight rejects all known conflicts
-before executing independent new operations; earlier completed operations and
-already journaled recovery retain the existing nontransactional-tree guarantee.
+before executing independent new operations under the `ask` policy; earlier
+completed operations and already journaled recovery retain the existing
+nontransactional-tree guarantee.
+
+Persist a profile-scoped conflict policy with three values: `ask` (default),
+`keep-local`, and `keep-cloud`. A policy applies only to simultaneous content
+changes for an existing tracked file. It does not authorize resolving missing
+files, renames, type changes, path collisions, unsupported content, or uncertain
+remote outcomes. `ask` stores a pending conflict without mutation. `keep-local`
+uploads the local snapshot through the guarded update path; `keep-cloud` downloads
+the remote snapshot through the existing verified replacement path. If an
+automatic choice cannot pass its required preconditions, preserve both versions
+and leave an actionable conflict rather than falling through to an overwrite.
+
+Conflict decisions are made by the shared engine, regardless of whether a run
+starts from the CLI or daemon. The policy lives in the private profile record,
+defaults to `ask` when absent during migration, and is changed only through a
+profile-locked service operation. Do not duplicate policy parsing or resolution
+logic in a UI or command handler.
 
 | Local versus baseline | Remote versus baseline | Proposed action |
 | --- | --- | --- |
 | Unchanged | Unchanged | Skip; no media transfer or destination write |
 | Unchanged | Content changed | Existing verified download replacement |
 | Content changed | Unchanged identity, path, version and content | Conditional upload update |
-| Content changed | Any changed remote version, content or path | Conflict; preserve both |
+| Content changed | Any changed remote version, content or path | Apply profile policy; `ask` preserves both and waits |
 | Unchanged | Metadata only changed | Existing record operation |
 | Unchanged | Renamed/moved | Existing safe move behavior |
 | Missing tracked path | Any | Unsupported local removal/rename; preserve remote |
@@ -69,9 +86,9 @@ already journaled recovery retain the existing nontransactional-tree guarantee.
 | No local entry | New remote path | Existing download/create behavior |
 | New local path | New remote entry at same path | Conflict, even if bytes match |
 
-Treat simultaneous edits as conflicts even if the resulting bytes match; adopting
-coincident changes automatically is deferred. A remote same-byte version change
-alongside a local edit is also a conservative conflict. Missing tracked directories,
+Treat simultaneous edits as conflicts even if the resulting bytes match; policy,
+not byte equality, chooses whether to ask or select a side. A remote same-byte
+version change alongside a local edit is also a conservative conflict. Missing tracked directories,
 type changes, duplicate names, symlinks, special files, unsupported names, filesystem
 aliases, occupied targets, swaps, and cycles retain strict rejection.
 
@@ -133,6 +150,8 @@ starting another request; never blindly replay an uncertain update.
 The expanded versioned journal records operation kind, source path and hashes,
 old baseline and remote precondition for updates, allocated ID for creates, expected
 parent/name/type, operation marker, owned stage, session state, and verified result.
+Pending user decisions are profile state; once selected, the choice and expected
+candidate identities are copied into the operation journal before mutation.
 Persist intent before every externally visible write. The plan must define exact
 phases and invariants, not add unrelated flags to the existing download transaction.
 
@@ -172,6 +191,42 @@ journal transitions, and the service owns locks and resource lifecycle. Keep
 fixture mutation separate from the production upload contract while sharing
 proven HTTP primitives where their requirements coincide.
 
+Make these boundaries explicit in the code:
+
+- `internal/syncengine` owns the `ConflictPolicy` type, conflict classification,
+  durable pending-conflict records, policy application, and revalidation before
+  a chosen action. Planner output identifies conflicts and possible choices; the
+  executor performs the selected operation through the existing journal rules.
+- Profile state stores the policy and pending conflict identities alongside the
+  sync baseline and transaction. A missing policy in older valid state means
+  `ask`. State is read or changed only while holding the existing profile lock;
+  callers do not edit JSON directly.
+- `internal/drive` remains a transport boundary for guarded uploads and downloads;
+  it does not decide policy or present prompts.
+- `internal/cli` exposes profile policy configuration and conflict inspection and
+  resolution through injected engine/service methods. Proposed command shapes are
+  `grove config set conflict-policy ask|keep-local|keep-cloud`,
+  `grove conflicts list`, and `grove conflicts resolve <id> --keep local|cloud`.
+  Final command syntax is subject to CLI review in the implementation plan.
+- `groved` calls the same service methods and publishes policy and pending
+  conflict state to its future UI-facing interface. With `ask`, it pauses the
+  affected work and waits for a CLI or UI resolution; it never blocks on a terminal
+  prompt. The UI is a client of this boundary, not a second policy implementation.
+
+Conflict records carry a stable conflict ID, local relative path and snapshot
+hash/size, remote ID and observed version/content identity, and the baseline used
+to classify the conflict. Resolution records the selected side durably before
+execution. Before applying it, the engine rescans/rechecks local bytes, remote
+identity and version, and destination preconditions. If either candidate changed
+since the decision, leave the conflict pending and request a fresh choice. Resolving
+one record does not silently resolve other conflicts in the profile.
+
+The first implementation may provide the shared service boundary and CLI controls
+without a graphical UI. `groved` must still consume the profile policy and expose
+pending conflicts through a stable machine-readable status/resolution API so a
+later UI can use the same behavior. Do not require simultaneous CLI and daemon
+execution; existing profile locking serializes writers.
+
 Propose version 3 for upload intents and any remote representation validators.
 Recover valid version-1/version-2 download work with existing semantics before
 atomic migration under lock. Preserve bindings and registrations. Older binaries
@@ -187,7 +242,9 @@ clients or local editors; the design relies on guarded writes and preservation.
 
 ## Verification and completion
 
-Use deterministic planner tests for every table row, nested/empty additions,
+Use deterministic planner tests for every table row and each conflict policy,
+pending-conflict creation, stale resolution rejection, and policy migration,
+nested/empty additions,
 remote/local structural interactions, capability failures, unsupported entries,
 and unchanged repeats. Assert no new writes on failed preflight and no remote
 writes without explicit opt-in, including restart with pending upload work.
