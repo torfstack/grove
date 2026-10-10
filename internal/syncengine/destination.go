@@ -204,6 +204,10 @@ func clearProbe(root *os.Root, state *State, save func() error) error {
 	return save()
 }
 func probeDestination(root *os.Root, snapshot Snapshot, state *State, save func() error) error {
+	return probeDestinationWithLink(root, snapshot, state, save, root.Link)
+}
+
+func probeDestinationWithLink(root *os.Root, snapshot Snapshot, state *State, save func() error, link func(string, string) error) error {
 	if err := clearProbe(root, state, save); err != nil {
 		return err
 	}
@@ -213,6 +217,8 @@ func probeDestination(root *os.Root, snapshot Snapshot, state *State, save func(
 	}
 	state.ProbePath = ".grove-probe-" + id
 	state.ProbeEntries = append([]Entry(nil), snapshot.Entries...)
+	source, target := ".grove-link-source-"+id, ".grove-link-target-"+id
+	state.ProbeEntries = append(state.ProbeEntries, Entry{Path: source}, Entry{Path: target})
 	if err := save(); err != nil {
 		return err
 	}
@@ -240,6 +246,19 @@ func probeDestination(root *os.Root, snapshot Snapshot, state *State, save func(
 		if probeErr != nil {
 			probeErr = errors.New("destination has incompatible names or path limits")
 			break
+		}
+	}
+	if probeErr == nil {
+		sourcePath := filepath.Join(state.ProbePath, source)
+		f, err := root.OpenFile(sourcePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		if err == nil {
+			err = f.Close()
+		}
+		if err == nil {
+			err = link(sourcePath, filepath.Join(state.ProbePath, target))
+		}
+		if err != nil {
+			probeErr = errors.New("destination filesystem does not support safe publication")
 		}
 	}
 	if err := clearProbe(root, state, save); err != nil {

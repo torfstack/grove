@@ -235,6 +235,14 @@ func TestSeedRootFirstWithPunctuation(t *testing.T) {
 		if run.Objects[0].LogicalID != "root" || run.Objects[1].ParentID != run.Objects[0].RemoteID {
 			t.Fatal("child created outside fixture root")
 		}
+		if err := Cleanup(context.Background(), api, dir); err != nil {
+			t.Fatalf("cleanup for %q: %v", name, err)
+		}
+		for _, object := range run.Objects {
+			if !api.files[object.RemoteID].Trashed {
+				t.Fatal("fixture object remains untrashed")
+			}
+		}
 	}
 }
 func TestInspectRejectsRecordedParentMismatch(t *testing.T) {

@@ -3,10 +3,12 @@ package auth
 import (
 	"context"
 	"golang.org/x/oauth2"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -111,7 +113,7 @@ func testRefresh(t *testing.T, refresh string, fail bool) {
 }
 func TestAuthSessionExclusion(t *testing.T) {
 	scope, _ := Scope("read-only")
-	path, _ := sessionRecord(t, scope)
+	path, record := sessionRecord(t, scope)
 	s, err := OpenSession(context.Background(), path, "read-only")
 	if err != nil {
 		t.Fatal(err)
@@ -120,9 +122,12 @@ func TestAuthSessionExclusion(t *testing.T) {
 	if _, err := OpenSession(context.Background(), path, "read-only"); err == nil {
 		t.Fatal("parallel session accepted")
 	}
-	_, err = (Service{}).Authenticate(context.Background(), Options{TokenFile: path, ClientSecret: "absent", Access: "read-only"})
-	if err == nil {
-		t.Fatal("parallel auth accepted")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	service := Service{Flow: Flow{Output: io.Discard}}
+	_, err = service.Authenticate(ctx, Options{TokenFile: path, ClientSecret: record.ClientSecretPath, Access: "read-only"})
+	if err == nil || !strings.Contains(err.Error(), "locked") {
+		t.Fatalf("expected token lock refusal, got %v", err)
 	}
 }
 

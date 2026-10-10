@@ -35,7 +35,12 @@ func Cleanup(ctx context.Context, api drive.API, dir string) error {
 		indices[i] = i
 	}
 	sort.Slice(indices, func(i, j int) bool {
-		return strings.Count(paths[r.Objects[indices[i]].LogicalID], "/") > strings.Count(paths[r.Objects[indices[j]].LogicalID], "/") || (strings.Count(paths[r.Objects[indices[i]].LogicalID], "/") == strings.Count(paths[r.Objects[indices[j]].LogicalID], "/") && paths[r.Objects[indices[i]].LogicalID] > paths[r.Objects[indices[j]].LogicalID])
+		left, right := paths[r.Objects[indices[i]].LogicalID], paths[r.Objects[indices[j]].LogicalID]
+		if left == "." || right == "." {
+			return left != "." && right == "."
+		}
+		leftDepth, rightDepth := strings.Count(left, "/"), strings.Count(right, "/")
+		return leftDepth > rightDepth || (leftDepth == rightDepth && left > right)
 	})
 	for _, i := range indices {
 		o := r.Objects[i]

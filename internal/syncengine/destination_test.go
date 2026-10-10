@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -113,6 +114,47 @@ func TestFilesystemNameCollision(t *testing.T) {
 	snapshot := Snapshot{Entries: []Entry{{Path: "a", Remote: file("1", "a")}, {Path: "a", Remote: file("2", "a")}}}
 	if err = probeDestination(root, snapshot, &state, func() error { return nil }); err == nil {
 		t.Fatal("collision accepted")
+	}
+}
+
+func TestProbeRejectsUnsupportedPublication(t *testing.T) {
+	dir := t.TempDir()
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = root.Close() }()
+	state := State{}
+	var recorded []string
+	save := func() error {
+		recorded = nil
+		for _, entry := range state.ProbeEntries {
+			recorded = append(recorded, filepath.Join(state.ProbePath, entry.Path))
+		}
+		return nil
+	}
+	called := false
+	link := func(source, target string) error {
+		called = true
+		for _, path := range []string{source, target} {
+			found := false
+			for _, owned := range recorded {
+				found = found || owned == path
+			}
+			if !found {
+				t.Fatal("link probe path was not journaled before mutation")
+			}
+		}
+		return os.ErrPermission
+	}
+	snapshot := Snapshot{Entries: []Entry{{Path: "file", Remote: file("1", "file")}}}
+	err = probeDestinationWithLink(root, snapshot, &state, save, link)
+	if !called || err == nil || !strings.Contains(err.Error(), "safe publication") {
+		t.Fatalf("unsupported publication accepted: %v", err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 0 || state.ProbePath != "" || len(state.ProbeEntries) != 0 {
+		t.Fatalf("failed preflight left artifacts: %v", err)
 	}
 }
 func TestLocalHashesDetectEdits(t *testing.T) {

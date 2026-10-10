@@ -44,7 +44,13 @@ build, and Linux cross-build passed. Real Drive access remains unverified; the l
 suite was not enabled and no user token was inspected. Whole-branch independent
 review found three valid issues (filesystem-alias exclusion, refresh redirects,
 and fixture root ordering); regression tests reproduced them and all are fixed.
-The requested PR's CI/CodeRabbit review is next.
+[PR #5](https://github.com/torfstack/grove/pull/5) is open. Linux CI and security
+checks passed on the original implementation. CodeRabbit's three findings are
+fixed: fixture cleanup now processes the root last, destination preflight checks
+hardlink publication support, and the auth exclusion test reaches the token lock.
+Formatting, lint, offline tests, and race tests passed after these fixes. Latest
+main (Dependabot PRs #3 and #4) is merged into the branch. Fresh CI and CodeRabbit
+review of the fixes are pending; live acceptance will be run with the user.
 
 The user previously placed Desktop OAuth credentials at ~/google_client_secret.json.
 Live authentication remains unverified in this session. The initial auth
@@ -52,13 +58,13 @@ implementation and Linux CI from
 [PR #1](https://github.com/torfstack/grove/pull/1) are merged into main.
 Requirements and design specs live in `docs/spec/`. Implementation plans live in
 `docs/implementation-plans/` and reuse their corresponding spec's six-digit number.
-The user approved deferring auth advisory locking. Token writes remain atomic;
-locking will be revisited for sync and daemon coordination.
+Authentication and sync token sessions now share advisory locking. Token writes
+remain atomic, and concurrent writers for a token or sync profile are refused.
 
 ## Next steps
 
 1. Complete a manual browser auth check with the dedicated test account.
-2. Complete whole-branch review, open the requested PR, and assess CI/CodeRabbit.
+2. Finish fresh CI and CodeRabbit review of PR #5's review fixes.
 3. Seed a fresh remote run, inspect it, and
    validate initial sync against its manifest.
 
