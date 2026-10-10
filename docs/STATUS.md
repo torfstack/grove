@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-09.
+Updated: 2026-10-10.
 
 ## Established
 
@@ -66,3 +66,11 @@ see PR #1 for its current result. Real Linux browser integration is still untest
 A fresh code review found a callback response shutdown race; a regression test
 reproduced EOF before the fix and passed afterward with race detection. Live
 Google consent and Drive API calls remain unverified.
+
+## Repository housekeeping
+
+Expanded `.gitignore` to cover Go build and test output, editor and local agent
+state, OS metadata, and environment files while preserving existing project
+credential and binary rules. Go source, module files, mise configuration, and
+environment examples remain trackable. Verified with `git check-ignore` and
+`git diff --check`; no Go code changed.

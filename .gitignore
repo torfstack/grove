@@ -1,6 +1,33 @@
+# Build and test output
 /bin/
+/dist/
+*.test
+*.prof
+/coverage.out
+/coverage.html
+
+# Local editor and agent state
+/.idea/
+/.vscode/
+/.superpowers/
+*.swp
+*.swo
+*~
+
+# Operating system metadata
+.DS_Store
+Thumbs.db
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+!.env.*.example
+/credentials.json
+/token.json
+
+# Project-specific local files
 /grove
 /groved
 /mise.local.toml
 /google_client_secret.json
-/token.json
