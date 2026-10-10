@@ -5,7 +5,7 @@ github-cli = "2.102.0"
 
 [tasks.fmt]
 description = "Format Go source"
-run = "gofmt -w cmd internal"
+run = "gofmt -w cmd internal tests"
 
 [tasks.vet]
 description = "Check Go code with vet"
@@ -26,3 +26,13 @@ run = "go test -race ./..."
 [tasks.build]
 description = "Build Grove"
 run = "go build -o bin/grove ./cmd/grove"
+
+[tasks.test-live]
+description = "Run explicitly enabled live Drive fixture tests"
+run = """
+if [ "${GROVE_LIVE_TEST:-}" != "1" ]; then
+  echo "Set GROVE_LIVE_TEST=1 and the dedicated token/runs paths to enable live tests." >&2
+  exit 1
+fi
+go test -count=1 -v ./tests/live
+"""

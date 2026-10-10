@@ -51,6 +51,9 @@ func withFixture(ctx context.Context, opts cli.FixtureOptions, access string, dr
 	if err != nil {
 		return err
 	}
+	if err := privatefs.OutsideGit(dir); err != nil {
+		return err
+	}
 	lock, err := privatefs.Acquire(dir + ".lock")
 	if err != nil {
 		return err

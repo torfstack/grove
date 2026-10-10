@@ -17,6 +17,11 @@ func Cleanup(ctx context.Context, api drive.API, dir string) error {
 	if err = reconcile(ctx, api, dir, &r); err != nil {
 		return err
 	}
+	for _, object := range r.Objects {
+		if object.Status == "pending" {
+			return errors.New("fixture create outcome remains unresolved; cleanup refused")
+		}
+	}
 	files, err := membership(ctx, api, r)
 	if err != nil {
 		return err

@@ -34,16 +34,15 @@ Updated: 2026-10-10.
 
 ## In progress
 
-Fixture tooling and initial download sync are being designed together on
-`feat/initial-sync`. The user agreed to a fresh API-seeded fixture per live run,
-ordinary files and folders, and an empty initial destination; native documents,
-shortcuts, and duplicate sibling names are deferred. The proposed written design
-is [000002-initial-sync-design.md](spec/000002-initial-sync-design.md), approved
-for planning. Its paired
-[implementation plan](implementation-plans/000002-initial-sync-plan.md) is written
-and awaits review and execution-method selection. No fixture or sync code has
-been implemented and no live test was run. Plan coverage and interface consistency
-were reviewed inline; documentation whitespace checks passed.
+Fixture tooling and initial download sync are implemented together on
+`feat/initial-sync`, following approved [spec 000002](spec/000002-initial-sync-design.md)
+and its [plan](implementation-plans/000002-initial-sync-plan.md). Native execution
+completed private records/locks, persistent OAuth refresh, Drive HTTP access,
+fixture lifecycle, deterministic planning, rooted downloads and recovery, CLI
+wiring, and the opt-in live suite. Offline and race tests, lint, formatting, native
+build, and Linux cross-build passed. Real Drive access remains unverified; the live
+suite was not enabled and no user token was inspected. Whole-branch independent
+review and the requested PR's CI/CodeRabbit review are next.
 
 The user previously placed Desktop OAuth credentials at ~/google_client_secret.json.
 Live authentication remains unverified in this session. The initial auth
@@ -57,7 +56,7 @@ locking will be revisited for sync and daemon coordination.
 ## Next steps
 
 1. Complete a manual browser auth check with the dedicated test account.
-2. Review implementation plan 000002 and select its execution method.
+2. Complete whole-branch review, open the requested PR, and assess CI/CodeRabbit.
 3. Seed a fresh remote run, inspect it, and
    validate initial sync against its manifest.
 
@@ -82,3 +81,13 @@ state, OS metadata, and environment files while preserving existing project
 credential and binary rules. Go source, module files, mise configuration, and
 environment examples remain trackable. Verified with `git check-ignore` and
 `git diff --check`; no Go code changed.
+
+## Initial sync verification
+
+Offline CLI HTTP integration demonstrates seed → inspect → sync → independent
+verify → no-op repeat → cleanup with page size 2. Recovery tests inject journal
+write failures at intent, transfer, verified-hash, and completion boundaries;
+checksum/version changes, cancellation, and racing destinations fail safely.
+Process tests exercise token/profile/destination exclusion on macOS; Linux runtime
+coverage will run through CI. The Linux cross-build is compilation evidence only.
+The live acceptance command and dedicated-token setup are documented in README.

@@ -79,6 +79,9 @@ func canonicalOptions(opts Options) (Options, error) {
 			return Options{}, err
 		}
 	}
+	if err := privatefs.OutsideGit(opts.ProfileDir); err != nil {
+		return Options{}, err
+	}
 	if within(opts.LocalDir, opts.ProfileDir) || within(opts.ProfileDir, opts.LocalDir) || within(opts.LocalDir, opts.TokenFile) || within(opts.ProfileDir, opts.TokenFile) {
 		return Options{}, errors.New("profile, token, and destination must be separate")
 	}

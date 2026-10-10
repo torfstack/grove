@@ -32,3 +32,20 @@ func NoSymlinks(path string) error {
 	}
 	return nil
 }
+
+func OutsideGit(path string) error {
+	path, err := Canonical(path)
+	if err != nil {
+		return err
+	}
+	for {
+		if _, err := os.Lstat(filepath.Join(path, ".git")); err == nil {
+			return errors.New("private runtime data must be outside Git")
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			return nil
+		}
+		path = parent
+	}
+}

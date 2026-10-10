@@ -145,3 +145,15 @@ func TestLocalHashesDetectEdits(t *testing.T) {
 		t.Fatal("hash missed edit")
 	}
 }
+
+func TestRejectProfileInsideGit(t *testing.T) {
+	dir := t.TempDir()
+	repo := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(filepath.Join(repo, ".git"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	opts := Options{ProfileDir: filepath.Join(repo, "profile"), LocalDir: filepath.Join(dir, "local"), TokenFile: filepath.Join(dir, "token"), RemoteRoot: "root"}
+	if _, err := canonicalOptions(opts); err == nil {
+		t.Fatal("generated IDs allowed inside Git")
+	}
+}

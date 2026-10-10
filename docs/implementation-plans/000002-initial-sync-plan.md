@@ -19,7 +19,8 @@ executables or Drive SDK dependency are needed.
 
 **Spec:** [000002-initial-sync-design.md](../spec/000002-initial-sync-design.md)
 
-Status: proposed implementation plan; awaiting review and execution-method choice.
+Status: approved for native execution; implementation and offline checks complete,
+independent review/PR feedback and live acceptance pending.
 All work remains on `feat/initial-sync`. This plan is not evidence that code exists.
 
 ## Global Constraints
@@ -160,17 +161,17 @@ func NewRoot(services Services) *cobra.Command
 **Consumes:** filesystem paths and Go standard library.
 **Produces:** `Canonical`, `WriteJSON`, `ReadJSON`, `Acquire`, `Lock.Close` above.
 
-- [ ] Write `TestCanonicalAliases`, `TestPrivateRecordRoundTrip`,
+- [x] Write `TestCanonicalAliases`, `TestPrivateRecordRoundTrip`,
   `TestAtomicRecordFailure`, `TestRejectRecordSymlink`, and `TestProcessLock`.
   Assert existing ancestor aliases converge; 0700/0600 modes; failed replacement
   preserves prior bytes; a second process cannot acquire until the first closes.
-- [ ] Run `mise exec -- go test ./internal/privatefs`; require new tests to fail
+- [x] Run `mise exec -- go test ./internal/privatefs`; require new tests to fail
   for missing behavior, then implement confined private record writes with
   same-directory temp, sync, close, rename, and parent-directory sync on Unix.
   Reject malformed/unknown record versions in their owning packages.
-- [ ] Implement nonblocking flock behind Linux/macOS build tags and sanitize errors.
+- [x] Implement nonblocking flock behind Linux/macOS build tags and sanitize errors.
   Preserve lock files rather than unlinking them while a waiter can hold an inode.
-- [ ] Rerun the package tests with `-race`, run required Go checks, then commit
+- [x] Rerun the package tests with `-race`, run required Go checks, then commit
   `feat: add private state storage and process locks` with this task's files only.
 
 ## Task 2: Persistent authenticated sessions
@@ -180,18 +181,18 @@ modify `internal/auth/service.go` and its tests.
 **Consumes:** task 1 locks; existing `LoadRecord`, `LoadClient`, `SaveRecord`, `Scope`.
 **Produces:** `OpenSession`, `Session.Close`, serialized existing Authenticate.
 
-- [ ] Write `TestSessionScopes`, `TestSessionClientMismatch`,
+- [x] Write `TestSessionScopes`, `TestSessionClientMismatch`,
   `TestRefreshPersists`, `TestRefreshRetainsRefreshToken`,
   `TestRefreshSaveFailure`, and `TestAuthSessionExclusion` using fake OAuth endpoints.
   Assert read-only accepts either Drive scope; write requires full Drive scope;
   exactly refreshed token bytes persist; omitted refresh token preserves the old;
   disk failure prevents a successful API request; auth cannot replace a held token.
-- [ ] Run `mise exec -- go test ./internal/auth`; observe the new failures.
-- [ ] Implement session loading only after canonical token lock acquisition; verify
+- [x] Run `mise exec -- go test ./internal/auth`; observe the new failures.
+- [x] Implement session loading only after canonical token lock acquisition; verify
   client ID and scopes, use production Google endpoints and injected test endpoints.
   Wrap refresh with serialized successful `SaveRecord`, sanitize RetrieveError,
   and have Authenticate hold the same lock before any token load/write.
-- [ ] Rerun auth tests with `-race`, required Go checks, and commit
+- [x] Rerun auth tests with `-race`, required Go checks, and commit
   `feat: persist refreshed tokens under an exclusive session lock`.
 
 ## Task 3: Real Drive adapter with offline HTTP coverage
@@ -200,7 +201,7 @@ modify `internal/auth/service.go` and its tests.
 **Consumes:** authenticated `*http.Client`; returns the shared `drive.API` types.
 **Produces:** `NewClient`, `ListAll`, and all API methods above.
 
-- [ ] Write fake-server tests `TestMetadataFields`, `TestListAllPages`,
+- [x] Write fake-server tests `TestMetadataFields`, `TestListAllPages`,
   `TestEmptyPageContinues`, `TestIncompleteListing`, `TestRepeatedPageToken`,
   `TestMediaStreams`, `TestCreateMultipart`, `TestTrash`, `TestRetryCancellation`,
   `TestNoCreateRetry`, `TestCrossOriginRedirect`, and `TestErrorsRedacted`.
@@ -208,14 +209,14 @@ modify `internal/auth/service.go` and its tests.
   incomplete/cyclic pagination fails; uploaded binary bytes are exact; ambiguous
   create invokes POST once; cross-origin redirects never forward authorization;
   errors omit ID/body/content sentinel values.
-- [ ] Run `mise exec -- go test ./internal/drive`; observe new failures.
-- [ ] Implement Drive v3 `/files`, parent/trashed queries, selected metadata fields,
+- [x] Run `mise exec -- go test ./internal/drive`; observe new failures.
+- [x] Implement Drive v3 `/files`, parent/trashed queries, selected metadata fields,
   multipart creation, `alt=media` download, and trash PATCH. Default base URL is
   Google's Drive v3 URL; alternate URLs are explicit test wiring only.
   Retry read-only requests at most three attempts for 429/5xx with injectable
   delay, bounded Retry-After, and context cancellation; never silently retry POST.
   Reject media redirect origins that could receive authorization.
-- [ ] Run HTTP tests, required Go checks, and commit `feat: add testable Drive API adapter`.
+- [x] Run HTTP tests, required Go checks, and commit `feat: add testable Drive API adapter`.
 
 ## Task 4: Deterministic fixture manifest and independent local oracle
 
@@ -223,18 +224,18 @@ modify `internal/auth/service.go` and its tests.
 **Consumes:** task 1 canonical paths and fixture contracts.
 **Produces:** `LoadManifest`, `VerifyLocal`, `Verified`, `Manifest`, `Report`.
 
-- [ ] Write `TestBaselineManifest`, `TestManifestInvalidGraph`,
+- [x] Write `TestBaselineManifest`, `TestManifestInvalidGraph`,
   `TestManifestUnsafePayload`, `TestManifestHashes`, and `TestVerifyExactTree`.
   Assert root uniqueness, valid folder parents, no cycles or duplicate IDs/names;
   reject symlink/escaping payloads; reject wrong sizes/hashes; detect unexpected
   files, missing empty folders, zero-byte mismatches, and non-regular entries.
-- [ ] Run `mise exec -- go test ./internal/fixture`; observe new failures.
-- [ ] Implement strict version-1 manifest decoding and exact safe-name validation.
+- [x] Run `mise exec -- go test ./internal/fixture`; observe new failures.
+- [x] Implement strict version-1 manifest decoding and exact safe-name validation.
   Include deterministic nested text, Unicode, empty folders, zero-byte payload,
   binary payload, and multiple sibling files; commit real expected SHA-256 values.
   Local verification reads payload expectations and actual file bytes independently
   of any sync engine state, rejects symlinks, and honors cancellation.
-- [ ] Rerun tests, required Go checks, and commit `feat: add fixture manifest and independent verification`.
+- [x] Rerun tests, required Go checks, and commit `feat: add fixture manifest and independent verification`.
 
 ## Task 5: Owned fixture seeding, inspection, and cleanup
 
@@ -242,7 +243,7 @@ modify `internal/auth/service.go` and its tests.
 **Consumes:** tasks 1, 3, 4; shared `drive.API` and `Verified`.
 **Produces:** `Seed`, `Inspect`, `Cleanup`, `LoadRun`, `Run`, `Object`.
 
-- [ ] Write `TestSeedFreshRun`, `TestSeedPersistsBeforeNextCreate`,
+- [x] Write `TestSeedFreshRun`, `TestSeedPersistsBeforeNextCreate`,
   `TestAmbiguousRootReconciliation`, `TestAmbiguousChildReconciliation`,
   `TestInspectRemoteHashes`, `TestCleanupOwnedOnly`, `TestCleanupIncompleteScan`,
   `TestCleanupUnknownDescendant`, and `TestCleanupResumes` against the fake HTTP API.
@@ -250,18 +251,18 @@ modify `internal/auth/service.go` and its tests.
   uncertain root found by random properties, no folder-name query; multiple matches
   fail; inspection downloads and checks exact expected bytes; cleanup aborts before
   trash on failed listing/unknown descendants; already missing/trashed IDs are safe.
-- [ ] Run `mise exec -- go test ./internal/fixture`; observe new failures.
-- [ ] Implement random run ownership using `grove_run`/`grove_entry` app properties;
+- [x] Run `mise exec -- go test ./internal/fixture`; observe new failures.
+- [x] Implement random run ownership using `grove_run`/`grove_entry` app properties;
   objects transition pending → created → trashed in `run.json`. Store the validated
   manifest copy. Seed uses topological order, requires a fresh run directory,
   and never resumes creates implicitly after uncertainty. All run operations
   require their caller to hold `run.lock`; the production CLI services in task 9
   acquire it before opening the token session. Inspection reconciles and persists
   pending IDs first. Document that lock contract on the lifecycle entry points.
-- [ ] Implement complete ownership/parent/membership preflight and child-first trash.
+- [x] Implement complete ownership/parent/membership preflight and child-first trash.
   Check ownership again before each PATCH. Stop on permission errors or ambiguous
   objects; never trash a root containing unknown descendants. Retain failed records.
-- [ ] Rerun tests, required Go checks, and commit `feat: add owned Drive fixture lifecycle`.
+- [x] Rerun tests, required Go checks, and commit `feat: add owned Drive fixture lifecycle`.
 
 ## Task 6: Complete remote scanning and deterministic planning
 
@@ -269,7 +270,7 @@ modify `internal/auth/service.go` and its tests.
 **Consumes:** `drive.API`; fixture code remains independent.
 **Produces:** `Snapshot`, `State` types, `Scan`, `BuildPlan`, operation contracts.
 
-- [ ] Write `TestScanSupportedTree`, `TestScanIncompleteNoPlan`,
+- [x] Write `TestScanSupportedTree`, `TestScanIncompleteNoPlan`,
   `TestScanRejectsUnsupported`, `TestScanUnsafeNames`, `TestPlanStableOrder`,
   `TestPlanResume`, `TestPlanNoOp`, and `TestPlanConflicts`.
   Assert every page consumed; root must be an owned My Drive folder; reject
@@ -277,12 +278,12 @@ modify `internal/auth/service.go` and its tests.
   unavailable downloads, and malformed/cyclic trees. Shuffle input and require
   identical plans; unchanged existing hashes yield skip; changed/removed completed
   remote IDs or changed/unexpected local files yield errors, never overwrite/delete.
-- [ ] Run `mise exec -- go test ./internal/syncengine`; observe new failures.
-- [ ] Implement complete recursive preflight and pure stable parent-first planning.
+- [x] Run `mise exec -- go test ./internal/syncengine`; observe new failures.
+- [x] Implement complete recursive preflight and pure stable parent-first planning.
   Fingerprints use identity, path, version, size, and MD5; completed directories
   also preserve identity/path. Support additions only while resuming interrupted
   initial population; freeze completed populations against later additions too.
-- [ ] Rerun tests, required Go checks, and commit `feat: plan initial downloads from complete snapshots`.
+- [x] Rerun tests, required Go checks, and commit `feat: plan initial downloads from complete snapshots`.
 
 ## Task 7: Rooted destinations, profile state, and collision exclusion
 
@@ -290,7 +291,7 @@ modify `internal/auth/service.go` and its tests.
 **Consumes:** task 1 locks/records and task 6 `State`/`Binding`/`LocalEntry`.
 **Produces:** private state load/save, local scan, destination lease used by task 8.
 
-- [ ] Write `TestImmutableBinding`, `TestNewDestinationEmpty`,
+- [x] Write `TestImmutableBinding`, `TestNewDestinationEmpty`,
   `TestRejectStateInsideDestination`, `TestDestinationAliases`,
   `TestNestedDestinationExclusion`, `TestLocalSymlinkRejected`,
   `TestFilesystemNameCollision`, and `TestLocalHashesDetectEdits`.
@@ -299,18 +300,18 @@ modify `internal/auth/service.go` and its tests.
   parent/child destinations conflict across processes; symlinks never traversed;
   collision preflight does not publish downloaded files; changed bytes with preserved
   mtime are detected. Conditional filesystem tests must report skips explicitly.
-- [ ] Run `mise exec -- go test ./internal/syncengine`; observe new failures.
-- [ ] Implement profile `state.json` plus `profile.lock`; canonical destination
+- [x] Run `mise exec -- go test ./internal/syncengine`; observe new failures.
+- [x] Implement profile `state.json` plus `profile.lock`; canonical destination
   registrations in the OS user-state directory, overridable privately for tests.
   Under a short registry lock, reject overlapping registrations and acquire a
   persistent per-destination lock; store immutable profile ownership. Registrations
   remain until an explicit future reset feature; no silent stale-registration removal.
-- [ ] Open destination using `os.OpenRoot` after complete remote preflight; rooted
+- [x] Open destination using `os.OpenRoot` after complete remote preflight; rooted
   operations and explicit symlink rejection constrain all writes. Validate filesystem
   byte/path limits and probe case/normalization behavior with an owned temporary
   probe after remote preflight, before population. Remove only the recorded probe.
   Reject unsupported filesystems if safe validation/publication cannot be guaranteed.
-- [ ] Rerun subprocess tests with `-race`, required Go checks, and commit
+- [x] Rerun subprocess tests with `-race`, required Go checks, and commit
   `feat: protect sync profiles and rooted destinations`.
 
 ## Task 8: Durable, non-replacing download execution
@@ -318,31 +319,31 @@ modify `internal/auth/service.go` and its tests.
 **Files:** create `internal/syncengine/execute.go`, publication OS files, `service.go`, tests.
 **Consumes:** tasks 2, 3, 6, 7; produces `Run(context.Context, Options) (Result, error)`.
 
-- [ ] Write `TestDownloadVerified`, `TestChecksumMismatch`, `TestRemoteChangedDuringDownload`,
+- [x] Write `TestDownloadVerified`, `TestChecksumMismatch`, `TestRemoteChangedDuringDownload`,
   `TestCancellation`, `TestNoWritesOnIncompletePreflight`, `TestNoReplaceRace`,
   `TestRecoveryBoundaries`, `TestDirectoryIntentRecovery`, and `TestSecondRunNoMedia`.
   Inject failures before/after intent, temp creation, verified hash save, publication,
   and completion save. Assert old files preserved, no unverified adoption, owned temp
   cleanup only, one final exact file, and zero second-run downloads/file writes.
   Assert disk-full/close/sync/state-write failures cannot return success.
-- [ ] Run `mise exec -- go test ./internal/syncengine`; observe new failures.
-- [ ] Implement sequential execution with phases intent → downloading → verified
+- [x] Run `mise exec -- go test ./internal/syncengine`; observe new failures.
+- [x] Implement sequential execution with phases intent → downloading → verified
   → complete. Journal the exclusive temporary path before creating it. Stream MD5
   and SHA-256, check length, refetch matching version, sync/close, save verified hash,
   publish with atomic no-replace semantics beneath the root, sync destination parent,
   then save completion. Unix hard-link publication of a closed owned temp followed
   by unlink can supply no-replace semantics; never fall back to replacing rename.
   Fail clearly if the filesystem does not support safe publication.
-- [ ] Recover matching final files from durable verified hashes; reject unjournaled
+- [x] Recover matching final files from durable verified hashes; reject unjournaled
   files and symlinks; restart incomplete transfers from zero. Validate pending
   remote fingerprints before adoption. Complete directories through intent records.
   If the final journal save fails, return failure even if publication succeeded.
   Mark `PopulationComplete` only after every planned operation is durable; reruns
   of completed populations reject remote additions as well as changes/removals.
-- [ ] Implement `Run`: canonicalize, acquire profile/destination/token locks in order,
+- [x] Implement `Run`: canonicalize, acquire profile/destination/token locks in order,
   scan completely, inspect local state, recover, plan, execute, close resources with
   checked behavioral errors. Use injectable private collaborators for fault tests.
-- [ ] Rerun tests with `-race`, required Go checks, and commit
+- [x] Rerun tests with `-race`, required Go checks, and commit
   `feat: execute verified initial downloads with durable recovery`.
 
 ## Task 9: CLI services and executable workflow
@@ -351,19 +352,19 @@ modify `internal/auth/service.go` and its tests.
 **Consumes:** auth and fixture/syncengine services.
 **Produces:** root command exposing exactly the approved spec command surface.
 
-- [ ] Write `TestFixtureFlags`, `TestSyncFlags`, `TestHelpNoCredentials`,
+- [x] Write `TestFixtureFlags`, `TestSyncFlags`, `TestHelpNoCredentials`,
   `TestCommandCancellation`, and `TestCLIOutputRedacted` with injected functions.
   Assert required flags/nonempty values, no positional args, exact option forwarding,
   verify needs no token, read/write scope selection, no I/O on help, and only counts
   or private record paths in output; provider/ID/content sentinels never appear.
-- [ ] Run `mise exec -- go test ./internal/cli`; observe new failures.
-- [ ] Replace `NewRoot(AuthenticateFunc)` with `NewRoot(Services)` in root.go;
+- [x] Run `mise exec -- go test ./internal/cli`; observe new failures.
+- [x] Replace `NewRoot(AuthenticateFunc)` with `NewRoot(Services)` in root.go;
   use the exact Services and FixtureOptions contracts above. Fixture service
   closures acquire run lock before `OpenSession`; lifecycle helpers from task 5
   assume that lock is held and never reacquire it. Keep service wiring in
   `cmd/grove/services.go` with adjacent integration tests so main stays small.
   Adapt existing auth tests and main wiring. Preserve existing auth UX and cancellation.
-- [ ] Exercise CLI against fake endpoints in integration tests, run required Go
+- [x] Exercise CLI against fake endpoints in integration tests, run required Go
   checks, build, check root/subcommand help, and commit `feat: expose fixture and initial sync commands`.
 
 ## Task 10: Explicit live suite, documentation, and final verification
@@ -372,25 +373,25 @@ modify `internal/auth/service.go` and its tests.
 docs/STATUS.md, TESTBED.md, ARCHITECTURE.md, PRODUCT.md, ROADMAP.md as applicable.
 **Consumes:** complete fixture/CLI/engine workflow; produces reproducible live handoff.
 
-- [ ] Write `TestLiveConfiguration` without Google calls: disabled suite skips before
+- [x] Write `TestLiveConfiguration` without Google calls: disabled suite skips before
   credential loading; enabled suite rejects missing/relative paths, repository paths,
   default personal token path, and token/run/profile destinations that overlap.
   Use private configuration validation so table tests do not change real credentials.
-- [ ] Add `TestInitialSyncLive`: create private run/profile/local directories beneath
+- [x] Add `TestInitialSyncLive`: create private run/profile/local directories beneath
   the configured external runs directory; load read-write session; force page size 2;
   seed → inspect → sync → independent verify → second sync. Count media requests
   in the transport and require zero on the second run. Success cleans owned objects;
   failure retains records and reports only the private record path. Optional live
   cancellation uses a separate explicitly enabled case.
-- [ ] Add `mise run test-live` using `go test -count=1 -v ./tests/live`; explicitly
+- [x] Add `mise run test-live` using `go test -count=1 -v ./tests/live`; explicitly
   require `GROVE_LIVE_TEST=1` in the task. Default `go test ./...` includes the package
   but skips real API tests. Keep pinned tools and offline CI unchanged.
-- [ ] Document exact local auth and fixture commands, private paths, successful
+- [x] Document exact local auth and fixture commands, private paths, successful
   cleanup/failed-run retention, no-op criteria, supported names/types, and initial-only
   semantics. Record implemented architecture and agreed scope in the affected docs;
   add a decision record if execution changes a consequential choice rather than
   silently treating a deviation as approved.
-- [ ] Run `mise run fmt`, `mise run lint`, `mise run test`, `mise run test-race`,
+- [x] Run `mise run fmt`, `mise run lint`, `mise run test`, `mise run test-race`,
   `mise run build`, and `mise exec -- env GOOS=linux GOARCH=amd64 go build -o
   bin/grove-linux-amd64 ./cmd/grove`; require exit 0. Run `git diff --check`.
   Cross-compilation is not evidence of Linux lock/filesystem runtime behavior;
@@ -398,7 +399,7 @@ docs/STATUS.md, TESTBED.md, ARCHITECTURE.md, PRODUCT.md, ROADMAP.md as applicabl
 - [ ] Run live tests only when explicitly enabled with the dedicated local token.
   Record actual outcomes; if authentication is unavailable, finish offline work
   and record live acceptance as pending rather than claiming full demonstration.
-- [ ] Commit verified code/doc changes. Review the full branch against the spec
+- [x] Commit verified code/doc changes. Review the full branch against the spec
   using the chosen execution method. Opening a PR is a separate requested action;
   if opened non-draft, wait for latest CI/CodeRabbit and assess every finding per AGENTS.md.
 
@@ -414,3 +415,16 @@ before implementation. Native is recommended because the tasks build sequentiall
 on shared contracts and keep one cohesive feature branch; perform a fresh whole-
 branch review at the end. Subagent-driven execution adds independent task reviews
 at the cost of fresh implementation and review contexts per task.
+
+## Execution record
+
+Implemented natively on `feat/initial-sync`. Runtime code uses a shared Unix
+publication boundary and an injectable sync service, preserving lock-before-token
+ordering. Fixture fault tests use an in-memory API, complemented by adapter HTTP
+coverage and the complete CLI HTTP workflow. Destination registrations retain
+ownership until a future reset operation; this limitation is documented.
+
+Offline/race suites and formatting/lint passed; native and Linux builds passed.
+Live tests remain explicitly disabled pending dedicated-account authentication.
+An optional live cancellation case is deferred: cancellation/recovery has
+repeatable offline coverage; the enabled live suite demonstrates the baseline.

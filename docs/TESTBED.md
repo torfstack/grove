@@ -1,7 +1,8 @@
 # Drive testbed
 
 The agreed approach is a dedicated disposable Google account plus a versioned
-fixture manifest. The details below are a proposed design for implementation.
+fixture manifest. The baseline workflow is implemented on `feat/initial-sync`; real Drive execution
+remains pending local test-account authentication.
 
 ## Google setup (user)
 
@@ -26,7 +27,7 @@ Sources: [Go quickstart](https://developers.google.com/workspace/drive/api/quick
 [Drive scopes](https://developers.google.com/workspace/drive/api/guides/api-specific-auth),
 [token expiration](https://developers.google.com/identity/protocols/oauth2#expiration).
 
-## Repeatable fixtures (proposed)
+## Repeatable fixtures
 
 Commit a manifest with logical entry IDs, parent relationships, Drive names,
 entry types, deterministic content, and content hashes. Use relationships rather
@@ -64,4 +65,13 @@ records without credentials for investigation.
 Authenticate as the test account, seed the baseline fixture, download it to an
 empty local directory, verify expected content, and repeat the sync without
 unnecessary transfers. Record failures and preserve enough run state to inspect
-them. CLI syntax and storage formats will be settled in the implementation design.
+them. Command syntax and private records are defined in
+[spec 000002](spec/000002-initial-sync-design.md) and implemented by the paired plan.
+
+Run `mise run test-live` with `GROVE_LIVE_TEST=1`, an absolute dedicated
+`GROVE_TEST_TOKEN_FILE`, and an absolute `GROVE_TEST_RUNS_DIR` outside Git. The
+suite uses page size 2, seeds a new root, independently verifies content, checks
+zero second-run media requests and unchanged local mtimes, then cleans up on
+success. Failed runs retain their private records and remote data. Offline tests
+cover interruption/recovery and use a local HTTP Drive server for the full CLI
+workflow. Public CI does not receive credentials. See README for executable setup.

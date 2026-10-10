@@ -209,3 +209,16 @@ func TestCleanupResumes(t *testing.T) {
 		t.Fatal("invalid run record")
 	}
 }
+
+func TestCleanupUnresolvedCreate(t *testing.T) {
+	api := newFake()
+	dir := filepath.Join(t.TempDir(), "run")
+	manifest := baseline(t).Manifest
+	run := Run{Version: 1, RunID: "0123456789abcdef0123456789abcdef", Manifest: manifest, Objects: []Object{{LogicalID: "root", Status: "pending"}}}
+	if err := saveRun(dir, run); err != nil {
+		t.Fatal(err)
+	}
+	if err := Cleanup(context.Background(), api, dir); err == nil {
+		t.Fatal("unresolved create reported cleaned")
+	}
+}

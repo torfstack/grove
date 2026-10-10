@@ -1,6 +1,6 @@
 # Initial download sync and Drive fixtures
 
-Date: 2026-10-10. Status: approved for implementation planning.
+Date: 2026-10-10. Status: approved; implemented with offline verification, live acceptance pending.
 
 ## Intent and agreed scope
 
