@@ -89,9 +89,9 @@ fresh Linux execution; cross-builds provide compilation evidence only.
 
 ## Next steps
 
-1. Open the authorized incremental-download PR and wait for latest Linux CI and
-   CodeRabbit feedback; assess and fix actionable findings. Whole-branch independent
-   review is complete, and its important findings are addressed.
+1. [PR #6](https://github.com/torfstack/grove/pull/6) is open. Wait for latest Linux
+   CI and CodeRabbit feedback; assess and fix actionable findings. Whole-branch
+   independent review is complete, and its important findings are addressed.
 2. Run the explicitly enabled incremental live suite on the dedicated account,
    and obtain Linux runtime evidence. No credentials were loaded during this work.
 3. Integrate the branch when authorized. Uploads, deletion propagation, and
