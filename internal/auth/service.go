@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"github.com/torfstack/grove/internal/privatefs"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -40,6 +41,15 @@ func (s Service) Authenticate(parent context.Context, opts Options) (string, err
 	if err != nil {
 		return "", errors.New("cannot resolve token file path")
 	}
+	lockPath, err := privatefs.Canonical(path)
+	if err != nil {
+		return "", err
+	}
+	lock, err := privatefs.Acquire(lockPath + ".lock")
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = lock.Close() }()
 	if err = checkDestination(path); err != nil {
 		return "", err
 	}

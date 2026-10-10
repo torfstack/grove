@@ -26,11 +26,11 @@ func TestAuthFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			called := false
 			var opts auth.Options
-			root := NewRoot(func(ctx context.Context, o auth.Options) (string, error) {
+			root := NewRoot(Services{Authenticate: func(ctx context.Context, o auth.Options) (string, error) {
 				called = true
 				opts = o
 				return "saved.json", nil
-			})
+			}})
 			var out bytes.Buffer
 			root.SetOut(&out)
 			root.SetErr(&out)

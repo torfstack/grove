@@ -1,6 +1,7 @@
 # Architecture
 
-Authentication is implemented; sync and daemon packages remain to be designed.
+Authentication, the Drive fixture lifecycle, and initial download sync are
+implemented. Incremental sync and daemon orchestration remain to be designed.
 
 ## Current authentication implementation
 
@@ -16,8 +17,9 @@ the response. Its five-minute deadline and parent context support cancellation.
 
 Credentials remain outside the repo. Tokens are plaintext 0600 files under the
 OS user config directory or an explicit path; newly created directories are 0700.
-Auth locking is deferred, so the last successful atomic write wins. Windows auth
-and persistent refresh updates are deferred.
+Auth and API sessions serialize canonical-token-path access with OS locks.
+Successful refreshes are persisted atomically, preserving an omitted refresh
+token; persistence failures fail the request. Windows auth remains deferred.
 
 ## Binaries and shared engine
 
@@ -42,3 +44,33 @@ through a running daemon.
 
 Linux background integration is planned as a systemd user service. Other
 platforms will supply their own process lifecycle integration.
+
+## Initial sync and fixture implementation
+
+`internal/drive` implements a narrow Drive v3 HTTP adapter with explicit metadata,
+complete pagination, sanitized errors, bounded read retries, and no blind create
+retries. `internal/fixture` validates a versioned manifest and independently
+checks downloaded membership and SHA-256 content. Seed journals create intents
+and confirmed IDs; inspect reconciles uncertain outcomes through random ownership
+properties; cleanup validates all descendants before child-first trash.
+
+`internal/syncengine` scans a complete supported remote tree, scans/hash-checks
+local files, plans deterministic operations, and executes sequentially under a
+profile and canonical destination lease. Root-confined operations reject symlinks.
+A private journal tracks download intents, exclusive temporary paths, verified
+hashes, and completion. Unix hard-link publication cannot replace a destination;
+verified final files can be adopted after interrupted completion recording.
+Files use size/MD5 checks and a post-transfer version check before publication.
+
+`internal/privatefs` supplies atomic owner-only JSON records and nonblocking
+process locks. A private destination registry prevents overlapping profile
+bindings. Directory-inode leases, shared ancestor locks, and a sibling lock file
+exclude aliases and nested writers across registry locations. Destination parents
+must already exist; creating an unleased parent tree is not supported. `cmd/grove/services.go` opens authentication after the profile/run locks;
+CLI commands receive injected services. The engine's injectable `Service` supports
+HTTP integration tests and the future daemon without spawning the CLI.
+
+State and fixtures remain outside the downloaded tree. Completed populations
+reject later remote additions, modifications, renames, and removals; no deletion
+or overwrite operations exist. This is not a transactionally consistent remote
+snapshot. Live account access remains unverified until the opt-in suite is run.

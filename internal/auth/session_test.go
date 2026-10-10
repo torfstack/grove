@@ -1,0 +1,166 @@
+package auth
+
+import (
+	"context"
+	"golang.org/x/oauth2"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+)
+
+func sessionRecord(t *testing.T, scope string) (string, Record) {
+	t.Helper()
+	dir := t.TempDir()
+	client := filepath.Join(dir, "client.json")
+	if err := os.WriteFile(client, []byte(`{"installed":{"client_id":"test-client","client_secret":"synthetic-secret"}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	r := Record{Version: 1, ClientID: "test-client", ClientSecretPath: client, Scopes: []string{scope}, Token: &oauth2.Token{AccessToken: "synthetic-access", RefreshToken: "synthetic-refresh", TokenType: "Bearer", Expiry: time.Now().Add(time.Hour)}}
+	path := filepath.Join(dir, "token.json")
+	if err := SaveRecord(path, r); err != nil {
+		t.Fatal(err)
+	}
+	return path, r
+}
+func TestSessionScopes(t *testing.T) {
+	for _, tc := range []struct {
+		scope, access string
+		ok            bool
+	}{{"read-only", "read-only", true}, {"read-write", "read-only", true}, {"read-only", "read-write", false}, {"read-write", "read-write", true}} {
+		scope, _ := Scope(tc.scope)
+		path, _ := sessionRecord(t, scope)
+		s, err := OpenSession(context.Background(), path, tc.access)
+		if (err == nil) != tc.ok {
+			t.Fatalf("scope validation: %v", err)
+		}
+		if s != nil {
+			if err := s.Close(); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}
+func TestSessionClientMismatch(t *testing.T) {
+	scope, _ := Scope("read-only")
+	path, r := sessionRecord(t, scope)
+	r.ClientID = "different"
+	if err := SaveRecord(path, r); err != nil {
+		t.Fatal(err)
+	}
+	s, err := OpenSession(context.Background(), path, "read-only")
+	if s != nil {
+		_ = s.Close()
+	}
+	if err == nil {
+		t.Fatal("accepted mismatched client")
+	}
+}
+func TestRefreshPersists(t *testing.T)            { testRefresh(t, "new-refresh", false) }
+func TestRefreshRetainsRefreshToken(t *testing.T) { testRefresh(t, "", false) }
+func TestRefreshSaveFailure(t *testing.T)         { testRefresh(t, "", true) }
+func testRefresh(t *testing.T, refresh string, fail bool) {
+	t.Helper()
+	scope, _ := Scope("read-only")
+	path, r := sessionRecord(t, scope)
+	r.Token.Expiry = time.Now().Add(-time.Hour)
+	if err := SaveRecord(path, r); err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"new-access","token_type":"Bearer","expires_in":3600,"refresh_token":"` + refresh + `"}`))
+	}))
+	defer server.Close()
+	save := SaveRecord
+	if fail {
+		save = func(string, Record) error { return os.ErrPermission }
+	}
+	s, err := openSession(context.Background(), path, "read-only", oauth2.Endpoint{TokenURL: server.URL}, save)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = s.Close() }()
+	resp, err := s.HTTPClient.Get(server.URL)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
+	if fail {
+		if err == nil {
+			t.Fatal("save failure ignored")
+		}
+		return
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadRecord(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := refresh
+	if want == "" {
+		want = "synthetic-refresh"
+	}
+	if got.Token.AccessToken != "new-access" || got.Token.RefreshToken != want {
+		t.Fatal("refresh not persisted")
+	}
+}
+func TestAuthSessionExclusion(t *testing.T) {
+	scope, _ := Scope("read-only")
+	path, record := sessionRecord(t, scope)
+	s, err := OpenSession(context.Background(), path, "read-only")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = s.Close() }()
+	if _, err := OpenSession(context.Background(), path, "read-only"); err == nil {
+		t.Fatal("parallel session accepted")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	service := Service{Flow: Flow{Output: io.Discard}}
+	_, err = service.Authenticate(ctx, Options{TokenFile: path, ClientSecret: record.ClientSecretPath, Access: "read-only"})
+	if err == nil || !strings.Contains(err.Error(), "locked") {
+		t.Fatalf("expected token lock refusal, got %v", err)
+	}
+}
+
+func TestRefreshRedirectNeverForwardsCredentials(t *testing.T) {
+	for _, code := range []int{http.StatusTemporaryRedirect, http.StatusPermanentRedirect} {
+		t.Run(http.StatusText(code), func(t *testing.T) {
+			var calls atomic.Int64
+			target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"access_token":"new","token_type":"Bearer","expires_in":3600}`))
+			}))
+			defer target.Close()
+			source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, target.URL, code) }))
+			defer source.Close()
+			scope, _ := Scope("read-only")
+			path, r := sessionRecord(t, scope)
+			r.Token.Expiry = time.Now().Add(-time.Hour)
+			if err := SaveRecord(path, r); err != nil {
+				t.Fatal(err)
+			}
+			session, err := openSession(context.Background(), path, "read-only", oauth2.Endpoint{TokenURL: source.URL}, SaveRecord)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = session.Close() }()
+			resp, requestErr := session.HTTPClient.Get(source.URL)
+			if resp != nil {
+				_ = resp.Body.Close()
+			}
+			if calls.Load() != 0 || requestErr == nil {
+				t.Fatal("refresh redirect forwarded credentials")
+			}
+		})
+	}
+}
