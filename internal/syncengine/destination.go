@@ -21,6 +21,13 @@ type registryRecord struct {
 }
 
 func registerDestination(dir, profile, destination string) (*privatefs.Lock, error) {
+	var err error
+	for _, path := range []*string{&dir, &profile, &destination} {
+		*path, err = privatefs.Canonical(*path)
+		if err != nil {
+			return nil, err
+		}
+	}
 	guard, err := privatefs.Acquire(filepath.Join(dir, "registry.lock"))
 	if err != nil {
 		return nil, err
