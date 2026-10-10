@@ -10,7 +10,8 @@
 
 **Spec:** [Approved spec 000003](../spec/000003-incremental-download-design.md).
 
-**Status:** Approved for native execution; implementation in progress.
+**Status:** Implemented with offline verification and independent review.
+Incremental live acceptance and latest PR CI/CodeRabbit verification remain pending.
 
 ## Global constraints
 
@@ -99,9 +100,15 @@ Successful atomic JSON persistence is required before the next transition.
 | committed; target new, backup old or absent | Complete hash-checked cleanup and clear pending. |
 | any phase; unexpected target, backup, or verified-stage bytes/types | Stop and preserve paths; do not adopt or delete unexpected content. |
 
-An unverified stage is removable only through its durable exclusive intent; a
+A cancelled replacement verifies old target and absent backup, then cleans the
+hash-verified stage before clearing intent. Cancellation is persisted before
+cleanup so an interrupted cleanup can resume independently of remote metadata.
+
+An unverified stage is removable only through recorded creation ownership; a
 verified stage must match its recorded hash. If unpublished remote content changes,
-stop preserving old backup and stage; do not replace with stale staged content.
+preserve old backup and stage after tracked paths have changed; do not publish
+stale staged content. Before any tracked mutation, verified old target plus absent
+backup permits durable cancellation, hash-checked stage cleanup, and replanning.
 Already published verified content can be adopted regardless of a later remote
 edit, which the subsequent plan will reconcile. There may be a temporary missing
 target between backup and publication; the operation is recoverable, not a claim
@@ -116,7 +123,7 @@ then persist new baseline with `committed` pending. Clear pending atomically.
 
 | Observed source / destination | Restart action |
 |---|---|
-| Source matches old subtree; destination absent | Revalidate remote path and resume rename. |
+| Source matches old subtree; destination absent | Revalidate remote path and resume rename; cancel untouched intent if metadata changed, then replan. |
 | Source absent; destination matches transformed subtree | Adopt move, persist baseline, clear pending. |
 | Both present, both absent, or unexpected membership/content | Stop and preserve all paths. |
 
@@ -346,7 +353,7 @@ review should focus on the restart matrices and folder-move ordering. Delegated
 task-by-task implementation is available if the user prefers intermediate reviews.
 
 Planning verification: self-review for spec coverage, interfaces, migration,
-recovery, scope and review-focus tests; no implementation or live tests run yet.
+recovery, scope and review-focus tests. See STATUS for implementation results.
 
 ## References
 

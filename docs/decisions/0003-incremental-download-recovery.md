@@ -34,3 +34,10 @@ recovery and are preserved; verified downloads also require their saved hash.
 A crash between creation and ownership persistence may require manual inspection.
 Legacy version-1 downloads use their original durable downloading phase and
 verified hash; legacy probe cleanup additionally checks type and empty content.
+
+CodeRabbit identified permanently stale intents before any tracked mutation.
+Recovery now clears an untouched move intent when metadata changed. An unpublished
+replacement with verified old target and absent backup first records cancellation,
+then removes only its verified stage and clears the journal. API failures retain
+intent; states after tracked mutation retain the original preservation policy.
+This recovery refinement requires no local conflict resolution or baseline change.

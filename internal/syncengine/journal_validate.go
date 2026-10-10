@@ -40,7 +40,7 @@ func validateJournal(j Journal, baseline []Completed) error {
 		if len(op.Before) != 1 || op.Before[0].Kind != "file" || op.Before[0].Path != op.Entry.Path || op.Before[0].RemoteID != op.Entry.Remote.ID {
 			return errors.New("invalid replacement identity")
 		}
-		if j.Phase != "intent" && j.Phase != "verified" && j.Phase != "backed-up" && j.Phase != "committed" {
+		if j.Phase != "intent" && j.Phase != "cancelled" && j.Phase != "verified" && j.Phase != "backed-up" && j.Phase != "committed" {
 			return errors.New("invalid replacement phase")
 		}
 		for _, artifact := range []struct{ path, prefix string }{{j.TempPath, ".grove-download-"}, {j.BackupPath, ".grove-backup-"}} {

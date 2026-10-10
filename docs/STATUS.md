@@ -80,20 +80,24 @@ independent verification → no-op → owned cleanup; journal-save interruption,
 malformed records, local conflicts, remote changes during download, and filesystem
 case aliases also have regression coverage. Independent review found temporary/
 probe ownership gaps, a pending-path collision, and superficial migration tests.
-Formatting, lint (0 issues), full offline/race tests, native macOS build, Linux
-amd64 cross-build, and diff checks pass after the review fixes.
 These are fixed with persisted artifact identities, verified-stage hash checks,
-collision validation, and actual version-1 recovery/save-failure tests. Incremental live acceptance is pending
-explicit dedicated-account enablement. Linux runtime/live evidence remains pending
-fresh Linux execution; cross-builds provide compilation evidence only.
+collision validation, and actual version-1 recovery/save-failure tests.
+Formatting, lint (0 issues), full offline/race tests, native macOS build, Linux
+amd64 cross-build, and diff checks pass after the review fixes. Incremental live
+acceptance is pending
+explicit dedicated-account enablement. Linux CI passed lint, offline tests, race
+tests, and the CLI build on `a0e57d8`; dependency review and CodeQL also passed.
+CodeRabbit posted four findings on that commit: stale untouched intents blocking
+recovery, x/sys incorrectly marked indirect, and two documentation inconsistencies.
+All are addressed; fresh verification/review remains pending.
 
 ## Next steps
 
 1. [PR #6](https://github.com/torfstack/grove/pull/6) is open. Wait for latest Linux
    CI and CodeRabbit feedback; assess and fix actionable findings. Whole-branch
    independent review is complete, and its important findings are addressed.
-2. Run the explicitly enabled incremental live suite on the dedicated account,
-   and obtain Linux runtime evidence. No credentials were loaded during this work.
+2. Run the explicitly enabled incremental live suite on the dedicated account.
+   No credentials were loaded during this work.
 3. Integrate the branch when authorized. Uploads, deletion propagation, and
    automatic conflict resolution remain separate later designs.
 

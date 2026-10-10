@@ -11,13 +11,19 @@ import (
 
 func (e *executor) recover(ctx context.Context, snapshot Snapshot) error {
 	if e.state.Transaction != nil {
-		if e.state.Transaction.Operation.Kind == OpMove {
-			return e.recoverMove(ctx)
+		var err error
+		switch e.state.Transaction.Operation.Kind {
+		case OpMove:
+			err = e.recoverMove(ctx)
+		case OpReplace:
+			err = e.recoverReplace(ctx)
+		default:
+			return errors.New("unsupported pending operation")
 		}
-		if e.state.Transaction.Operation.Kind == OpReplace {
-			return e.recoverReplace(ctx)
+		if errors.Is(err, errPendingRemoteChanged) && e.state.Transaction == nil {
+			return nil
 		}
-		return errors.New("unsupported pending operation")
+		return err
 	}
 	p := e.state.Pending
 	if p == nil {

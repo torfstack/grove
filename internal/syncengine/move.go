@@ -89,6 +89,11 @@ func (e *executor) recoverMove(ctx context.Context) error {
 			return errors.New("committed move source reappeared")
 		}
 		if err = e.currentRemote(ctx, j.Operation.Entry); err != nil {
+			if errors.Is(err, errPendingRemoteChanged) {
+				if clearErr := e.clearJournal(); clearErr != nil {
+					return clearErr
+				}
+			}
 			return err
 		}
 		if err = moveNoReplace(e.root, source.Path, j.Operation.Entry.Path); err != nil {

@@ -39,14 +39,14 @@ func (e *executor) recoverReplace(ctx context.Context) error {
 	j := *e.state.Transaction
 	old := j.Operation.Before[0]
 	target := j.Operation.Entry.Path
-	if j.Phase == "intent" {
+	if j.Phase == "intent" || j.Phase == "cancelled" {
 		if err := e.requireFile(ctx, target, old); err != nil {
 			return err
 		}
 		if _, err := e.root.Lstat(j.BackupPath); !errors.Is(err, os.ErrNotExist) {
 			return errors.New("unexpected replacement backup")
 		}
-		if err := e.removeTemp(ctx, j.TempPath, j.TempIdentity, "", 0, false); err != nil {
+		if err := e.removeTemp(ctx, j.TempPath, j.TempIdentity, j.VerifiedSHA256, j.Operation.Entry.Remote.Size, false); err != nil {
 			return err
 		}
 		if err := e.parentSync(j.TempPath); err != nil {
@@ -94,6 +94,18 @@ func (e *executor) recoverReplace(ctx context.Context) error {
 		return errors.New("verified replacement stage missing")
 	}
 	if err = e.currentRemote(ctx, j.Operation.Entry); err != nil {
+		if errors.Is(err, errPendingRemoteChanged) && j.Phase == "verified" && present && !backup {
+			if oldErr := e.requireFile(ctx, target, old); oldErr != nil {
+				return oldErr
+			}
+			j.Phase = "cancelled"
+			if saveErr := e.journal(j); saveErr != nil {
+				return saveErr
+			}
+			if cleanupErr := e.recoverReplace(ctx); cleanupErr != nil {
+				return cleanupErr
+			}
+		}
 		return err
 	}
 	if present {

@@ -9,6 +9,8 @@ import (
 	"os"
 )
 
+var errPendingRemoteChanged = errors.New("pending remote entry changed")
+
 func (e *executor) persist(next State) error {
 	previous := *e.state
 	*e.state = next
@@ -95,7 +97,7 @@ func (e *executor) currentRemote(ctx context.Context, entry Entry) error {
 		return err
 	}
 	if current.Trashed || !current.OwnedByMe || current.Name != entry.Remote.Name || len(current.Parents) != 1 || len(entry.Remote.Parents) != 1 || current.Parents[0] != entry.Remote.Parents[0] || current.Version != entry.Remote.Version || current.MD5 != entry.Remote.MD5 || current.Size != entry.Remote.Size {
-		return errors.New("pending remote entry changed")
+		return errPendingRemoteChanged
 	}
 	return nil
 }
