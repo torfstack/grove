@@ -10,6 +10,7 @@ type Run struct {
 	Version  int      `json:"version"`
 	RunID    string   `json:"run_id"`
 	Manifest Manifest `json:"manifest"`
+	Change   *Change  `json:"change,omitempty"`
 	Objects  []Object `json:"objects"`
 }
 type Object struct {

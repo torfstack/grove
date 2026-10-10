@@ -59,35 +59,44 @@ func Seed(ctx context.Context, api drive.API, v Verified, dir string) (Run, erro
 		if e.Parent != "" && parent == "" {
 			return run, errors.New("fixture parent has not been created")
 		}
-		run.Objects = append(run.Objects, Object{LogicalID: e.ID, ParentID: parent, Status: "pending"})
-		if err = saveRun(dir, run); err != nil {
-			return run, err
-		}
-		input := drive.Create{Name: e.Name, ParentID: parent, Properties: map[string]string{"grove_run": run.RunID, "grove_entry": e.ID}, MIMEType: drive.FolderMIME}
-		var content *bytes.Reader
-		if e.Kind == "file" {
-			input.MIMEType = "application/octet-stream"
-			content = bytes.NewReader(payloads[e.ID])
-		}
-		var f drive.File
-		if content == nil {
-			f, err = api.Create(ctx, input, nil)
-		} else {
-			f, err = api.Create(ctx, input, content)
-		}
+		id, err := createRecorded(ctx, api, dir, &run, e, parent, payloads[e.ID])
 		if err != nil {
-			return run, errors.New("fixture create failed; inspect the saved run before cleanup")
-		}
-		if f.ID == "" {
-			return run, errors.New("fixture create outcome is uncertain")
-		}
-		ids[e.ID] = f.ID
-		last := len(run.Objects) - 1
-		run.Objects[last].RemoteID = f.ID
-		run.Objects[last].Status = "created"
-		if err = saveRun(dir, run); err != nil {
 			return run, err
 		}
+		ids[e.ID] = id
 	}
 	return run, nil
+}
+
+func createRecorded(ctx context.Context, api drive.API, dir string, run *Run, e Entry, parent string, payload []byte) (string, error) {
+	var err error
+	run.Objects = append(run.Objects, Object{LogicalID: e.ID, ParentID: parent, Status: "pending"})
+	if err = saveRun(dir, *run); err != nil {
+		return "", err
+	}
+	input := drive.Create{Name: e.Name, ParentID: parent, Properties: map[string]string{"grove_run": run.RunID, "grove_entry": e.ID}, MIMEType: drive.FolderMIME}
+	var content *bytes.Reader
+	if e.Kind == "file" {
+		input.MIMEType = "application/octet-stream"
+		content = bytes.NewReader(payload)
+	}
+	var f drive.File
+	if content == nil {
+		f, err = api.Create(ctx, input, nil)
+	} else {
+		f, err = api.Create(ctx, input, content)
+	}
+	if err != nil {
+		return "", errors.New("fixture create failed; inspect the saved run before cleanup")
+	}
+	if f.ID == "" {
+		return "", errors.New("fixture create outcome is uncertain")
+	}
+	last := len(run.Objects) - 1
+	run.Objects[last].RemoteID = f.ID
+	run.Objects[last].Status = "created"
+	if err = saveRun(dir, *run); err != nil {
+		return "", err
+	}
+	return f.ID, nil
 }

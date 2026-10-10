@@ -101,6 +101,9 @@ func Inspect(ctx context.Context, api drive.API, dir string) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
+	if err = reconcileMutation(ctx, api, dir, &r); err != nil {
+		return Report{}, err
+	}
 	if err = reconcile(ctx, api, dir, &r); err != nil {
 		return Report{}, err
 	}

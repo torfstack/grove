@@ -177,7 +177,11 @@ func TestServiceMigratesV1AndRecordsMetadata(t *testing.T) {
 	if _, err := service.Run(ctx, opts); err != nil {
 		t.Fatal(err)
 	}
-	binding := Binding{RemoteRoot: opts.RemoteRoot, LocalDir: opts.LocalDir, TokenFile: opts.TokenFile}
+	canonical, err := canonicalOptions(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding := Binding{RemoteRoot: canonical.RemoteRoot, LocalDir: canonical.LocalDir, TokenFile: canonical.TokenFile}
 	s, err := loadState(opts.ProfileDir, binding)
 	if err != nil {
 		t.Fatal(err)

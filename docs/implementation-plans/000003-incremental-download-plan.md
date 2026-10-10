@@ -292,22 +292,22 @@ Keep sync dependent only on `drive.API`. Expose
 `fixture.ApplyChanges(context.Context, drive.MutationAPI, string, Manifest) error`
 for test use, accepting an expected target manifest with retained logical IDs.
 
-- [ ] Write `TestUpdateHTTP` for metadata patch, media replacement, parent change,
+- [x] Write `TestUpdateHTTP` for metadata patch, media replacement, parent change,
   sanitized errors, and no blind mutation retry. Verify request shapes against
   official Drive files.update documentation before implementation.
-- [ ] Write `TestFixtureChangesOwnedOnly`: unknown descendants, parent/ownership
+- [x] Write `TestFixtureChangesOwnedOnly`: unknown descendants, parent/ownership
   mismatch, and incomplete listing fail before mutation. Journal each intended
   change, confirmed metadata, and target manifest; keep unchanged ownership tags.
   Additions reuse seed reconciliation, not a new create lifecycle.
-- [ ] Run `mise exec -- go test ./internal/drive ./internal/fixture -count=1`; confirm failures.
-- [ ] Implement minimal fixture update support. Ambiguous updates stop with
+- [x] Run `mise exec -- go test ./internal/drive ./internal/fixture -count=1`; confirm failures.
+- [x] Implement minimal fixture update support. Ambiguous updates stop with
   retained record; inspection reconciles by owned ID, parents, name, size and hash.
   Cleanup understands pending/confirmed parent changes and new recorded additions;
   never trash unrecorded data. Reject deletion/type-change target manifests.
-- [ ] Add fake-HTTP fixture change → inspect → sync → independently verify →
+- [x] Add fake-HTTP fixture change → inspect → sync → independently verify →
   no-op → cleanup coverage, including interrupted mutation reconciliation.
   Run offline packages with `-race`; require PASS.
-- [ ] Add `TestIncrementalSyncLive` using existing gated config and session helper:
+- [x] Add `TestIncrementalSyncLive` using existing gated config and session helper:
   seed baseline, initial sync, apply additions/updates/file and folder moves,
   inspect, incremental sync, independent target-manifest verification, no-op, cleanup.
   Run `mise run test` to confirm it skips without loading credentials. Execute
