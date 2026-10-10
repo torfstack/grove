@@ -1,8 +1,8 @@
-# 0004: Explicit uploads with guarded remote updates
+# 0004: Explicit uploads with revision-aware conflict recovery
 
-Date: 2026-10-10. Status: proposal; detailed design awaits user review.
+Date: 2026-10-10. Status: accepted.
 
-## Direction and proposed decision
+## Decision
 
 The user requested a local-upload spec after completion of incremental downloads.
 [Spec 000004](../spec/000004-local-upload-design.md) proposes extending the shared
@@ -12,15 +12,23 @@ by the shared engine and consumed through service methods by both CLI and daemon
 Journal immutable upload snapshots and reconcile uncertain creates through durable
 pre-generated IDs. Deletions and local moves are deferred.
 
-Existing-file updates must have demonstrated server-enforced preconditions;
-preflight metadata checks alone cannot protect competing remote edits. The current
-fixture Update method provides no such guard. Drive v3 conditional media-update
-behavior remains a feasibility question, requiring documented evidence and an
-explicitly enabled disposable-account experiment before an update implementation
-plan is approved. If the guarantee cannot be established, evaluate revision-based
-recovery before falling back to additions-only.
+Prioritize local uploads when the current remote still matches the saved baseline.
+Before an existing-file update, re-fetch metadata, compare it with the baseline,
+and pin the current binary head revision. Abort before the write if the remote has
+already changed, the head revision is unavailable, or pinning fails. Drive does
+not enforce conditional media updates, so a concurrent write after preflight may
+become a non-head revision during Grove's upload. Grove immediately pins,
+downloads, and verifies divergent revisions and records a pending conflict. The
+Drive head can temporarily contain the local upload while the conflict is
+pending. If the competing revision cannot be captured, retain the local stage,
+pinned baseline, and journal and stop further profile writes.
 
-## Live feasibility results and recovery proposal
+This model optimizes the expected common case and accepts the narrow risk that
+Drive may purge a competing revision before Grove pins it. The known preflight
+revision is protected before mutation; Drive permits at most 200 pinned revisions
+per file. When the quota is full, fail closed before uploading.
+
+## Live feasibility evidence
 
 On 2026-10-10, the explicitly enabled live suite passed its initial and
 incremental download scenarios. A separate fixture-owned resumable-update
@@ -31,26 +39,18 @@ with HTTP 200. Independent download confirmed that it had replaced the competing
 bytes. The experiment restored those bytes and cleaned up only its owned fixture.
 This does not establish a usable server-enforced conditional update.
 
-A separate fixture-owned live spike then simulated the same stale-write sequence
-and found the competing bytes as a binary revision after Drive accepted the
-overwrite. The test marked that revision `keepForever`, independently downloaded
-it, verified the competing bytes, and cleaned up the fixture. This suggests a
-possible recovery-based design: allow the head write, then immediately pin and
-retain any competing revision, record a pending conflict, and require a fresh
-user choice before continuing. This is not equivalent to preventing the stale
-write; the Drive head temporarily contains the local candidate. The documented
-revision quota and purge rules also need to be part of the safety analysis.
-
-Propose evaluating this revision-aware conflict recovery before choosing the
-additions-only fallback. Keep the profile conflict policy and CLI/daemon service
-boundary in scope if the model can preserve both candidates reliably. This design
-is proposed, not agreed. Do not resume product implementation until the user
-reviews the head-replacement and revision-retention trade-off and the paired plan
-is updated.
+A separate fixture-owned live spike simulated the stale-write sequence and found
+the competing bytes as a binary revision after Drive accepted the overwrite. It
+marked that revision keepForever, independently downloaded it, verified the
+competing bytes, and cleaned up the fixture. A subsequent focused live test
+verified that the current head can be pinned before an update and unpinned after.
+The user accepted revision-aware recovery, prioritizing normal uploads when the
+preflight remote matches the baseline.
 
 ## Consequences and review
 
-Download-only behavior remains the default. Either upload path adds private
-staging, a new journal version, remote-outcome reconciliation, and write-capability
-validation. No upload production behavior is implemented yet. Approval of the
-revised safety model and paired implementation plan remains required.
+Download-only behavior remains the default. The upload implementation adds
+private staging, a new journal version, remote-outcome reconciliation,
+revision preservation, and write-capability validation. Profile policy and
+pending-conflict service operations remain shared-engine behavior for a future
+daemon/UI client.

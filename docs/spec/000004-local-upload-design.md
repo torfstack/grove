@@ -1,10 +1,10 @@
 # Local uploads with preserved conflicts
 
-Date: 2026-10-10. Status: revision-aware conflict-recovery design proposed; user approval is pending.
+Date: 2026-10-10. Status: approved for implementation with revision-aware conflict recovery.
 
-## Feasibility outcome and proposed scope revision
+## Agreed upload and conflict model
 
-The full design below proposed existing-file uploads guarded by a Drive-enforced
+The initial design proposed existing-file uploads guarded by a Drive-enforced
 condition. The dedicated-account experiment on 2026-10-10 did not establish that
 guarantee: Drive v3 metadata returned no HTTP ETag, and a resumable update carrying
 the stale Drive `version` as `If-Match` returned HTTP 200 and replaced the
@@ -12,42 +12,47 @@ competing bytes. The live test independently verified the replacement, restored
 the competing bytes, and cleaned up its fixture-owned objects. See the
 [decision record](../decisions/0004-local-upload-proposal.md) for the evidence.
 
-An exploratory live spike found a possible alternative to rejecting every
-existing-file edit: Drive retained the overwritten competing bytes as a binary
-revision, and the test could mark that revision `keepForever` and download it for
-independent verification. This is recovery after an accepted write, not a
-server-enforced condition; the Drive head can temporarily become the local
-version before Grove records the conflict. Drive also limits pinned revisions
-and can purge unpinned history, so this behavior needs a complete design and
-additional acceptance criteria before it can replace the original preservation
-requirement.
+The user approved prioritizing ordinary local uploads when the remote still
+matches the saved baseline, with revision-aware recovery for the rare race where
+another client writes after Grove's preflight check. A live spike confirmed that
+the previous binary revision can be pinned and downloaded after a stale update;
+a focused live test also confirmed that Drive allows Grove to pin and unpin the
+current head before an update.
 
-Propose investigating revision-aware conflict recovery before narrowing the
-feature to additions-only:
+For an existing-file edit, Grove re-fetches the remote file and compares its
+identity, path, version, size, and MD5 with the saved baseline. If they differ,
+Grove does not upload and instead applies the configured conflict policy. If they
+match, Grove pins the observed headRevisionId before uploading the immutable
+local stage. A pin failure, missing revision ID, or exhausted pin quota blocks
+the write before mutation. The upload uses the normal resumable update path; Drive
+does not enforce a conditional write.
 
-- Before an existing-file upload, retain the immutable local stage and baseline
-  identity. After the update, inspect Drive revisions and preserve any remote
-  candidate that diverged from the baseline by pinning and independently
-  downloading it before recording a pending conflict.
-- Keep both candidate fingerprints in profile state and expose the conflict
-  through the shared engine and UI-facing service. A chosen side is applied only
-  after rechecking both candidates; missing or unpinnable revisions stop with the
-  stage retained and an actionable error.
-- Do not claim this is equivalent to conditional-write rejection. Explicitly
-  review whether temporary head replacement and Drive's revision-retention limits
-  satisfy Grove's data-preservation requirement. Keep additions-only as the
-  fallback if they do not.
+After upload, Grove inspects the new head and revision history. If the uploaded
+bytes are the only new content, it records the new baseline and unpins the old
+head. If another content revision appeared during the upload, Grove pins and
+downloads that revision, verifies it independently, and records a pending
+conflict with both candidates. The Drive head may temporarily contain the local
+candidate. The ask policy waits for an explicit choice; keep-local or keep-cloud
+applies the configured choice after revalidating both candidates. Missing,
+unpinnable, or unverifiable revisions retain the local stage and journal and stop
+for recovery; they never authorize another blind upload.
 
-This revision is not approved. The detailed full-scope design below is retained
-as the original proposal for context; no implementation resumes until the user
-reviews the revision-recovery trade-off and the paired plan is updated.
+Drive limits keepForever to 200 revisions per file and may purge unpinned
+revisions earlier than 30 days after 100 unpinned revisions accumulate. Pre-pinning
+the observed head protects the known baseline and makes a full pin quota fail
+before write. Recovery of a new competitor revision still depends on Drive
+retaining it until Grove can pin and download it, so the narrow concurrent-write
+race remains a documented limitation rather than a server-enforced guarantee.
+
+This model is approved. Continue with the paired plan after rewriting its upload,
+journal, recovery, and live-acceptance tasks to match this behavior.
 
 ## Intent and scope
 
 Make an established Grove profile useful for local editing: upload new ordinary
 files and folders, and local content edits, while retaining incremental downloads
 in the same shared engine. The user requested this spec after selecting uploads
-as the next design. The detailed behavior below is proposed, not yet agreed.
+as the next design. The detailed behavior below implements the agreed model.
 
 Success means independently verified remote bytes, a durable baseline, no duplicate
 creates after interruption, and preservation of conflicting content until an
@@ -62,11 +67,10 @@ Recommend explicit two-way opt-in on an already populated profile. Reuse complet
 scans, stable Drive identities, content hashes, the deterministic planner, and the
 sequential journaled executor. Retain download-only behavior by default.
 
-An additions-only slice avoids overwriting existing remote files and is the fallback
-if conditional updates cannot be proven safe. It would not support normal local
-editing. A separate upload command or engine would duplicate reconciliation and
-recovery and make mixed remote/local changes harder to reason about. Automatic
-winner selection would expand scope and risk losing edits.
+A local-edit upload is supported when the preflight remote still matches the saved
+baseline. Revision-aware recovery handles the narrow race after that check. A
+separate upload command or engine would duplicate reconciliation and recovery and
+make mixed remote/local changes harder to reason about.
 
 ## Command, authorization, and compatibility
 
@@ -117,8 +121,8 @@ logic in a UI or command handler.
 | --- | --- | --- |
 | Unchanged | Unchanged | Skip; no media transfer or destination write |
 | Unchanged | Content changed | Existing verified download replacement |
-| Content changed | Unchanged identity, path, version and content | Conditional upload update |
-| Content changed | Any changed remote version, content or path | Apply profile policy; `ask` preserves both and waits |
+| Content changed | Preflight identity, path, version, size, and MD5 match baseline | Pin current head, then upload |
+| Content changed | Any changed remote version, content or path at preflight | Apply profile policy; `ask` preserves both and waits |
 | Unchanged | Metadata only changed | Existing record operation |
 | Unchanged | Renamed/moved | Existing safe move behavior |
 | Missing tracked path | Any | Unsupported local removal/rename; preserve remote |
@@ -141,26 +145,32 @@ before executing that move. Do not upload into a path vacated by another operati
 in the same run. Independent local additions and remote additions at distinct safe
 paths may share a plan.
 
-## Remote write safety and feasibility gate
+## Remote write and revision recovery
 
-An update must be guarded by a server-enforced precondition tied to the exact
-remote representation validated against the baseline. A GET immediately followed
-by an unconditional PATCH is insufficient: another client can edit between them.
-Drive's monotonic `version` is an observation, not an assumed write precondition.
-The current fixture Update adapter provides no conditional-write guarantee and
-must not be reused unchanged for production sync updates.
+Before uploading an existing file, fetch its current metadata and require its
+identity, path, version, size, and MD5 to match the saved baseline. A mismatch is
+a conflict before mutation. For a match, require the binary headRevisionId and
+pin it with keepForever. If the revision ID is missing or pinning fails, do not
+upload. The pin also fails closed when Drive's 200-pinned-revision limit is full.
 
-Before approving an implementation plan for existing-file updates, establish and
-record the supported Drive v3 conditional media-update mechanism, including its
-behavior across resumable session initiation and final publication. Require an
-explicitly enabled disposable-account experiment showing that a stale condition
-rejects publication and preserves the competing edit. Fake-HTTP tests alone cannot
-prove Google's enforcement. Do not assume an ETag field exists in the v3 JSON
-resource or invent a `version` query parameter.
+Drive does not enforce the version or ETag precondition used by the earlier
+experiment. Upload through the normal resumable update interface and keep the
+immutable local stage and transaction journal until post-write verification
+finishes. List revisions immediately after upload. If the uploaded content is the
+only new revision, verify the head and update the baseline, then unpin the saved
+preflight revision. If a distinct revision appeared after preflight, pin and
+download it before recording a pending conflict. Validate the downloaded size,
+MD5, and SHA-256; keep its private stage and the local upload stage as the two
+conflict candidates.
 
-The live experiment did not demonstrate a usable condition. The revision-recovery
-alternative at the top of this document is a distinct safety model and requires
-user review before any existing-file update implementation or plan rewrite.
+If listing, pinning, download, or verification fails after the write, retain the
+local stage, preflight pin, and journal, and block further profile writes for
+recovery. Never retry the update blindly. Recovery must reconcile the recorded
+revision IDs and head identity before proceeding. A competing revision can still
+be purged between Drive creating it and Grove pinning it; this residual race is
+documented and tested as far as Drive permits. The known preflight head is pinned
+before mutation, and ordinary uploads proceed when preflight confirms the remote
+is unchanged.
 
 For creation, allocate a Drive-generated ID and durably associate it with the
 operation before issuing the create. Use the same ID on reconciliation/retry,
@@ -187,8 +197,9 @@ journal data. After session loss, reconcile remote identity and outcome before
 starting another request; never blindly replay an uncertain update.
 
 The expanded versioned journal records operation kind, source path and hashes,
-old baseline and remote precondition for updates, allocated ID for creates, expected
-parent/name/type, operation marker, owned stage, session state, and verified result.
+old baseline and preflight head revision for updates, allocated ID for creates,
+expected parent/name/type, operation marker, owned stage, discovered competing
+revision IDs, session state, and verified result.
 Pending user decisions are profile state; once selected, the choice and expected
 candidate identities are copied into the operation journal before mutation.
 Persist intent before every externally visible write. The plan must define exact
@@ -201,7 +212,9 @@ phases and invariants, not add unrelated flags to the existing download transact
 | Session active or response lost | Query session/recorded remote ID; retain uncertain intent on errors |
 | Create ID exists | Verify operation marker, parent, name, type and content; never adopt an unrelated object |
 | Create returns duplicate-ID conflict | Reconcile that ID; do not allocate another ID |
-| Update condition rejected | Preserve local stage and remote object; report conflict, no unconditional retry |
+| Preflight remote mismatch | Do not upload; apply the conflict policy and preserve both candidates |
+| Concurrent revision appears during upload | Pin and verify it; record a conflict before baseline update |
+| Revision capture fails after upload | Retain local stage, preflight pin, and journal; block profile writes |
 | Remote result differs from intended bytes or structure | Preserve intent and local data; stop without compensating mutation |
 | Remote success confirmed, baseline save fails | Retain intent; reconcile and finish recording without uploading again |
 | Baseline durable, cleanup interrupted | Remove only identity/hash-verified stage, then clear intent |
@@ -266,7 +279,7 @@ pending conflicts through a stable machine-readable status/resolution API so a
 later UI can use the same behavior. Do not require simultaneous CLI and daemon
 execution; existing profile locking serializes writers.
 
-Propose version 3 for upload intents and any remote representation validators.
+Use state and journal version 3 for upload intents and pinned revision identities.
 Recover valid version-1/version-2 download work with existing semantics before
 atomic migration under lock. Preserve bindings and registrations. Older binaries
 must reject version 3. If historical baselines lack a required validator, establish
@@ -305,8 +318,8 @@ writing this spec.
 Implementation requires `mise run fmt`, `mise run lint`, `mise run test`,
 `mise run test-race`, native build and Linux build. Report Linux runtime/live
 acceptance separately from macOS acceptance and cross-compilation. Complete only
-after demonstrated behavior, conditional-write evidence if updates are included,
-independent verification, and updated product, architecture, testbed and status.
+after demonstrated upload/revision-recovery behavior, independent verification,
+and updated product, architecture, testbed and status.
 
 ## Sources and next artifact
 
@@ -316,12 +329,12 @@ independent verification, and updated product, architecture, testbed and status.
 - [v2/v3 comparison](https://developers.google.com/workspace/drive/api/guides/v2-to-v3-reference): removal of the JSON File `etag` field in v3.
 - [Manage revisions](https://developers.google.com/workspace/drive/api/guides/manage-revisions): binary revision retention, pinning, and download behavior.
 
-These references do not establish a conditional media-write guarantee. The live
-spike showed a pinned binary revision can preserve an overwritten candidate in
-the tested case, but the design must account for Drive's revision quotas and
-retention rules before relying on this as a complete conflict guarantee.
+The live tests showed that a stale update can replace the head, its prior binary
+revision can be pinned and downloaded, and the current head can be pinned before
+an update. This is revision recovery rather than conditional-write rejection; the
+remaining race is that a competing revision may be purged before Grove pins it.
 
-After user review and resolution of that gate, the paired implementation plan is
-`docs/implementation-plans/000004-local-upload-plan.md`. It must link to this spec
-and specify the concrete API contract, journal phases, crash matrix, migration,
-and acceptance workflow before product implementation.
+The paired implementation plan is
+`docs/implementation-plans/000004-local-upload-plan.md`. It links to this spec
+and specifies the concrete API contract, journal phases, crash matrix, migration,
+and acceptance workflow.

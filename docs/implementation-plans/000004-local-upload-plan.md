@@ -2,12 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Review state:** Task 1 did not establish server-enforced conditional updates.
-A separate live spike recovered the overwritten competing bytes as a pinned Drive
-revision. Tasks 3–8 are suspended while the user reviews this alternative safety
-model and its revision-retention limits in [spec 000004](../spec/000004-local-upload-design.md)
-and [decision 0004](../decisions/0004-local-upload-proposal.md). Rewrite this plan
-to the approved model before continuing.
+**Review state:** The user approved revision-aware conflict recovery after the
+conditional-write probe failed. The normal path uploads when the current remote
+matches the saved baseline, after pinning its current head revision. A concurrent
+write during upload is recovered from Drive revision history when available. This
+plan implements [spec 000004](../spec/000004-local-upload-design.md) and records
+the agreed model in [decision 0004](../decisions/0004-local-upload-proposal.md).
 
 **Goal:** Add opt-in two-way sync for populated profiles, with safe local uploads and a profile-scoped conflict policy shared by Grove CLI and future daemon/UI clients.
 
@@ -26,7 +26,9 @@ to the approved model before continuing.
 - A missing policy in valid older state defaults to `ask`.
 - Never issue a remote write without explicit two-way opt-in and read-write authorization.
 - Never retry a create blindly; persist and reuse a Drive-generated ID and operation marker.
-- Existing-file updates require a server-enforced condition validated against the saved baseline.
+- Before an existing-file update, the remote must match the saved baseline and its current binary revision must be pinned.
+- Drive updates are unconditional; immediately recover and pin divergent revisions created during an upload.
+- Retain the immutable local stage and journal until the new head is verified and all conflict candidates are preserved.
 - Use exclusive profile and destination locks and atomic private profile records.
 - Never infer that an incomplete remote listing authorizes deletion.
 - Preserve ambiguous local or remote artifacts and outcomes for inspection.
@@ -36,7 +38,7 @@ to the approved model before continuing.
 
 ## Review Focus
 
-- A remote edit arriving after preflight must fail the conditional update and preserve the competing bytes.
+- A remote edit arriving after preflight may be accepted by Drive; pin and verify its revision or retain the journal and stop.
 - A local edit during staging or upload must remain on disk and must not silently become the recorded uploaded baseline.
 - An uncertain create response must reconcile only the preallocated ID and matching private operation marker.
 - A pending `ask` conflict restarted without `--two-way` must remain pending and cause no remote mutation.
@@ -52,21 +54,20 @@ to the approved model before continuing.
 - Existing syncengine tests cover planner/state/recovery; `internal/drive` tests cover fake-HTTP protocol; `tests` covers end-to-end local/remote behavior and opt-in live acceptance.
 - `docs/PRODUCT.md`, `docs/ARCHITECTURE.md`, `docs/TESTBED.md`, and `docs/STATUS.md` record shipped behavior and verification.
 
-## Task 1: Establish the conditional-write feasibility gate
+## Task 1: Establish upload and revision feasibility
 
 **Files:**
 - Read: `internal/drive/client.go`, `internal/drive/update.go`, `internal/drive/types.go`
-- Create or modify only after mechanism selection: `internal/drive/conditional_update_test.go`, `tests/live/upload_conflict_test.go`
+- Modify: `tests/live/upload_conflict_test.go`; add current-head pin coverage in `tests/live/revisions_test.go`
 - Update: `docs/spec/000004-local-upload-design.md` if evidence changes scope
 
 **Interfaces:**
-- Produces: a documented Drive v3 conditional media-update request contract, including the exact condition, resumable session behavior, stale-condition response, and result reconciliation rules.
+- Produces: documented Drive v3 update behavior and revision operations, including head revision pinning, revision listing, pinning, downloading, and cleanup.
 
-- [x] Review current primary Drive API documentation. The v3 File resource exposes a monotonically increasing `version`, while its JSON representation has no `etag` field; upload docs do not specify conditional-write behavior.
-- [x] Add and run an explicitly enabled dedicated-account live experiment using only fixture-owned data. Drive v3 metadata returned no HTTP ETag; the matching-version upload control succeeded, then a stale version-based `If-Match` resumable update returned HTTP 200 and replaced the competing bytes. The test independently confirmed the replacement, restored the competing bytes, and cleaned up its fixture.
-- [x] Record sanitized request semantics and outcome; no IDs, tokens, session URLs, or file contents were logged.
-- [ ] Review revision-based recovery as a possible substitute for conditional writes; define behavior when the previous revision is missing, unpinnable, or near Drive's retention limits.
-- [ ] Obtain user approval for the revised safety model and rewrite this plan before resuming Tasks 3–8.
+- [x] Record that Drive v3 metadata has no HTTP ETag and a stale version-based `If-Match` resumable update returned HTTP 200 and replaced the competing bytes.
+- [x] Verify with fixture-owned live data that the overwritten binary revision can be pinned and downloaded.
+- [x] Verify with fixture-owned live data that the current head revision can be pinned before an update and unpinned afterward.
+- [x] User approved the preflight-check, pre-pin, optimistic upload, and revision-recovery model; pin quota and the purge race remain documented limits.
 
 ## Task 2: Add profile policy and pending-conflict records
 
@@ -83,11 +84,9 @@ to the approved model before continuing.
 - Produces: validated `Conflict` records with stable ID, relative path, baseline, local fingerprint, remote identity/version/fingerprint, and optional selected side.
 - Produces: profile-state validation and migration that defaults absent policy to `ConflictAsk` and accepts v1/v2 download profiles under their current recovery rules.
 
-- [ ] Write `TestLoadStateDefaultsConflictPolicyToAsk`, `TestLoadStateRejectsUnknownConflictPolicy`, and `TestLoadStateValidatesPendingConflicts` with exact accepted enum values and safe relative paths.
-- [ ] Run `go test ./internal/syncengine -run 'TestLoadState(Default|RejectsUnknown|ValidatesPendingConflicts)' -count=1`; confirm the new expectations fail before implementation.
-- [ ] Implement policy and pending-record types, stable ID derivation from immutable conflict identity, and validation without storing file contents or secrets.
-- [ ] Write and run `TestMigrateVersion2StatePreservesBaselineAndDefaultsPolicy`; migration must be atomic and only after legacy recovery.
-- [ ] Run `go test ./internal/syncengine -count=1` and commit the state change.
+- [x] Implement conflict policy and pending-record types with stable IDs and validation; covered by state and conflict tests.
+- [x] Default absent policy to ask and preserve v1/v2 download profiles under current recovery rules.
+- [ ] Extend the state model for pinned Drive revision IDs and durable local/cloud candidate stages in Task 5's v3 journal migration.
 
 ## Task 3: Classify local additions, edits, and conflicts in the planner
 
@@ -117,13 +116,13 @@ to the approved model before continuing.
 - Modify: `internal/drive/client_test.go` if shared request primitives require new assertions
 
 **Interfaces:**
-- Produces: a production `SyncMutationAPI` separate from the existing fixture `MutationAPI` and read-only `API`, with `GenerateIDs(ctx context.Context, count int) ([]string, error)`, `CreateWithID(ctx context.Context, id string, input Create, content io.Reader) (File, error)`, and `UpdateConditional(ctx context.Context, id string, input Update, condition WriteCondition, content io.Reader) (File, error)`. `WriteCondition` is fixed by Task 1.
+- Produces: a production `SyncMutationAPI` separate from the existing fixture `MutationAPI` and read-only `API`, with ID allocation, preallocated-ID create, unconditional resumable update, revision listing, keepForever pin/unpin, and revision download methods.
 - Produces: streaming resumable media transfer with bounded request/retry behavior, explicit zero-byte handling, sanitized errors, and no blind mutation retry.
 
-- [ ] Write fake-server tests for ID allocation, session initiation, chunk streaming, final metadata, zero-byte upload, cancellation, retryable reads, non-retried writes, preallocated-ID create, and stale-condition rejection.
-- [ ] Run `go test ./internal/drive -run 'Test(Upload|ConditionalUpdate)' -count=1`; verify each new test fails for the missing contract.
-- [ ] Implement request/response types and transport exactly matching Task 1's proven request semantics; keep session URLs private and redact them from returned errors.
-- [ ] Verify the test server can assert that update conditions are sent on the correct request phase and that stale responses map to a typed conflict error.
+- [ ] Write fake-server tests for ID allocation, session initiation, chunk streaming, final metadata, zero-byte upload, cancellation, retryable reads, non-retried writes, preallocated-ID create, revision listing, pin/unpin, and revision download.
+- [ ] Run focused Drive tests and confirm new expectations fail because revision and sync upload methods are missing.
+- [ ] Implement request/response types and transport; keep session URLs private and redact them from returned errors.
+- [ ] Verify update is not blindly retried and revision IDs/content metadata are checked before preservation.
 - [ ] Run `go test ./internal/drive -count=1` and commit.
 
 ## Task 5: Add local staging and durable upload recovery
@@ -139,13 +138,13 @@ to the approved model before continuing.
 
 **Interfaces:**
 - Consumes: guarded `drive.SyncMutationAPI` from Task 4 and typed upload operations from Task 3.
-- Produces: version-3 journal records for upload create/update phases, immutable private stages with ownership identity and hashes, and restart reconciliation that preserves ambiguity.
+- Produces: version-3 journal records for upload create/update phases, preflight head revision pin, discovered competing revisions, immutable local/cloud stages with ownership identities and hashes, and restart reconciliation that preserves ambiguity.
 
 - [ ] Add failure-injection tests for stage creation/ownership persistence, journal intent, upload session, uncertain response, remote verification, baseline save, and stage cleanup.
-- [ ] Add recovery tests for reused create IDs, operation-marker mismatch, conditional update rejection, changed local bytes, changed remote version, malformed phase, and v1/v2 download recovery before migration.
+- [ ] Add recovery tests for reused create IDs, operation-marker mismatch, preflight revision pin failure, post-write competing revisions, failed revision capture, changed local bytes, changed remote version, malformed phase, and v1/v2 download recovery before migration.
 - [ ] Run `go test ./internal/syncengine -run 'Test(Upload|RecoverUpload|Migrate).*' -count=1`; confirm failures before implementation.
 - [ ] Implement stage ownership and upload journal transitions. Persist intent before every remote write; reconcile existing IDs and never allocate a second ID for an uncertain create.
-- [ ] Verify uploaded size/MD5 and independently read back SHA-256 with stable remote metadata checks before applying baseline.
+- [ ] Verify uploaded size/MD5 and independently read back SHA-256 with stable remote metadata checks. Release the preflight pin only after no competing revision is found and the new baseline is durable.
 - [ ] Run `go test ./internal/syncengine -count=1` and commit.
 
 ## Task 6: Integrate policy, sync execution, and profile service operations
@@ -204,8 +203,9 @@ to the approved model before continuing.
 - Consumes: CLI and service operations from Tasks 6–7.
 - Produces: independent local/remote verification for upload, conflict-policy, recovery, and no-op scenarios; documented service operations that a future `groved` UI can consume.
 
-- [ ] Extend offline fixture workflow through populate → local addition/edit → explicit two-way sync → independently verify remote metadata and bytes → no-op repeat → conflicting edits for all policies → assert the selected side wins and the `ask` policy preserves both pending candidates → fixture-owned cleanup.
-- [ ] Add retry/restart interruption coverage for create ID reconciliation, stale conditional updates, pending user decisions, and baseline/journal recovery.
+- [ ] Extend offline fixture workflow through populate → local addition/edit → explicit two-way sync → independently verify remote metadata and bytes → no-op repeat → preflight conflict and a simulated post-preflight racing revision → assert both candidates persist and policy resolution behaves as specified → fixture-owned cleanup.
+- [ ] Add retry/restart interruption coverage for create ID reconciliation, pinned preflight revisions, failed competing-revision capture, pending user decisions, and baseline/journal recovery.
+- [ ] Extend live acceptance to pin a current head before update and verify that a stale upload's competing revision can be pinned and independently downloaded.
 - [ ] Keep live tests disabled by default; when explicitly enabled, use the dedicated profile/account, disposable directories, and fixture-owned Drive objects.
 - [ ] Run focused integration tests, then `mise run fmt`, `mise run lint`, `mise run test`, and `mise run test-race`.
 - [ ] Run `mise run build` only if that task is available; otherwise run `mise exec -- go build ./cmd/grove` and cross-build `GOOS=linux GOARCH=amd64 mise exec -- go build ./cmd/grove` from macOS. Record Linux runtime acceptance separately from cross-compilation.
@@ -213,10 +213,11 @@ to the approved model before continuing.
 
 ## Execution notes
 
-The conditional-write feasibility gate is first and blocks Tasks 3–8 until a safe
-write model is approved. If conditional updates fail, evaluate revision-based
-conflict recovery and its retention limits; use additions-only only if that model
-does not satisfy preservation requirements. Rewrite and re-review this plan before
-resuming implementation. Conflict settings and pending-conflict methods are shared
-engine behavior; the desktop UI itself is not part of this slice. A future daemon
-must consume these service methods and must never prompt on a terminal.
+The live feasibility gate is complete and the recovery model is approved. Existing
+remote edits detected before upload follow the configured conflict policy without
+uploading. For the common unchanged case, pin the observed head before uploading;
+afterward recover any divergent revision created during the request. If recovery
+cannot verify both candidates, preserve the journal and block profile writes.
+Conflict settings and pending-conflict methods are shared engine behavior; the
+desktop UI itself is not part of this slice. A future daemon must consume these
+service methods and must never prompt on a terminal.

@@ -82,15 +82,18 @@ fixture-owned content. On 2026-10-10 it found no HTTP ETag in the Drive v3
 metadata response. A matching-version resumable update succeeded, but a second
 update using that now-stale version in `If-Match` also returned HTTP 200 and
 replaced the competing content. The test independently verified the change,
-restored the competing bytes, and cleaned up the fixture. Existing-file uploads
-remain out of scope unless a server-enforced condition is demonstrated.
+restored the competing bytes, and cleaned up the fixture. A server-enforced
+condition is unavailable, so existing-file uploads use the approved
+preflight-and-revision-recovery design documented below.
 
-A later throwaway live spike uploaded stale content after a competing edit, found
+A fixture-owned live spike uploaded stale content after a competing edit, found
 the competing bytes in Drive's revision list, marked that revision `keepForever`,
-and downloaded it for independent verification. This demonstrates recovery in
-that fixture case, but not prevention of stale writes or safety under Drive's
-revision limits. The probe code was discarded; a complete live acceptance test
-requires an approved revision-aware conflict design.
+and downloaded it for independent verification. A focused live test also
+confirmed that the current head can be pinned and unpinned before an update.
+Revision recovery is approved: the normal upload proceeds when preflight confirms
+the remote matches the baseline; a race after preflight may temporarily replace
+the head while Grove captures the competing revision. The implementation must
+retain its journal and candidates if capture or verification fails.
 
 ## Incremental acceptance
 
