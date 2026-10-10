@@ -17,6 +17,35 @@ func (e *executor) stageDownload(ctx context.Context, entry Entry, path string) 
 		return "", errors.New("cannot create exclusive download file")
 	}
 	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil {
+		return "", err
+	}
+	identity, err := fileIdentity(info)
+	if err != nil {
+		return "", err
+	}
+	if err = e.parentSync(path); err != nil {
+		return "", err
+	}
+	next := *e.state
+	if next.Pending != nil {
+		pending := *next.Pending
+		pending.TempIdentity = &identity
+		pending.Phase = "downloading"
+		next.Pending = &pending
+	} else {
+		journal := *next.Transaction
+		journal.TempIdentity = &identity
+		next.Transaction = &journal
+	}
+	if err = e.persist(next); err != nil {
+		empty := sha256.Sum256(nil)
+		if cleanupErr := e.removeTemp(ctx, path, &identity, hex.EncodeToString(empty[:]), 0, false); cleanupErr != nil {
+			return "", errors.Join(err, cleanupErr)
+		}
+		return "", err
+	}
 	md5hash := md5.New()
 	sha := sha256.New()
 	counter := &countWriter{writer: io.MultiWriter(f, md5hash, sha)}

@@ -186,6 +186,9 @@ func clearProbe(root *os.Root, state *State, save func() error) error {
 	if err := rootPath(root, state.ProbePath); err != nil {
 		return err
 	}
+	if err := checkProbe(root, state, state.ProbePath, "folder"); err != nil {
+		return err
+	}
 	entries := append([]Entry(nil), state.ProbeEntries...)
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Path > entries[j].Path })
 	for _, e := range entries {
@@ -193,15 +196,22 @@ func clearProbe(root *os.Root, state *State, save func() error) error {
 		if err := rootPath(root, p); err != nil {
 			return err
 		}
+		if err := checkProbe(root, state, p, entryKind(e)); err != nil {
+			return err
+		}
 		if err := root.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return errors.New("cannot remove owned validation probe")
 		}
+	}
+	if err := checkProbe(root, state, state.ProbePath, "folder"); err != nil {
+		return err
 	}
 	if err := root.Remove(state.ProbePath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return errors.New("cannot remove owned validation probe directory")
 	}
 	state.ProbePath = ""
 	state.ProbeEntries = nil
+	state.ProbeIdentities = nil
 	return save()
 }
 func probeDestination(root *os.Root, snapshot Snapshot, state *State, save func() error) error {
@@ -223,7 +233,7 @@ func probeDestinationWithLink(root *os.Root, snapshot Snapshot, state *State, sa
 	if err := save(); err != nil {
 		return err
 	}
-	if err := root.Mkdir(state.ProbePath, 0700); err != nil {
+	if err := createProbe(root, state, state.ProbePath, "folder", save); err != nil {
 		return errors.New("cannot create destination validation probe")
 	}
 	entries := append([]Entry(nil), snapshot.Entries...)
@@ -235,15 +245,7 @@ func probeDestinationWithLink(root *os.Root, snapshot Snapshot, state *State, sa
 			break
 		}
 		p := filepath.Join(state.ProbePath, e.Path)
-		if entryKind(e) == "folder" {
-			probeErr = root.Mkdir(p, 0700)
-		} else {
-			var f *os.File
-			f, probeErr = root.OpenFile(p, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-			if probeErr == nil {
-				probeErr = f.Close()
-			}
-		}
+		probeErr = createProbe(root, state, p, entryKind(e), save)
 		if probeErr != nil {
 			probeErr = errors.New("destination has incompatible names or path limits")
 			break
@@ -251,12 +253,14 @@ func probeDestinationWithLink(root *os.Root, snapshot Snapshot, state *State, sa
 	}
 	if probeErr == nil {
 		sourcePath := filepath.Join(state.ProbePath, source)
-		f, err := root.OpenFile(sourcePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		err := createProbe(root, state, sourcePath, "file", save)
 		if err == nil {
-			err = f.Close()
-		}
-		if err == nil {
-			err = link(sourcePath, filepath.Join(state.ProbePath, target))
+			targetPath := filepath.Join(state.ProbePath, target)
+			state.ProbeIdentities[targetPath] = state.ProbeIdentities[sourcePath]
+			err = save()
+			if err == nil {
+				err = link(sourcePath, targetPath)
+			}
 		}
 		if err != nil {
 			probeErr = errors.New("destination filesystem does not support safe publication")
@@ -277,20 +281,28 @@ func probeMoveWith(root *os.Root, state *State, save func() error, move func(str
 		return errors.New("cannot create move probe identity")
 	}
 	state.ProbePath = ".grove-probe-" + id
-	state.ProbeEntries = []Entry{{Path: "source"}, {Path: "target"}}
+	state.ProbeEntries = []Entry{{Path: "source", Remote: drive.File{MIMEType: drive.FolderMIME}}, {Path: "target", Remote: drive.File{MIMEType: drive.FolderMIME}}}
 	if err := save(); err != nil {
 		return err
 	}
-	if err := root.Mkdir(state.ProbePath, 0700); err != nil {
+	if err := createProbe(root, state, state.ProbePath, "folder", save); err != nil {
 		return errors.New("cannot create move probe")
 	}
 	source, target := filepath.Join(state.ProbePath, "source"), filepath.Join(state.ProbePath, "target")
-	err := root.Mkdir(source, 0700)
+	err := createProbe(root, state, source, "folder", save)
 	if err == nil {
-		err = move(source, target)
+		state.ProbeIdentities[target] = state.ProbeIdentities[source]
+		err = save()
+		if err == nil {
+			err = move(source, target)
+		}
 	}
 	if err == nil {
-		err = root.Mkdir(source, 0700)
+		delete(state.ProbeIdentities, source)
+		err = save()
+		if err == nil {
+			err = createProbe(root, state, source, "folder", save)
+		}
 	}
 	if err == nil && move(source, target) == nil {
 		err = errors.New("move primitive replaced occupied target")

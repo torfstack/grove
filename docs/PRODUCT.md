@@ -34,8 +34,9 @@ The first sync slice downloads ordinary account-owned My Drive files and folders
 into an absent or empty destination with one immutable profile binding. Repeating
 an unchanged population performs no media transfers. Interrupted downloads resume
 at file boundaries; existing completed files are hash-checked and preserved.
-Local edits, unexpected files, and changes to a completed remote population are
-errors. There is no overwrite or deletion propagation. Unsupported names, symlinks,
+Local edits and unexpected files are errors. Changes to an established population
+follow the incremental behavior below. Deletion propagation remains deferred.
+Unsupported names, symlinks,
 native documents, shortcuts, duplicates, shared drives, and non-owned files fail
 preflight rather than being silently skipped.
 

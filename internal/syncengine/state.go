@@ -55,8 +55,11 @@ func loadState(profile string, binding Binding) (State, error) {
 		if p.Phase == "verified" && !validHash(p.VerifiedSHA256, 32) {
 			return State{}, errors.New("invalid pending hash")
 		}
-		if !safeRelative(p.Entry.Path) || p.Entry.Remote.ID == "" {
+		if !safeRelative(p.Entry.Path) || p.Entry.Remote.ID == "" || seen[p.Entry.Path] || ids[p.Entry.Remote.ID] {
 			return State{}, errors.New("invalid pending state")
+		}
+		if seen[p.TempPath] || p.TempPath == p.Entry.Path {
+			return State{}, errors.New("temporary path overlaps baseline")
 		}
 		if p.TempPath != "" && (!safeRelative(p.TempPath) || filepath.Dir(p.TempPath) != filepath.Dir(p.Entry.Path) || !strings.HasPrefix(filepath.Base(p.TempPath), ".grove-download-")) {
 			return State{}, errors.New("invalid temporary state")
@@ -64,6 +67,11 @@ func loadState(profile string, binding Binding) (State, error) {
 	}
 	if s.ProbePath != "" && (!privatefs.SafeName(s.ProbePath) || !strings.HasPrefix(s.ProbePath, ".grove-probe-")) {
 		return State{}, errors.New("invalid probe state")
+	}
+	for _, c := range s.Completed {
+		if s.ProbePath != "" && within(s.ProbePath, c.Path) {
+			return State{}, errors.New("probe overlaps baseline")
+		}
 	}
 	for _, e := range s.ProbeEntries {
 		if !safeRelative(e.Path) {

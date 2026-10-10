@@ -322,17 +322,17 @@ STATUS.md; new `docs/decisions/0003-incremental-download-recovery.md`; this plan
 **Interfaces:** Document actual commands/state compatibility and guarantees from
 Tasks 1–7. No new runtime interfaces.
 
-- [ ] Update documents to distinguish implemented behavior from future uploads,
+- [x] Update documents to distinguish implemented behavior from future uploads,
   deletions and conflict resolution; document temporary replacement gaps, strict
   conflict handling, profile version upgrade, and native move capability requirements.
-- [ ] Review touched code for duplicated transfer logic, growing boolean/phase
+- [x] Review touched code for duplicated transfer logic, growing boolean/phase
   dispatch, unnecessary exports, speculative abstractions, and oversized functions.
   Make only focused refactors with existing behavior/recovery tests preserved.
-- [ ] Run `mise run fmt`, `mise run lint`, `mise run test`, `mise run test-race`,
+- [x] Run `mise run fmt`, `mise run lint`, `mise run test`, `mise run test-race`,
   `mise run build`, `mise exec -- env GOOS=linux GOARCH=amd64 go build -o /tmp/grove-incremental-linux ./cmd/grove`,
   and `git diff --check`. Require successful exits; report live/Linux runtime
   evidence separately. Record exact results and remaining limitations in STATUS.
-- [ ] Commit as `docs: record incremental sync behavior and validation`.
+- [x] Commit as `docs: record incremental sync behavior and validation`.
 - [ ] Obtain whole-branch independent review using the selected execution workflow;
   address valid findings with targeted verification. If opening a non-draft PR,
   wait for latest CI and retrieve CodeRabbit summary, inline comments, and threads;

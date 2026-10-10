@@ -27,3 +27,10 @@ exclusive replacement/move transaction. A stable ready-operation traversal
 resolves structural dependencies without a separate graph framework. Fixture
 changes accept Verified payloads, matching seed. These preserve the agreed scope
 while reducing duplicated code. Incremental live acceptance remains pending.
+
+Recovery records device/inode identities after exclusive creation of temporary
+files and probes. Existing artifacts with unconfirmed or changed ownership stop
+recovery and are preserved; verified downloads also require their saved hash.
+A crash between creation and ownership persistence may require manual inspection.
+Legacy version-1 downloads use their original durable downloading phase and
+verified hash; legacy probe cleanup additionally checks type and empty content.

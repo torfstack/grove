@@ -26,6 +26,7 @@ func (e *executor) replace(ctx context.Context, op Operation) error {
 	if err != nil {
 		return err
 	}
+	j = *e.state.Transaction
 	j.Phase = "verified"
 	j.VerifiedSHA256 = hash
 	j.After = []Completed{completedEntry(op.Entry, hash)}
@@ -45,7 +46,7 @@ func (e *executor) recoverReplace(ctx context.Context) error {
 		if _, err := e.root.Lstat(j.BackupPath); !errors.Is(err, os.ErrNotExist) {
 			return errors.New("unexpected replacement backup")
 		}
-		if err := e.removeTemp(j.TempPath); err != nil {
+		if err := e.removeTemp(ctx, j.TempPath, j.TempIdentity, "", 0, false); err != nil {
 			return err
 		}
 		if err := e.parentSync(j.TempPath); err != nil {

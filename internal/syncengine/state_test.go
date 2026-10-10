@@ -1,6 +1,7 @@
 package syncengine
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
@@ -78,34 +79,116 @@ func TestBaselineUpdatesByIdentity(t *testing.T) {
 	}
 }
 func TestV1PendingRecoveryBeforeMigration(t *testing.T) {
-	dir := t.TempDir()
-	s := State{Version: 1, Pending: &Pending{Entry: Entry{Path: "b", Remote: file("b", "b")}, Phase: "intent"}}
-	if err := saveState(dir, s); err != nil {
+	profile := t.TempDir()
+	root, err := os.OpenRoot(t.TempDir())
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := migrateState(dir, s); err == nil {
-		t.Fatal("pending migrated")
+	defer func() { _ = root.Close() }()
+	api := downloader()
+	entry := Entry{Path: "file.txt", Remote: api.children[0]}
+	sum := sha256.Sum256(api.data)
+	state := State{Version: 1, Pending: &Pending{Entry: entry, TempPath: ".grove-download-legacy", Phase: "verified", VerifiedSHA256: hex.EncodeToString(sum[:])}}
+	if err = root.WriteFile(state.Pending.TempPath, api.data, 0600); err != nil {
+		t.Fatal(err)
 	}
-	loaded, err := loadState(dir, Binding{})
-	if err != nil || loaded.Pending == nil || loaded.Version != 1 {
-		t.Fatal("old record lost", err)
+	if err = root.Link(state.Pending.TempPath, entry.Path); err != nil {
+		t.Fatal(err)
+	}
+	if err = saveState(profile, state); err != nil {
+		t.Fatal(err)
+	}
+	ex := executor{root: root, api: api, state: &state, save: func() error { return os.ErrPermission }}
+	snapshot := Snapshot{Entries: []Entry{entry}}
+	if err = ex.recover(context.Background(), snapshot); err == nil {
+		t.Fatal("recovery save fault ignored")
+	}
+	state, err = loadState(profile, Binding{})
+	if err != nil || state.Version != 1 || state.Pending == nil {
+		t.Fatal("failed recovery migrated or lost intent", err)
+	}
+	if _, err = migrateState(profile, state); err == nil {
+		t.Fatal("pending recovery migrated")
+	}
+	data, err := root.ReadFile(entry.Path)
+	if err != nil || string(data) != string(api.data) {
+		t.Fatal("published legacy file lost", err)
+	}
+	ex.save = func() error { return saveState(profile, state) }
+	if err = ex.recover(context.Background(), snapshot); err != nil {
+		t.Fatal(err)
+	}
+	state, err = migrateState(profile, state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := loadState(profile, Binding{})
+	if err != nil || loaded.Version != 2 || loaded.Pending != nil || len(loaded.Completed) != 1 || loaded.Completed[0].SHA256 != hex.EncodeToString(sum[:]) {
+		t.Fatal("recovery/migration lost baseline", err)
 	}
 }
 func TestV1ProbeFailurePreservesState(t *testing.T) {
-	dir := t.TempDir()
-	s := State{Version: 1, ProbePath: ".grove-probe-owned"}
-	if err := saveState(dir, s); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := migrateState(dir, s); err == nil {
-		t.Fatal("probe migrated")
-	}
-	loaded, err := loadState(dir, Binding{})
-	if err != nil || loaded.ProbePath != s.ProbePath {
-		t.Fatal("old probe lost", err)
-	}
-	if _, err = os.Stat(filepath.Join(dir, "state.json")); err != nil {
-		t.Fatal(err)
+	for _, failure := range []string{"content", "save"} {
+		t.Run(failure, func(t *testing.T) {
+			profile := t.TempDir()
+			root, err := os.OpenRoot(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = root.Close() }()
+			state := State{Version: 1, ProbePath: ".grove-probe-owned", ProbeEntries: []Entry{{Path: "file"}}}
+			probe := filepath.Join(state.ProbePath, "file")
+			if err = root.Mkdir(state.ProbePath, 0700); err != nil {
+				t.Fatal(err)
+			}
+			content := []byte(nil)
+			if failure == "content" {
+				content = []byte("local data")
+			}
+			if err = root.WriteFile(probe, content, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err = saveState(profile, state); err != nil {
+				t.Fatal(err)
+			}
+			save := func() error { return os.ErrPermission }
+			if failure == "content" {
+				save = func() error { return saveState(profile, state) }
+			}
+			if err = clearProbe(root, &state, save); err == nil {
+				t.Fatal("probe failure ignored")
+			}
+			state, err = loadState(profile, Binding{})
+			if err != nil || state.Version != 1 || state.ProbePath == "" {
+				t.Fatal("failed cleanup migrated or lost probe", err)
+			}
+			if _, err = migrateState(profile, state); err == nil {
+				t.Fatal("probe recovery migrated")
+			}
+			if failure == "content" {
+				data, readErr := root.ReadFile(probe)
+				if readErr != nil || string(data) != "local data" {
+					t.Fatal("unexpected local data removed", readErr)
+				}
+				if err = root.WriteFile(probe, nil, 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err = clearProbe(root, &state, func() error { return saveState(profile, state) }); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = migrateState(profile, state); err != nil {
+				t.Fatal(err)
+			}
+			loaded, err := loadState(profile, Binding{})
+			if err != nil || loaded.Version != 2 || loaded.ProbePath != "" {
+				t.Fatal("probe migration incomplete", err)
+			}
+			entries, err := os.ReadDir(root.Name())
+			if err != nil || len(entries) != 0 {
+				t.Fatal("probe cleanup incomplete", err)
+			}
+		})
 	}
 }
 

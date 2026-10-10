@@ -91,14 +91,11 @@ func (e *executor) execute(ctx context.Context, op Operation) error {
 	if op.Kind != "download" {
 		return errors.New("unknown sync operation")
 	}
-	p.Phase = "downloading"
-	if err := e.save(); err != nil {
-		return err
-	}
 	hash, err := e.stageDownload(ctx, entry, p.TempPath)
 	if err != nil {
 		return err
 	}
+	p = e.state.Pending
 	p.VerifiedSHA256 = hash
 	p.Phase = "verified"
 	if err = e.save(); err != nil {
