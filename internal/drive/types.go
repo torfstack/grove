@@ -30,28 +30,44 @@ type API interface {
 	Trash(context.Context, string) error
 }
 
+type Revision struct {
+	ID, MD5, ModifiedTime string
+	Size                  int64
+	HasSize, KeepForever  bool
+}
+
+type SyncMutationAPI interface {
+	API
+	GenerateIDs(context.Context, int) ([]string, error)
+	CreateWithID(context.Context, string, Create, io.Reader, int64) (File, error)
+	UpdateContent(context.Context, string, Update, io.Reader, int64) (File, error)
+	ListRevisions(context.Context, string) ([]Revision, error)
+	SetRevisionKeepForever(context.Context, string, string, bool) error
+	DownloadRevision(context.Context, string, string, io.Writer) error
+}
+
 const FolderMIME = "application/vnd.google-apps.folder"
 
 type wireFile struct {
-	ID           string            `json:"id"`
-	Name         string            `json:"name"`
-	MIMEType     string            `json:"mimeType"`
-	MD5          string            `json:"md5Checksum"`
-	Version      string            `json:"version"`
-	HeadRevision string            `json:"headRevisionId"`
-	DriveID      string            `json:"driveId"`
-	Parents      []string          `json:"parents"`
-	Size         *int64            `json:"size,string"`
-	OwnedByMe    bool              `json:"ownedByMe"`
-	Trashed      bool              `json:"trashed"`
-	Properties   map[string]string `json:"appProperties"`
-	Capabilities struct {
+	ID             string            `json:"id"`
+	Name           string            `json:"name"`
+	MIMEType       string            `json:"mimeType"`
+	MD5            string            `json:"md5Checksum"`
+	Version        string            `json:"version"`
+	HeadRevisionID string            `json:"headRevisionId"`
+	DriveID        string            `json:"driveId"`
+	Parents        []string          `json:"parents"`
+	Size           *int64            `json:"size,string"`
+	OwnedByMe      bool              `json:"ownedByMe"`
+	Trashed        bool              `json:"trashed"`
+	Properties     map[string]string `json:"appProperties"`
+	Capabilities   struct {
 		CanDownload bool `json:"canDownload"`
 	} `json:"capabilities"`
 }
 
 func (w wireFile) file() File {
-	f := File{ID: w.ID, Name: w.Name, MIMEType: w.MIMEType, MD5: w.MD5, Version: w.Version, HeadRevisionID: w.HeadRevision, DriveID: w.DriveID, Parents: w.Parents, OwnedByMe: w.OwnedByMe, CanDownload: w.Capabilities.CanDownload, Trashed: w.Trashed, Properties: w.Properties}
+	f := File{ID: w.ID, Name: w.Name, MIMEType: w.MIMEType, MD5: w.MD5, Version: w.Version, HeadRevisionID: w.HeadRevisionID, DriveID: w.DriveID, Parents: w.Parents, OwnedByMe: w.OwnedByMe, CanDownload: w.Capabilities.CanDownload, Trashed: w.Trashed, Properties: w.Properties}
 	if w.Size != nil {
 		f.HasSize = true
 		f.Size = *w.Size

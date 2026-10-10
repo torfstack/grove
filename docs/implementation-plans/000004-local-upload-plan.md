@@ -119,11 +119,11 @@ the agreed model in [decision 0004](../decisions/0004-local-upload-proposal.md).
 - Produces: a production `SyncMutationAPI` separate from the existing fixture `MutationAPI` and read-only `API`, with ID allocation, preallocated-ID create, unconditional resumable update, revision listing, keepForever pin/unpin, and revision download methods.
 - Produces: streaming resumable media transfer with bounded request/retry behavior, explicit zero-byte handling, sanitized errors, and no blind mutation retry.
 
-- [ ] Write fake-server tests for ID allocation, session initiation, chunk streaming, final metadata, zero-byte upload, cancellation, retryable reads, non-retried writes, preallocated-ID create, revision listing, pin/unpin, and revision download.
-- [ ] Run focused Drive tests and confirm new expectations fail because revision and sync upload methods are missing.
-- [ ] Implement request/response types and transport; keep session URLs private and redact them from returned errors.
-- [ ] Verify update is not blindly retried and revision IDs/content metadata are checked before preservation.
-- [ ] Run `go test ./internal/drive -count=1` and commit.
+- [x] Write fake-server tests for ID allocation, session initiation, chunk streaming, final metadata, zero-byte upload, cancellation, retryable reads, non-retried writes, preallocated-ID create, revision listing, pin/unpin, and revision download.
+- [x] Run focused Drive tests; the new tests initially failed to compile because the sync mutation and revision methods were absent.
+- [x] Implement request/response types and transport; session URLs remain private and errors redact response bodies and URLs.
+- [x] Verify update is not blindly retried and revision IDs/content metadata are checked before preservation.
+- [x] Run `go test ./internal/drive -count=1`; the full Drive package suite passed.
 
 ## Task 5: Add local staging and durable upload recovery
 
