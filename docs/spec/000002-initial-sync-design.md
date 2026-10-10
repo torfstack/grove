@@ -1,6 +1,6 @@
 # Initial download sync and Drive fixtures
 
-Date: 2026-10-10. Status: proposed; awaiting written-spec review.
+Date: 2026-10-10. Status: approved for implementation planning.
 
 ## Intent and agreed scope
 
@@ -12,8 +12,8 @@ The user agreed to ordinary files and folders, an empty initial destination, and
 deferring Google-native documents, shortcuts, and duplicate sibling names.
 Success means independently verified content, no redundant media transfers on
 an unchanged second run, and safe recovery after an interrupted download.
-The behavior and interfaces below are proposals for review, not implemented
-commands or previously agreed decisions.
+The user approved this written design. The behavior and interfaces below are
+requirements for implementation, not implemented commands.
 
 ## Approach
 

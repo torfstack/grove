@@ -38,9 +38,12 @@ Fixture tooling and initial download sync are being designed together on
 `feat/initial-sync`. The user agreed to a fresh API-seeded fixture per live run,
 ordinary files and folders, and an empty initial destination; native documents,
 shortcuts, and duplicate sibling names are deferred. The proposed written design
-is [000002-initial-sync-design.md](spec/000002-initial-sync-design.md), awaiting
-review. No fixture or sync code has been implemented, no live test was run, and
-the paired implementation plan follows written-spec approval.
+is [000002-initial-sync-design.md](spec/000002-initial-sync-design.md), approved
+for planning. Its paired
+[implementation plan](implementation-plans/000002-initial-sync-plan.md) is written
+and awaits review and execution-method selection. No fixture or sync code has
+been implemented and no live test was run. Plan coverage and interface consistency
+were reviewed inline; documentation whitespace checks passed.
 
 The user previously placed Desktop OAuth credentials at ~/google_client_secret.json.
 Live authentication remains unverified in this session. The initial auth
@@ -54,7 +57,7 @@ locking will be revisited for sync and daemon coordination.
 ## Next steps
 
 1. Complete a manual browser auth check with the dedicated test account.
-2. Review spec 000002, then write and review its paired implementation plan.
+2. Review implementation plan 000002 and select its execution method.
 3. Seed a fresh remote run, inspect it, and
    validate initial sync against its manifest.
 
