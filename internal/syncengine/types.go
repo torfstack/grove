@@ -85,12 +85,18 @@ const (
 	OpMove     OperationKind = "move"
 	OpRecord   OperationKind = "record"
 	OpSkip     OperationKind = "skip"
+	OpUpload   OperationKind = "upload"
+	OpCreate   OperationKind = "create"
+	OpConflict OperationKind = "conflict"
 )
 
 type Operation struct {
-	Kind   OperationKind
-	Entry  Entry
-	Before []Completed
+	Kind           OperationKind
+	Entry          Entry
+	Local          LocalEntry
+	Conflict       *Conflict
+	ResolutionSide ConflictSide
+	Before         []Completed
 }
 type Journal struct {
 	TempIdentity   *FileIdentity `json:"temp_identity,omitempty"`

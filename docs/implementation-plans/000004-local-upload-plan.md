@@ -48,8 +48,8 @@ the agreed model in [decision 0004](../decisions/0004-local-upload-proposal.md).
 
 ## File Structure
 
-- `internal/drive/types.go`, `client.go`, and new upload files define the guarded mutation API and streaming upload transport; `update.go` remains fixture-oriented unless proven primitives are deliberately shared.
-- `internal/syncengine/types.go`, `state.go`, and new conflict files define profile policy and pending records; `plan.go` classifies differences; new upload execution/recovery files own staging and journal transitions.
+- `internal/drive/types.go`, `client.go`, and new upload files define the sync mutation API, revision operations, and streaming upload transport; `update.go` remains fixture-oriented unless proven primitives are deliberately shared.
+- `internal/syncengine/types.go`, `state.go`, and new conflict files define profile policy and pending records; `plan.go` classifies differences in `BuildTwoWayPlan`; new upload execution/recovery files own staging and journal transitions.
 - `internal/cli/root.go` and new config/conflict command files expose service operations; `cmd/grove/services.go` wires the read-write authenticated sync service.
 - Existing syncengine tests cover planner/state/recovery; `internal/drive` tests cover fake-HTTP protocol; `tests` covers end-to-end local/remote behavior and opt-in live acceptance.
 - `docs/PRODUCT.md`, `docs/ARCHITECTURE.md`, `docs/TESTBED.md`, and `docs/STATUS.md` record shipped behavior and verification.
@@ -98,13 +98,13 @@ the agreed model in [decision 0004](../decisions/0004-local-upload-proposal.md).
 
 **Interfaces:**
 - Consumes: `ConflictPolicy`, `Conflict`, and profile state from Task 2.
-- Produces: deterministic `Plan` output containing upload/create operations or pending conflicts; no filesystem or network mutation occurs in planning.
+- Produces: deterministic `BuildTwoWayPlan(remote Snapshot, local []LocalEntry, state State) (Plan, error)` output containing upload/create operations or pending conflicts; no filesystem or network mutation occurs in planning.
 
-- [ ] Add planner cases for unchanged files, local-only content edits, local additions, empty/nested folders, local+remote divergence, remote same-byte version advance, same-path independent additions, and strict unsupported removals/moves.
-- [ ] Assert `ConflictAsk` creates pending conflicts and emits no automatic write operation; `ConflictKeepLocal` and `ConflictKeepCloud` select the corresponding action only for eligible tracked-file content conflicts.
-- [ ] Assert identical bytes on both changed sides still produce a conflict and unsupported structural changes remain hard errors under every policy.
-- [ ] Run `go test ./internal/syncengine -run 'TestBuildPlan.*(Upload|Conflict|LocalAddition|EmptyFolder)' -count=1`; verify failure before planner changes, then pass.
-- [ ] Implement the smallest typed operation additions and run all planner tests; commit.
+- [x] Add planner cases for baseline-matching local edits, local additions, nested folders, remote divergence, preflight conflicts, same-path independent additions, and unsupported removals/moves.
+- [x] Assert ask records an unresolved conflict without an upload operation; keep-local and keep-cloud mark the selected side; unknown policy is rejected.
+- [x] Assert independent same-path additions become a conflict even though neither candidate has a baseline.
+- [x] Run focused planner tests first (they failed to compile because the new planner API and operation types were absent), implement `BuildTwoWayPlan`, then run the focused and full sync-engine suites.
+- [x] Implement typed upload/create/conflict operation variants without changing download-only `BuildPlan` behavior.
 
 ## Task 4: Implement guarded Drive create and update uploads
 

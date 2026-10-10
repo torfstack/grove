@@ -193,3 +193,99 @@ func TestPlanRejectsConflicts(t *testing.T) {
 		t.Fatal("local and remote conflict accepted")
 	}
 }
+
+func TestBuildTwoWayPlanUploadsLocalEditWhenRemoteMatchesBaseline(t *testing.T) {
+	remote := file("a", "a")
+	remote.HeadRevisionID = "rev-1"
+	plan, err := BuildTwoWayPlan(
+		Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}},
+		[]LocalEntry{{Path: "a", Kind: "file", SHA256: "local-edit", Size: 11}},
+		State{Completed: []Completed{completed()}, PopulationComplete: true},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Operations) != 1 || plan.Operations[0].Kind != OpUpload || plan.Operations[0].Local.SHA256 != "local-edit" {
+		t.Fatalf("local edit was not planned for upload: %+v", plan.Operations)
+	}
+}
+
+func TestBuildTwoWayPlanAsksBeforeUploadingWhenRemoteChanged(t *testing.T) {
+	remote := file("a", "a")
+	remote.Version = "2"
+	remote.MD5 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	remote.HeadRevisionID = "rev-2"
+	plan, err := BuildTwoWayPlan(
+		Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}},
+		[]LocalEntry{{Path: "a", Kind: "file", SHA256: "local-edit", Size: 11}},
+		State{Completed: []Completed{completed()}, PopulationComplete: true, ConflictPolicy: ConflictAsk},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Operations) != 1 || plan.Operations[0].Kind != OpConflict || plan.Operations[0].Conflict == nil {
+		t.Fatalf("changed remote did not become a pending conflict: %+v", plan.Operations)
+	}
+	if plan.Operations[0].Conflict.RemoteVersion != "2" || plan.Operations[0].Local.SHA256 != "local-edit" {
+		t.Fatalf("conflict did not retain both candidate fingerprints: %+v", plan.Operations[0])
+	}
+}
+
+func TestBuildTwoWayPlanAppliesConfiguredConflictPolicy(t *testing.T) {
+	remote := file("a", "a")
+	remote.Version = "2"
+	remote.MD5 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	remote.HeadRevisionID = "rev-2"
+	input := Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}}
+	local := []LocalEntry{{Path: "a", Kind: "file", SHA256: "local-edit", Size: 11}}
+	for _, tc := range []struct {
+		policy ConflictPolicy
+		kind   OperationKind
+		side   ConflictSide
+	}{
+		{ConflictKeepLocal, OpConflict, SideLocal},
+		{ConflictKeepCloud, OpConflict, SideCloud},
+	} {
+		plan, err := BuildTwoWayPlan(input, local, State{Completed: []Completed{completed()}, PopulationComplete: true, ConflictPolicy: tc.policy})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(plan.Operations) != 1 || plan.Operations[0].Kind != tc.kind || plan.Operations[0].ResolutionSide != tc.side {
+			t.Fatalf("policy %q produced %+v", tc.policy, plan.Operations)
+		}
+	}
+}
+
+func TestBuildTwoWayPlanCreatesUntrackedLocalEntries(t *testing.T) {
+	plan, err := BuildTwoWayPlan(Snapshot{}, []LocalEntry{
+		{Path: "new", Kind: "folder"},
+		{Path: "new/file.txt", Kind: "file", SHA256: "new-content", Size: 12},
+	}, State{PopulationComplete: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Operations) != 2 || plan.Operations[0].Kind != OpCreate || plan.Operations[0].Local.Path != "new" || plan.Operations[1].Kind != OpCreate || plan.Operations[1].Local.Path != "new/file.txt" {
+		t.Fatalf("local folder and child were not planned in parent order: %+v", plan.Operations)
+	}
+}
+
+func TestBuildTwoWayPlanRejectsUnknownConflictPolicy(t *testing.T) {
+	_, err := BuildTwoWayPlan(Snapshot{}, nil, State{ConflictPolicy: "overwrite"})
+	if err == nil {
+		t.Fatal("unknown conflict policy was accepted")
+	}
+}
+
+func TestBuildTwoWayPlanConflictsOnLocalAndRemoteSamePathAddition(t *testing.T) {
+	plan, err := BuildTwoWayPlan(
+		Snapshot{Entries: []Entry{{Path: "same.txt", Remote: file("remote", "same.txt")}}},
+		[]LocalEntry{{Path: "same.txt", Kind: "file", SHA256: "local-content", Size: 12}},
+		State{PopulationComplete: true},
+	)
+	if err != nil || len(plan.Operations) != 1 || plan.Operations[0].Kind != OpConflict || plan.Operations[0].Conflict == nil {
+		t.Fatalf("same-path independent additions did not become a conflict: %v %+v", err, plan.Operations)
+	}
+	if plan.Operations[0].Conflict.Baseline != (Completed{}) {
+		t.Fatalf("new-file conflict unexpectedly has a baseline: %+v", plan.Operations[0].Conflict)
+	}
+}
