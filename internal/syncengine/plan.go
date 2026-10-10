@@ -59,7 +59,7 @@ func BuildPlan(remote Snapshot, local []LocalEntry, state State) (Plan, error) {
 		if _, exists := locals[e.Path]; exists {
 			return Plan{}, errors.New("unowned local destination entry")
 		}
-		kind := "download"
+		kind := OpDownload
 		if entryKind(e) == "folder" {
 			kind = "mkdir"
 		}

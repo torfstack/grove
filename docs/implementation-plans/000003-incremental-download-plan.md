@@ -10,7 +10,7 @@
 
 **Spec:** [Approved spec 000003](../spec/000003-incremental-download-design.md).
 
-**Status:** Plan ready for user review; implementation has not started. Execution method pending.
+**Status:** Approved for native execution; implementation in progress.
 
 ## Global constraints
 
@@ -153,17 +153,17 @@ contract above, `applyBaseline(*State, []Completed, []Completed) error`, and
 `(*executor).stageDownload(context.Context, Entry, string) (string, error)` which
 returns verified SHA-256 after fsync/close and metadata revalidation.
 
-- [ ] Write `TestStateV1Migration`, `TestStateRejectsMalformedBaseline`, and
+- [x] Write `TestStateV1Migration`, `TestStateRejectsMalformedBaseline`, and
   `TestBaselineUpdatesByIdentity`: completed and pending v1 records load; duplicate
   IDs/paths, invalid hashes, unknown kinds/phases/versions, escaping or colliding
   artifact paths fail; replacement does not append a second identity.
-- [ ] Run `mise exec -- go test ./internal/syncengine -run 'TestState|TestBaseline' -count=1`; confirm new behavior fails.
-- [ ] Implement strict version-specific validation, atomic migration helper
+- [x] Run `mise exec -- go test ./internal/syncengine -run 'TestState|TestBaseline' -count=1`; confirm new behavior fails.
+- [x] Implement strict version-specific validation, atomic migration helper
   `migrateState(profile string, state State) (State, error)`, and baseline updates.
   Extract transfer verification and old recovery without changing v1 behavior.
-- [ ] Add `TestV1PendingRecoveryBeforeMigration` and `TestV1ProbeFailurePreservesState`;
+- [x] Add `TestV1PendingRecoveryBeforeMigration` and `TestV1ProbeFailurePreservesState`;
   inject old recovery/save failures and assert reloadable state and intact bytes.
-- [ ] Run `mise exec -- go test -race ./internal/syncengine -count=1`; require PASS,
+- [x] Run `mise exec -- go test -race ./internal/syncengine -count=1`; require PASS,
   including existing transfer/recovery tests. Commit as `refactor: prepare sync state and transfer boundaries`.
 
 ## Task 2: Deterministic incremental planning

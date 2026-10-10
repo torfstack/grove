@@ -34,15 +34,36 @@ type State struct {
 	Binding            Binding     `json:"binding"`
 	Completed          []Completed `json:"completed"`
 	Pending            *Pending    `json:"pending,omitempty"`
+	Transaction        *Journal    `json:"transaction,omitempty"`
 	PopulationComplete bool        `json:"population_complete"`
 }
 type LocalEntry struct {
 	Path, Kind, SHA256 string
 	Size               int64
 }
+type OperationKind string
+
+const (
+	OpMkdir    OperationKind = "mkdir"
+	OpDownload OperationKind = "download"
+	OpReplace  OperationKind = "replace"
+	OpMove     OperationKind = "move"
+	OpRecord   OperationKind = "record"
+	OpSkip     OperationKind = "skip"
+)
+
 type Operation struct {
-	Kind  string
-	Entry Entry
+	Kind   OperationKind
+	Entry  Entry
+	Before []Completed
+}
+type Journal struct {
+	Operation      Operation   `json:"operation"`
+	Phase          string      `json:"phase"`
+	TempPath       string      `json:"temp_path,omitempty"`
+	BackupPath     string      `json:"backup_path,omitempty"`
+	VerifiedSHA256 string      `json:"verified_sha256,omitempty"`
+	After          []Completed `json:"after"`
 }
 type Plan struct{ Operations []Operation }
 type Options struct{ ProfileDir, RemoteRoot, LocalDir, TokenFile string }
