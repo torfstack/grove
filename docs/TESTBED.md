@@ -2,8 +2,8 @@
 
 The agreed approach is a dedicated disposable Google account plus a versioned
 fixture manifest. The baseline workflow is merged into main and passed live acceptance on macOS.
-The incremental scenario is implemented on `feat/incremental-download`; its live
-acceptance remains pending explicit dedicated-account enablement.
+The incremental scenario is implemented on `feat/incremental-download`; dedicated-
+account live acceptance passed on macOS on 2026-10-10.
 
 ## Google setup (user)
 
@@ -90,7 +90,9 @@ repeats without media transfers, and cleans up child-first.
 private run/session locks. Failed mutation records retain intent; inspect can
 reconcile confirmed owned updates, and cleanup checks actual recorded parents.
 Neither default tests nor public CI load live credentials. The incremental live
-scenario has not yet been executed. Crash recovery is tested deterministically
+scenario passed on macOS on 2026-10-10 in 83.43 seconds; initial live acceptance
+also passed in 41.06 seconds. Both runs completed owned remote cleanup.
+Crash recovery is tested deterministically
 with real local files and journal-save faults; kernel fsync failure is not
 independently injected at every transition. Linux runtime evidence comes from
 Linux execution/CI, not the cross-build.

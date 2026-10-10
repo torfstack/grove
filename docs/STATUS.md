@@ -83,14 +83,20 @@ probe ownership gaps, a pending-path collision, and superficial migration tests.
 These are fixed with persisted artifact identities, verified-stage hash checks,
 collision validation, and actual version-1 recovery/save-failure tests.
 Formatting, lint (0 issues), full offline/race tests, native macOS build, Linux
-amd64 cross-build, and diff checks pass after the review fixes. Incremental live
-acceptance is pending
-explicit dedicated-account enablement. Linux CI passed lint, offline tests, race
+amd64 cross-build, and diff checks pass after the review fixes. Dedicated-account
+live acceptance passed on macOS on 2026-10-10 using the explicitly authorized
+test token: incremental sync in 83.43 seconds, initial sync in 41.06 seconds,
+and the complete live suite in 124.938 seconds. Both workflows verified content,
+no-op repeats, and fixture-owned remote cleanup. Token contents and generated
+Drive IDs were not printed. Linux live integration remains untested.
+Linux CI passed lint, offline tests, race
 tests, and the CLI build on `d30b2bf`; dependency review and CodeQL also passed.
 CodeRabbit's four findings are fixed: stale untouched intents, direct x/sys
 dependency classification, and two documentation inconsistencies. Its completed
 follow-up review of `d30b2bf` generated no actionable comments and reports the
-earlier concerns resolved. Two original GitHub threads still show open despite
+earlier concerns resolved. Final documentation commit `21581e1` also passed Linux
+CI, dependency review, CodeQL, and CodeRabbit, with no new actionable comments.
+Two original GitHub threads still show open despite
 that summary; their requested changes are present and verified. No replies or
 manual thread-resolution actions were posted.
 
@@ -105,8 +111,8 @@ command remains a future proposal.
 1. [PR #6](https://github.com/torfstack/grove/pull/6) is open with implementation,
    independent review fixes, and CodeRabbit fixes complete. Confirm latest checks
    before integration; merging requires explicit user authorization.
-2. Run the explicitly enabled incremental live suite on the dedicated account.
-   No credentials were loaded during this work.
+2. Linux live integration is optional follow-up; the macOS dedicated-account
+   initial and incremental live workflows have passed.
 3. Integrate the branch when authorized. Uploads, deletion propagation, and
    automatic conflict resolution remain separate later designs.
 

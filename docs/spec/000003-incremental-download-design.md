@@ -1,6 +1,6 @@
 # Incremental download sync
 
-Date: 2026-10-10. Status: approved design; implemented with offline verification; live acceptance pending.
+Date: 2026-10-10. Status: approved design; implemented with offline verification and macOS live acceptance.
 
 ## Intent and agreed direction
 

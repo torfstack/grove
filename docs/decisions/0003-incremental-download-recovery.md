@@ -1,6 +1,6 @@
 # 0003: Incremental downloads with preserved local conflicts
 
-Date: 2026-10-10. Status: accepted scope and plan; implemented with offline verification.
+Date: 2026-10-10. Status: accepted scope and plan; implemented with offline verification and macOS live acceptance.
 
 ## Agreed decision
 
@@ -26,7 +26,8 @@ Version 2 retains the legacy initial-download journal shape and adds a mutually
 exclusive replacement/move transaction. A stable ready-operation traversal
 resolves structural dependencies without a separate graph framework. Fixture
 changes accept Verified payloads, matching seed. These preserve the agreed scope
-while reducing duplicated code. Incremental live acceptance remains pending.
+while reducing duplicated code. Incremental live acceptance passed on macOS
+on 2026-10-10 with the dedicated test account; Linux live integration is untested.
 
 Recovery records device/inode identities after exclusive creation of temporary
 files and probes. Existing artifacts with unconfirmed or changed ownership stop

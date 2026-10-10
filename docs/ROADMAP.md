@@ -13,8 +13,8 @@ Milestones are ordered proposals; detailed implementation plans come before code
    recovery before using valuable data. The next slice is approved in
    [spec 000003](spec/000003-incremental-download-design.md): incremental downloads
    with local-change detection, remote additions/updates/moves, and focused
-   refactoring. It is implemented on `feat/incremental-download` with offline verification;
-   incremental live acceptance is pending. Uploads, deletion
+   refactoring. It is implemented on `feat/incremental-download` with offline
+   verification and macOS incremental live acceptance. Uploads, deletion
    propagation, and automatic conflict resolution follow later.
 4. **Linux daemon**: scheduling, watching, remote polling, profile locking,
    observable status, and systemd user service integration.

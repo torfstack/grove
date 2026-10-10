@@ -11,7 +11,8 @@
 **Spec:** [Approved spec 000003](../spec/000003-incremental-download-design.md).
 
 **Status:** Implemented with offline verification, independent review, and
-Linux CI/CodeRabbit review in PR #6. Incremental live acceptance remains pending.
+Linux CI/CodeRabbit review in PR #6. Incremental live acceptance passed on macOS
+on 2026-10-10 (83.43 seconds), with initial live acceptance also passing (41.06 seconds).
 
 ## Global constraints
 

@@ -75,7 +75,8 @@ State and fixtures remain outside the downloaded tree. Spec 000003 extends the
 same engine with remote additions, replacements, and moves. Local conflicts and
 remote removals stop preflight; no upload or deletion propagation exists. This is
 not a transactionally consistent remote snapshot. Baseline live acceptance passed
-on macOS; incremental live acceptance and Linux live integration remain pending.
+on macOS; incremental live acceptance also passed on macOS on 2026-10-10.
+Linux live integration remains untested.
 
 ## Incremental reconciliation and recovery
 
