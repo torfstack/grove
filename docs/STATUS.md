@@ -86,16 +86,25 @@ Formatting, lint (0 issues), full offline/race tests, native macOS build, Linux
 amd64 cross-build, and diff checks pass after the review fixes. Incremental live
 acceptance is pending
 explicit dedicated-account enablement. Linux CI passed lint, offline tests, race
-tests, and the CLI build on `a0e57d8`; dependency review and CodeQL also passed.
-CodeRabbit posted four findings on that commit: stale untouched intents blocking
-recovery, x/sys incorrectly marked indirect, and two documentation inconsistencies.
-All are addressed; fresh verification/review remains pending.
+tests, and the CLI build on `d30b2bf`; dependency review and CodeQL also passed.
+CodeRabbit's four findings are fixed: stale untouched intents, direct x/sys
+dependency classification, and two documentation inconsistencies. Its completed
+follow-up review of `d30b2bf` generated no actionable comments and reports the
+earlier concerns resolved. Two original GitHub threads still show open despite
+that summary; their requested changes are present and verified. No replies or
+manual thread-resolution actions were posted.
+
+Known recovery limitation: a crash after exclusive artifact creation but before
+its ownership record is durable preserves the artifact and stops recovery for
+manual inspection. CodeRabbit retained this nonblocking reliability concern,
+consistent with the accepted ownership-safety boundary. An operator reconciliation
+command remains a future proposal.
 
 ## Next steps
 
-1. [PR #6](https://github.com/torfstack/grove/pull/6) is open. Wait for latest Linux
-   CI and CodeRabbit feedback; assess and fix actionable findings. Whole-branch
-   independent review is complete, and its important findings are addressed.
+1. [PR #6](https://github.com/torfstack/grove/pull/6) is open with implementation,
+   independent review fixes, and CodeRabbit fixes complete. Confirm latest checks
+   before integration; merging requires explicit user authorization.
 2. Run the explicitly enabled incremental live suite on the dedicated account.
    No credentials were loaded during this work.
 3. Integrate the branch when authorized. Uploads, deletion propagation, and

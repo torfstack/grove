@@ -10,8 +10,8 @@
 
 **Spec:** [Approved spec 000003](../spec/000003-incremental-download-design.md).
 
-**Status:** Implemented with offline verification and independent review.
-Incremental live acceptance and latest PR CI/CodeRabbit verification remain pending.
+**Status:** Implemented with offline verification, independent review, and
+Linux CI/CodeRabbit review in PR #6. Incremental live acceptance remains pending.
 
 ## Global constraints
 
@@ -340,7 +340,7 @@ Tasks 1–7. No new runtime interfaces.
   and `git diff --check`. Require successful exits; report live/Linux runtime
   evidence separately. Record exact results and remaining limitations in STATUS.
 - [x] Commit as `docs: record incremental sync behavior and validation`.
-- [ ] Obtain whole-branch independent review using the selected execution workflow;
+- [x] Obtain whole-branch independent review using the selected execution workflow;
   address valid findings with targeted verification. If opening a non-draft PR,
   wait for latest CI and retrieve CodeRabbit summary, inline comments, and threads;
   fix valid findings and repeat per AGENTS.md. Merge requires explicit authorization.

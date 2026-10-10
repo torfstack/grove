@@ -41,3 +41,10 @@ replacement with verified old target and absent backup first records cancellatio
 then removes only its verified stage and clears the journal. API failures retain
 intent; states after tracked mutation retain the original preservation policy.
 This recovery refinement requires no local conflict resolution or baseline change.
+
+## Open follow-up
+
+An ownership-preserving operator reconciliation command for the creation-to-
+persistence crash window is proposed for future work. Current recovery preserves
+ambiguous artifacts for manual inspection; CodeRabbit confirmed this nonblocking
+reliability limitation in its final architecture review.
