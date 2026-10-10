@@ -116,10 +116,12 @@ command remains a future proposal.
    conditional-write gate failed its dedicated-account live experiment: Drive v3
    metadata omitted an HTTP ETag, and a stale version-based `If-Match` on a
    resumable media update returned HTTP 200 and replaced the competing bytes.
-   The test restored those bytes and cleaned up its fixture-owned objects. Planner
-   and upload implementation remain blocked pending review of an additions-only
-   scope revision; the proposed revision defers existing-file updates and the
-   conflict-resolution controls that depend on them.
+   The test restored those bytes and cleaned up its fixture-owned objects. A
+   separate spike recovered the overwritten bytes from a pinned Drive revision.
+   That may support post-write conflict recovery, but it permits temporary head
+   replacement and depends on revision retention. Planner and upload work remain
+   blocked until that safety model is reviewed and the paired plan is revised;
+   additions-only remains a fallback.
 2. Linux live integration is optional follow-up; the macOS dedicated-account
    initial and incremental live workflows have passed.
 

@@ -1,6 +1,6 @@
 # Local uploads with preserved conflicts
 
-Date: 2026-10-10. Status: additions-only scope revision proposed; user approval is pending.
+Date: 2026-10-10. Status: revision-aware conflict-recovery design proposed; user approval is pending.
 
 ## Feasibility outcome and proposed scope revision
 
@@ -12,20 +12,35 @@ competing bytes. The live test independently verified the replacement, restored
 the competing bytes, and cleaned up its fixture-owned objects. See the
 [decision record](../decisions/0004-local-upload-proposal.md) for the evidence.
 
-Propose narrowing the first implementation slice to creating local additions:
+An exploratory live spike found a possible alternative to rejecting every
+existing-file edit: Drive retained the overwritten competing bytes as a binary
+revision, and the test could mark that revision `keepForever` and download it for
+independent verification. This is recovery after an accepted write, not a
+server-enforced condition; the Drive head can temporarily become the local
+version before Grove records the conflict. Drive also limits pinned revisions
+and can purge unpinned history, so this behavior needs a complete design and
+additional acceptance criteria before it can replace the original preservation
+requirement.
 
-- Create ordinary local files and folders that have no matching remote path on
-  an established profile. Preserve explicit `--two-way` opt-in, preallocated IDs,
-  private staging, durable intent, recovery, and read-write authorization.
-- Do not upload edits to existing remote files. Preserve and report tracked local
-  edits, same-path collisions, removals, and unsupported structural changes.
-- Defer active conflict-policy configuration and conflict list/resolve commands
-  until an existing-file update can be guarded safely. The committed profile
-  policy/state types are groundwork only under this proposal.
+Propose investigating revision-aware conflict recovery before narrowing the
+feature to additions-only:
+
+- Before an existing-file upload, retain the immutable local stage and baseline
+  identity. After the update, inspect Drive revisions and preserve any remote
+  candidate that diverged from the baseline by pinning and independently
+  downloading it before recording a pending conflict.
+- Keep both candidate fingerprints in profile state and expose the conflict
+  through the shared engine and UI-facing service. A chosen side is applied only
+  after rechecking both candidates; missing or unpinnable revisions stop with the
+  stage retained and an actionable error.
+- Do not claim this is equivalent to conditional-write rejection. Explicitly
+  review whether temporary head replacement and Drive's revision-retention limits
+  satisfy Grove's data-preservation requirement. Keep additions-only as the
+  fallback if they do not.
 
 This revision is not approved. The detailed full-scope design below is retained
-as the original proposal for context; it is not the implementation target unless
-the user rejects the additions-only revision and selects another safe design.
+as the original proposal for context; no implementation resumes until the user
+reviews the revision-recovery trade-off and the paired plan is updated.
 
 ## Intent and scope
 
@@ -143,10 +158,9 @@ rejects publication and preserves the competing edit. Fake-HTTP tests alone cann
 prove Google's enforcement. Do not assume an ETag field exists in the v3 JSON
 resource or invent a `version` query parameter.
 
-The live experiment did not demonstrate a usable condition. No existing-file
-update implementation should start. The proposed additions-only revision at the
-top of this document requires user approval before the paired implementation
-plan is rewritten and work resumes.
+The live experiment did not demonstrate a usable condition. The revision-recovery
+alternative at the top of this document is a distinct safety model and requires
+user review before any existing-file update implementation or plan rewrite.
 
 For creation, allocate a Drive-generated ID and durably associate it with the
 operation before issuing the create. Use the same ID on reconciliation/retry,
@@ -300,9 +314,12 @@ independent verification, and updated product, architecture, testbed and status.
 - [Create/manage files](https://developers.google.com/workspace/drive/api/guides/create-file): supported pre-generated-ID file types.
 - [files.update reference](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/update): media and metadata update interface.
 - [v2/v3 comparison](https://developers.google.com/workspace/drive/api/guides/v2-to-v3-reference): removal of the JSON File `etag` field in v3.
+- [Manage revisions](https://developers.google.com/workspace/drive/api/guides/manage-revisions): binary revision retention, pinning, and download behavior.
 
-These references do not by themselves establish a conditional media-write
-guarantee. The feasibility gate above remains explicit rather than claiming one.
+These references do not establish a conditional media-write guarantee. The live
+spike showed a pinned binary revision can preserve an overwritten candidate in
+the tested case, but the design must account for Drive's revision quotas and
+retention rules before relying on this as a complete conflict guarantee.
 
 After user review and resolution of that gate, the paired implementation plan is
 `docs/implementation-plans/000004-local-upload-plan.md`. It must link to this spec

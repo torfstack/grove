@@ -2,11 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Review state:** Task 1's live experiment did not establish server-enforced
-conditional updates. Tasks 3–8 are suspended. An additions-only scope revision
-is proposed in [spec 000004](../spec/000004-local-upload-design.md) and
-[decision 0004](../decisions/0004-local-upload-proposal.md); do not continue until
-the user approves that scope and this plan is rewritten to match it.
+**Review state:** Task 1 did not establish server-enforced conditional updates.
+A separate live spike recovered the overwritten competing bytes as a pinned Drive
+revision. Tasks 3–8 are suspended while the user reviews this alternative safety
+model and its revision-retention limits in [spec 000004](../spec/000004-local-upload-design.md)
+and [decision 0004](../decisions/0004-local-upload-proposal.md). Rewrite this plan
+to the approved model before continuing.
 
 **Goal:** Add opt-in two-way sync for populated profiles, with safe local uploads and a profile-scoped conflict policy shared by Grove CLI and future daemon/UI clients.
 
@@ -64,7 +65,8 @@ the user approves that scope and this plan is rewritten to match it.
 - [x] Review current primary Drive API documentation. The v3 File resource exposes a monotonically increasing `version`, while its JSON representation has no `etag` field; upload docs do not specify conditional-write behavior.
 - [x] Add and run an explicitly enabled dedicated-account live experiment using only fixture-owned data. Drive v3 metadata returned no HTTP ETag; the matching-version upload control succeeded, then a stale version-based `If-Match` resumable update returned HTTP 200 and replaced the competing bytes. The test independently confirmed the replacement, restored the competing bytes, and cleaned up its fixture.
 - [x] Record sanitized request semantics and outcome; no IDs, tokens, session URLs, or file contents were logged.
-- [ ] Revise spec 000004 and this plan to additions-only, then obtain user approval before resuming Tasks 3–8.
+- [ ] Review revision-based recovery as a possible substitute for conditional writes; define behavior when the previous revision is missing, unpinnable, or near Drive's retention limits.
+- [ ] Obtain user approval for the revised safety model and rewrite this plan before resuming Tasks 3–8.
 
 ## Task 2: Add profile policy and pending-conflict records
 
@@ -211,8 +213,10 @@ the user approves that scope and this plan is rewritten to match it.
 
 ## Execution notes
 
-The conditional-write feasibility gate is first and blocks Tasks 3–8 until it
-passes. If it fails, update and re-review the spec and this plan for additions-only
-scope. Conflict settings and pending-conflict methods are shared engine behavior;
-the desktop UI itself is not part of this slice. A future daemon must consume these
-service methods and must never prompt on a terminal.
+The conditional-write feasibility gate is first and blocks Tasks 3–8 until a safe
+write model is approved. If conditional updates fail, evaluate revision-based
+conflict recovery and its retention limits; use additions-only only if that model
+does not satisfy preservation requirements. Rewrite and re-review this plan before
+resuming implementation. Conflict settings and pending-conflict methods are shared
+engine behavior; the desktop UI itself is not part of this slice. A future daemon
+must consume these service methods and must never prompt on a terminal.

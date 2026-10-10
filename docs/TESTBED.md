@@ -85,6 +85,13 @@ replaced the competing content. The test independently verified the change,
 restored the competing bytes, and cleaned up the fixture. Existing-file uploads
 remain out of scope unless a server-enforced condition is demonstrated.
 
+A later throwaway live spike uploaded stale content after a competing edit, found
+the competing bytes in Drive's revision list, marked that revision `keepForever`,
+and downloaded it for independent verification. This demonstrates recovery in
+that fixture case, but not prevention of stale writes or safety under Drive's
+revision limits. The probe code was discarded; a complete live acceptance test
+requires an approved revision-aware conflict design.
+
 ## Incremental acceptance
 
 `testdata/fixtures/baseline/incremental.json` retains logical identities while
