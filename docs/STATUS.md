@@ -66,8 +66,8 @@ remain atomic, and concurrent writers for a token or sync profile are refused.
 
 ## Incremental download sync
 
-Approved spec 000003 and its plan are implemented on `feat/incremental-download`
-in `/private/tmp/grove-incremental-download`, separate from main. The engine now
+Approved spec 000003 and its plan are implemented and merged into main through
+[PR #6](https://github.com/torfstack/grove/pull/6) at `69768d6`. The engine now
 plans remote additions, content updates, metadata-only changes, and safe file/
 folder moves. Persisted local hashes detect conflicts before new operations.
 Version-1 profiles recover old pending work and atomically migrate to version 2.
@@ -96,8 +96,10 @@ dependency classification, and two documentation inconsistencies. Its completed
 follow-up review of `d30b2bf` generated no actionable comments and reports the
 earlier concerns resolved. Final documentation commit `21581e1` also passed Linux
 CI, dependency review, CodeQL, and CodeRabbit, with no new actionable comments.
-Two original GitHub threads still show open despite
-that summary; their requested changes are present and verified. No replies or
+Live-acceptance documentation commit `c5f12a3` passed Linux CI, dependency review,
+CodeQL, and CodeRabbit with no new actionable comments. One original move-recovery
+thread still shows open despite that summary; its requested changes are present
+and verified. No replies or
 manual thread-resolution actions were posted.
 
 Known recovery limitation: a crash after exclusive artifact creation but before
@@ -108,13 +110,10 @@ command remains a future proposal.
 
 ## Next steps
 
-1. [PR #6](https://github.com/torfstack/grove/pull/6) is open with implementation,
-   independent review fixes, and CodeRabbit fixes complete. Confirm latest checks
-   before integration; merging requires explicit user authorization.
+1. Choose the next bounded design: uploads, deletion propagation, or conflict
+   handling; each remains separate from the completed incremental-download scope.
 2. Linux live integration is optional follow-up; the macOS dedicated-account
    initial and incremental live workflows have passed.
-3. Integrate the branch when authorized. Uploads, deletion propagation, and
-   automatic conflict resolution remain separate later designs.
 
 ## Verification
 
