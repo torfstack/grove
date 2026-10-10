@@ -67,4 +67,4 @@ type Journal struct {
 }
 type Plan struct{ Operations []Operation }
 type Options struct{ ProfileDir, RemoteRoot, LocalDir, TokenFile string }
-type Result struct{ Downloaded, CreatedDirectories, Skipped int }
+type Result struct{ Downloaded, CreatedDirectories, Skipped, Updated, Moved int }

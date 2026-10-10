@@ -26,7 +26,7 @@ func loadState(profile string, binding Binding) (State, error) {
 	path := filepath.Join(profile, "state.json")
 	_, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return State{Version: 1, Binding: binding}, nil
+		return State{Version: 2, Binding: binding}, nil
 	}
 	var s State
 	if err = privatefs.ReadJSON(path, &s); err != nil {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -161,16 +160,4 @@ func TestReplaceBadTransferPreservesOld(t *testing.T) {
 			}
 		})
 	}
-}
-func durableClone(t *testing.T, s State) State {
-	t.Helper()
-	b, err := json.Marshal(s)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var c State
-	if err = json.Unmarshal(b, &c); err != nil {
-		t.Fatal(err)
-	}
-	return c
 }

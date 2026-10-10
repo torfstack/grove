@@ -35,6 +35,19 @@ func (e *executor) finish(entry Entry, hash string) error {
 	return e.save()
 }
 func (e *executor) execute(ctx context.Context, op Operation) error {
+	if op.Kind == OpRecord {
+		if len(op.Before) != 1 {
+			return errors.New("invalid metadata update baseline")
+		}
+		if err := e.requireFile(ctx, op.Entry.Path, op.Before[0]); err != nil {
+			return err
+		}
+		next := *e.state
+		if err := applyBaseline(&next, op.Before, []Completed{completedEntry(op.Entry, op.Before[0].SHA256)}); err != nil {
+			return err
+		}
+		return e.persist(next)
+	}
 	if op.Kind == OpMove {
 		return e.move(ctx, op)
 	}

@@ -264,18 +264,18 @@ CLI flags. Extend `Result` with `Updated` and `Moved`; `Downloaded` includes all
 media transfers, `Updated` counts replacements, `Moved` counts explicit move
 operations. `record` affects no transfer/move counter.
 
-- [ ] Write `TestServiceIncrementalHTTP`: initial sync, remote add/update/file
+- [x] Write `TestServiceIncrementalHTTP`: initial sync, remote add/update/file
   rename/folder move, independent local verification, then no-op with zero media
   transfers and destination writes. Use the real Drive adapter and fake server.
-- [ ] Write `TestServicePreflightPreservesDestination` for incomplete pagination,
+- [x] Write `TestServicePreflightPreservesDestination` for incomplete pagination,
   unsupported entries, removals, and conflicts; assert no new intent or destination
   changes. Pending recovery is tested separately from new planning.
-- [ ] Run `mise exec -- go test ./internal/syncengine ./internal/cli ./cmd/grove -count=1`; confirm new tests fail.
-- [ ] Wire legacy recovery → local validation → plan → migration → capability
+- [x] Run `mise exec -- go test ./internal/syncengine ./internal/cli ./cmd/grove -count=1`; confirm new tests fail.
+- [x] Wire legacy recovery → local validation → plan → migration → capability
   preflight → execution; v2 recovery remains before new planning. Dispatch `record`
   through durable baseline updates; no-op never calls save. Update CLI help and
   count output without printing file names, IDs, tokens, or HTTP response bodies.
-- [ ] Add `TestIncrementalWriterExclusion` reusing existing process-lock tests;
+- [x] Add `TestIncrementalWriterExclusion` reusing existing process-lock tests;
   retain cross-registry/nested exclusion. Run the same packages with `-race`;
   require PASS. Commit as `feat: integrate incremental sync into grove`.
 
