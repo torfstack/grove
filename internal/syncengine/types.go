@@ -21,6 +21,33 @@ type Completed struct {
 	Kind     string `json:"kind"`
 	Size     int64  `json:"size"`
 }
+type ConflictPolicy string
+
+const (
+	ConflictAsk       ConflictPolicy = "ask"
+	ConflictKeepLocal ConflictPolicy = "keep-local"
+	ConflictKeepCloud ConflictPolicy = "keep-cloud"
+)
+
+type ConflictSide string
+
+const (
+	SideLocal ConflictSide = "local"
+	SideCloud ConflictSide = "cloud"
+)
+
+type Conflict struct {
+	ID            string       `json:"id"`
+	Path          string       `json:"path"`
+	Baseline      Completed    `json:"baseline"`
+	LocalSHA256   string       `json:"local_sha256"`
+	LocalSize     int64        `json:"local_size"`
+	RemoteID      string       `json:"remote_id"`
+	RemoteVersion string       `json:"remote_version"`
+	RemoteMD5     string       `json:"remote_md5"`
+	RemoteSize    int64        `json:"remote_size"`
+	SelectedSide  ConflictSide `json:"selected_side,omitempty"`
+}
 type FileIdentity struct {
 	Device uint64 `json:"device"`
 	Inode  uint64 `json:"inode"`
@@ -33,6 +60,8 @@ type Pending struct {
 	Phase          string        `json:"phase"`
 }
 type State struct {
+	ConflictPolicy     ConflictPolicy          `json:"conflict_policy,omitempty"`
+	Conflicts          []Conflict              `json:"conflicts,omitempty"`
 	ProbeIdentities    map[string]FileIdentity `json:"probe_identities,omitempty"`
 	ProbePath          string                  `json:"probe_path,omitempty"`
 	ProbeEntries       []Entry                 `json:"probe_entries,omitempty"`

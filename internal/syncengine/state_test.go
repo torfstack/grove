@@ -78,6 +78,28 @@ func TestBaselineUpdatesByIdentity(t *testing.T) {
 		t.Fatal("stale baseline accepted")
 	}
 }
+
+func TestMigrateVersion2StatePreservesBaselineAndDefaultsPolicy(t *testing.T) {
+	dir := t.TempDir()
+	baseline := baselineFile("a", "a", []byte("kept"))
+	if err := saveState(dir, State{Version: 2, Completed: []Completed{baseline}, PopulationComplete: true}); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := loadState(dir, Binding{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	upgraded, err := migrateState(dir, loaded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if upgraded.Version != 2 || len(upgraded.Completed) != 1 || upgraded.Completed[0] != baseline {
+		t.Fatalf("migration changed existing profile: %#v", upgraded)
+	}
+	if got := policyValue(t, upgraded); got != "ask" {
+		t.Fatalf("policy = %q, want ask", got)
+	}
+}
 func TestV1PendingRecoveryBeforeMigration(t *testing.T) {
 	profile := t.TempDir()
 	root, err := os.OpenRoot(t.TempDir())

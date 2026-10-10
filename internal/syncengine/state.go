@@ -26,7 +26,7 @@ func loadState(profile string, binding Binding) (State, error) {
 	path := filepath.Join(profile, "state.json")
 	_, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return State{Version: 2, Binding: binding}, nil
+		return State{Version: 2, Binding: binding, ConflictPolicy: ConflictAsk}, nil
 	}
 	var s State
 	if err = privatefs.ReadJSON(path, &s); err != nil {
@@ -34,6 +34,12 @@ func loadState(profile string, binding Binding) (State, error) {
 	}
 	if (s.Version != 1 && s.Version != 2) || s.Binding != binding {
 		return State{}, errors.New("unsupported state or changed profile binding")
+	}
+	if s.ConflictPolicy == "" {
+		s.ConflictPolicy = ConflictAsk
+	}
+	if err = validateConflictPolicy(s.ConflictPolicy); err != nil {
+		return State{}, err
 	}
 	seen := map[string]bool{}
 	ids := map[string]bool{}
@@ -46,6 +52,14 @@ func loadState(profile string, binding Binding) (State, error) {
 		}
 		seen[c.Path] = true
 		ids[c.RemoteID] = true
+	}
+	if len(s.Conflicts) > 0 {
+		if s.Version != 2 || s.Transaction != nil || s.Pending != nil {
+			return State{}, errors.New("invalid pending conflict state")
+		}
+		if err = validateConflicts(s.Conflicts, s.Completed); err != nil {
+			return State{}, err
+		}
 	}
 	if s.Pending != nil {
 		p := s.Pending
@@ -141,6 +155,9 @@ func validHash(value string, size int) bool {
 }
 func migrateState(profile string, state State) (State, error) {
 	if state.Version == 2 {
+		if state.ConflictPolicy == "" {
+			state.ConflictPolicy = ConflictAsk
+		}
 		return state, nil
 	}
 	if state.Version != 1 || state.Pending != nil || state.ProbePath != "" {

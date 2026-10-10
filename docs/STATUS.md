@@ -110,12 +110,12 @@ command remains a future proposal.
 
 ## Next steps
 
-1. Review proposed [spec 000004](spec/000004-local-upload-design.md) for explicit
-   two-way uploads on established profiles and shared conflict policy for CLI and
-   daemon. Updated on `docs/local-upload-design`; implementation is not approved.
-   Existing-file updates require demonstrated server-enforced conditional-write
-   safety; additions-only is the proposed fallback if that cannot be established.
-   Resolve this before the paired plan.
+1. Implement approved [spec 000004](spec/000004-local-upload-design.md) on
+   `docs/local-upload-design`, following its paired plan. Profile conflict-policy
+   and pending-conflict state are implemented and verified. The server-enforced
+   conditional-write feasibility gate remains unresolved; it blocks planner and
+   upload implementation until a dedicated-account live experiment demonstrates
+   safe stale-write rejection, or the spec and plan are revised to additions-only.
 2. Linux live integration is optional follow-up; the macOS dedicated-account
    initial and incremental live workflows have passed.
 
