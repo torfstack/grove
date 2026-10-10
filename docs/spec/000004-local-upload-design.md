@@ -1,6 +1,31 @@
 # Local uploads with preserved conflicts
 
-Date: 2026-10-10. Status: proposed design for user review; implementation is not approved.
+Date: 2026-10-10. Status: additions-only scope revision proposed; user approval is pending.
+
+## Feasibility outcome and proposed scope revision
+
+The full design below proposed existing-file uploads guarded by a Drive-enforced
+condition. The dedicated-account experiment on 2026-10-10 did not establish that
+guarantee: Drive v3 metadata returned no HTTP ETag, and a resumable update carrying
+the stale Drive `version` as `If-Match` returned HTTP 200 and replaced the
+competing bytes. The live test independently verified the replacement, restored
+the competing bytes, and cleaned up its fixture-owned objects. See the
+[decision record](../decisions/0004-local-upload-proposal.md) for the evidence.
+
+Propose narrowing the first implementation slice to creating local additions:
+
+- Create ordinary local files and folders that have no matching remote path on
+  an established profile. Preserve explicit `--two-way` opt-in, preallocated IDs,
+  private staging, durable intent, recovery, and read-write authorization.
+- Do not upload edits to existing remote files. Preserve and report tracked local
+  edits, same-path collisions, removals, and unsupported structural changes.
+- Defer active conflict-policy configuration and conflict list/resolve commands
+  until an existing-file update can be guarded safely. The committed profile
+  policy/state types are groundwork only under this proposal.
+
+This revision is not approved. The detailed full-scope design below is retained
+as the original proposal for context; it is not the implementation target unless
+the user rejects the additions-only revision and selects another safe design.
 
 ## Intent and scope
 
@@ -118,11 +143,10 @@ rejects publication and preserves the competing edit. Fake-HTTP tests alone cann
 prove Google's enforcement. Do not assume an ETag field exists in the v3 JSON
 resource or invent a `version` query parameter.
 
-If the mechanism is unavailable or cannot be demonstrated, revise this spec to
-additions-only and obtain approval for that narrower slice. Do not weaken the
-preservation requirement to a check-before/check-after overwrite. This is the
-remaining technical design question; no production update implementation should
-start while it is unresolved.
+The live experiment did not demonstrate a usable condition. No existing-file
+update implementation should start. The proposed additions-only revision at the
+top of this document requires user approval before the paired implementation
+plan is rewritten and work resumes.
 
 For creation, allocate a Drive-generated ID and durably associate it with the
 operation before issuing the create. Use the same ID on reconciliation/retry,

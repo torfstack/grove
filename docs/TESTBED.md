@@ -77,6 +77,14 @@ success. Failed runs retain their private records and remote data. Offline tests
 cover interruption/recovery and use a local HTTP Drive server for the full CLI
 workflow. Public CI does not receive credentials. See README for executable setup.
 
+`TestConditionalUploadConflictLive` probes Drive's stale-write behavior using
+fixture-owned content. On 2026-10-10 it found no HTTP ETag in the Drive v3
+metadata response. A matching-version resumable update succeeded, but a second
+update using that now-stale version in `If-Match` also returned HTTP 200 and
+replaced the competing content. The test independently verified the change,
+restored the competing bytes, and cleaned up the fixture. Existing-file uploads
+remain out of scope unless a server-enforced condition is demonstrated.
+
 ## Incremental acceptance
 
 `testdata/fixtures/baseline/incremental.json` retains logical identities while

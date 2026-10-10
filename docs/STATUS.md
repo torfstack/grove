@@ -113,9 +113,13 @@ command remains a future proposal.
 1. Implement approved [spec 000004](spec/000004-local-upload-design.md) on
    `docs/local-upload-design`, following its paired plan. Profile conflict-policy
    and pending-conflict state are implemented and verified. The server-enforced
-   conditional-write feasibility gate remains unresolved; it blocks planner and
-   upload implementation until a dedicated-account live experiment demonstrates
-   safe stale-write rejection, or the spec and plan are revised to additions-only.
+   conditional-write gate failed its dedicated-account live experiment: Drive v3
+   metadata omitted an HTTP ETag, and a stale version-based `If-Match` on a
+   resumable media update returned HTTP 200 and replaced the competing bytes.
+   The test restored those bytes and cleaned up its fixture-owned objects. Planner
+   and upload implementation remain blocked pending review of an additions-only
+   scope revision; the proposed revision defers existing-file updates and the
+   conflict-resolution controls that depend on them.
 2. Linux live integration is optional follow-up; the macOS dedicated-account
    initial and incremental live workflows have passed.
 

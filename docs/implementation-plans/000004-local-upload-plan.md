@@ -2,6 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Review state:** Task 1's live experiment did not establish server-enforced
+conditional updates. Tasks 3–8 are suspended. An additions-only scope revision
+is proposed in [spec 000004](../spec/000004-local-upload-design.md) and
+[decision 0004](../decisions/0004-local-upload-proposal.md); do not continue until
+the user approves that scope and this plan is rewritten to match it.
+
 **Goal:** Add opt-in two-way sync for populated profiles, with safe local uploads and a profile-scoped conflict policy shared by Grove CLI and future daemon/UI clients.
 
 **Architecture:** Extend `internal/syncengine` as the sole owner of planning, conflict policy, profile state and journaled execution. Add guarded streaming writes to `internal/drive`; expose profile policy and pending conflict operations through the syncengine service and CLI. `groved` can consume those service operations when its daemon/UI work is designed.
@@ -55,10 +61,10 @@
 **Interfaces:**
 - Produces: a documented Drive v3 conditional media-update request contract, including the exact condition, resumable session behavior, stale-condition response, and result reconciliation rules.
 
-- [ ] Review current primary Drive API documentation and identify the supported server-enforced precondition for media updates.
-- [ ] Define a disposable-account experiment in the existing opt-in live suite: prepare a known file, change its remote version after the client captures the baseline, attempt the conditional update, and independently verify the competing bytes remain.
-- [ ] Run the experiment only when the live suite is explicitly enabled with the dedicated profile and fixture-owned data; record sanitized request semantics and outcome, never IDs or tokens.
-- [ ] If Drive rejects stale conditions and preserves the competing version, freeze the transport contract for Task 4. If this cannot be demonstrated, stop this plan, revise spec 000004 to additions-only, and obtain approval for the revised spec and plan before continuing.
+- [x] Review current primary Drive API documentation. The v3 File resource exposes a monotonically increasing `version`, while its JSON representation has no `etag` field; upload docs do not specify conditional-write behavior.
+- [x] Add and run an explicitly enabled dedicated-account live experiment using only fixture-owned data. Drive v3 metadata returned no HTTP ETag; the matching-version upload control succeeded, then a stale version-based `If-Match` resumable update returned HTTP 200 and replaced the competing bytes. The test independently confirmed the replacement, restored the competing bytes, and cleaned up its fixture.
+- [x] Record sanitized request semantics and outcome; no IDs, tokens, session URLs, or file contents were logged.
+- [ ] Revise spec 000004 and this plan to additions-only, then obtain user approval before resuming Tasks 3–8.
 
 ## Task 2: Add profile policy and pending-conflict records
 
