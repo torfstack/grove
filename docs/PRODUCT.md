@@ -54,3 +54,13 @@ An unchanged run performs no destination writes or media transfers. Replacements
 retain verified old content until the new baseline is durable; the local target
 may briefly be absent. Unsupported native move primitives, occupied targets,
 path swaps/cycles, and same-run reuse of tracked vacated paths fail safely.
+
+## Proposed upload slice
+
+[Spec 000004](spec/000004-local-upload-design.md) proposes explicit `--two-way`
+sync on populated profiles: new local files/folders and guarded local content
+updates, retaining downloads and strict conflict preservation. Download-only
+remains the default. Existing-file updates depend on demonstrated server-enforced
+conditional writes; additions-only is the fallback proposal. This design is not
+approved or implemented. Deletions, local renames, and automatic conflict
+resolution remain deferred.

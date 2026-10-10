@@ -110,10 +110,18 @@ command remains a future proposal.
 
 ## Next steps
 
-1. Choose the next bounded design: uploads, deletion propagation, or conflict
-   handling; each remains separate from the completed incremental-download scope.
+1. Review proposed [spec 000004](spec/000004-local-upload-design.md) for explicit
+   two-way uploads on established profiles. Drafted on `docs/local-upload-design`;
+   implementation is not approved. Existing-file updates require demonstrated
+   server-enforced conditional-write safety; additions-only is the proposed
+   fallback if that cannot be established. Resolve this before the paired plan.
 2. Linux live integration is optional follow-up; the macOS dedicated-account
    initial and incremental live workflows have passed.
+
+The preexisting status correction recording PR #6's merge was committed as
+`9ba3d41` on the design branch. This session changed documentation only; spec
+self-review, local Markdown-link validation, and `git diff --check` are the
+appropriate checks. No Go or live tests were run for the design work.
 
 ## Verification
 
