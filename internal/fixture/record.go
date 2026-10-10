@@ -71,5 +71,8 @@ func LoadRun(dir string) (Run, error) {
 			return Run{}, errors.New("invalid fixture run status")
 		}
 	}
+	if err := validateChange(r); err != nil {
+		return Run{}, err
+	}
 	return r, nil
 }

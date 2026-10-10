@@ -1,8 +1,9 @@
 # Drive testbed
 
 The agreed approach is a dedicated disposable Google account plus a versioned
-fixture manifest. The baseline workflow is implemented on `feat/initial-sync`; real Drive execution
-remains pending local test-account authentication.
+fixture manifest. The baseline workflow is merged into main and passed live acceptance on macOS.
+The incremental scenario is implemented on `feat/incremental-download`; its live
+acceptance remains pending explicit dedicated-account enablement.
 
 ## Google setup (user)
 
@@ -75,3 +76,21 @@ zero second-run media requests and unchanged local mtimes, then cleans up on
 success. Failed runs retain their private records and remote data. Offline tests
 cover interruption/recovery and use a local HTTP Drive server for the full CLI
 workflow. Public CI does not receive credentials. See README for executable setup.
+
+## Incremental acceptance
+
+`testdata/fixtures/baseline/incremental.json` retains logical identities while
+renaming a folder, renaming/updating a file, moving a file into a descendant
+folder, and adding a folder/file. Payloads reuse committed baseline bytes.
+The fake-HTTP CLI workflow applies these changes through owned fixture tooling,
+inspects remote content, syncs, independently verifies the target manifest,
+repeats without media transfers, and cleans up child-first.
+
+`TestIncrementalSyncLive` runs the same scenario under existing live gates and
+private run/session locks. Failed mutation records retain intent; inspect can
+reconcile confirmed owned updates, and cleanup checks actual recorded parents.
+Neither default tests nor public CI load live credentials. The incremental live
+scenario has not yet been executed. Crash recovery is tested deterministically
+with real local files and journal-save faults; kernel fsync failure is not
+independently injected at every transition. Linux runtime evidence comes from
+Linux execution/CI, not the cross-build.

@@ -15,6 +15,7 @@ type mutationFake struct {
 	*fakeDrive
 	updates   int
 	uncertain bool
+	ignored   bool
 }
 
 func (f *mutationFake) Update(ctx context.Context, id string, u drive.Update, content io.Reader) (drive.File, error) {
@@ -23,6 +24,9 @@ func (f *mutationFake) Update(ctx context.Context, id string, u drive.Update, co
 		return drive.File{}, errors.New("update intent missing")
 	}
 	v := f.files[id]
+	if f.ignored {
+		return v, nil
+	}
 	v.Name = u.Name
 	if u.AddParent != "" {
 		v.Parents = []string{u.AddParent}
@@ -121,5 +125,38 @@ func TestFixtureChangesAndReconciliation(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+func TestFixtureRejectsMalformedChange(t *testing.T) {
+	api, dir, r := seedFake(t)
+	r.Change = &Change{Target: changedFixture(t).Manifest, Pending: &Mutation{Before: r.Manifest.Entries[1], After: r.Manifest.Entries[1], Object: Object{LogicalID: "unowned", RemoteID: "other"}}}
+	if err := saveRun(dir, r); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadRun(dir); err == nil {
+		t.Fatal("unowned update journal accepted")
+	}
+	if len(api.trash) != 0 {
+		t.Fatal("data removed")
+	}
+}
+
+func TestFixtureUnchangedUpdateNotCommitted(t *testing.T) {
+	base, dir, original := seedFake(t)
+	api := &mutationFake{fakeDrive: base, ignored: true}
+	if err := ApplyChanges(context.Background(), api, dir, changedFixture(t)); err == nil {
+		t.Fatal("unapplied update accepted")
+	}
+	got, err := LoadRun(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalEntries := runEntries(original)
+	gotEntries := runEntries(got)
+	for id, entry := range originalEntries {
+		if !reflect.DeepEqual(entry, gotEntries[id]) {
+			t.Fatal("unapplied update recorded")
+		}
 	}
 }

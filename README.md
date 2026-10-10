@@ -5,8 +5,8 @@ platform; Windows and macOS are planned.
 
 The planned `grove` CLI performs individual operations such as authentication,
 sync, and status. A later `groved` daemon schedules the same shared sync engine.
-Authentication, disposable fixture tooling, and initial download sync are implemented.
-Status reporting, incremental/two-way sync, and the daemon are planned.
+Authentication, disposable fixture tooling, and incremental download sync are implemented.
+Status reporting, uploads, deletion propagation, and the daemon are planned.
 
 Development tools are pinned in [mise.toml](mise.toml). Install them with
 `mise install`.
@@ -72,7 +72,7 @@ Start with [project status](docs/STATUS.md), [product scope](docs/PRODUCT.md),
 [architecture](docs/ARCHITECTURE.md), and [roadmap](docs/ROADMAP.md).
 The [Drive testbed](docs/TESTBED.md) describes live testing.
 
-## Initial download sync
+## Download sync
 
 Download an account-owned My Drive folder into an absent or empty directory.
 Its parent directory must already exist:
@@ -87,16 +87,34 @@ Its parent directory must already exist:
 
 Set `GROVE_REMOTE_ROOT` locally to the selected folder ID. Keep profiles outside
 Git and separate from the destination and token. The profile binds those paths
-and the remote root; use the same arguments to resume or repeat a run. Files are
-verified and published without replacing existing files. An unchanged second run
+and the remote root; use the same arguments to resume or repeat a run. New files are
+verified and published without replacing existing files. Tracked unchanged files
+can be replaced by verified remote updates. An unchanged second run
 rehashes local files and reads remote metadata, without downloading media again.
 
 This version populates ordinary files and folders. It rejects Google-native
 files, shortcuts, duplicate sibling names, third-party-owned content, shared
-drives, symlinks, and incompatible names. Local edits and remote changes after
-completion fail safely; nothing is overwritten or deleted. This is initial
-population, not ongoing synchronization. Interrupted transfers restart from
-zero while completed files are preserved.
+drives, symlinks, and incompatible names. After initial population, the same command downloads remote additions and updates
+and follows safe file/folder renames and moves. Local edits, missing tracked files,
+unexpected local entries, remote removals, type changes, occupied move targets,
+and cyclic rearrangements stop preflight and preserve content. There are no
+uploads, deletion propagation, or automatic conflict resolution. Interrupted
+transfers restart from zero; completed progress is retained.
+
+The private `<profile-dir>/state.json` stores remote identities/versions, local
+SHA-256 hashes, and recovery intent. Every run rehashes local files; timestamps
+are not the baseline. Existing version-1 profiles recover pending initial work
+before atomically upgrading to version 2. Older binaries cannot read the upgraded
+profile; keep its state rather than deleting it to downgrade.
+
+Replacement retains old bytes at a journal-owned backup path until the new
+baseline is durable. A target can briefly be absent between backup and publication;
+recovery finishes the operation or stops on unexpected content. Moves require
+native no-replace rename support on the destination filesystem (Linux and macOS
+boundaries are implemented). Capability/name preflight occurs before tracked
+mutations. Locks exclude other Grove writers; arbitrary concurrent edits by other
+applications remain outside that guarantee. Drive traversal is not a transactional
+whole-account snapshot.
 
 Profiles and destinations are exclusively locked. Filesystem leases and shared
 ancestor locks also exclude aliases and nested writers across registry locations.
@@ -123,9 +141,11 @@ GROVE_TEST_RUNS_DIR="$HOME/.local/state/grove-test/runs" \
   mise run test-live
 ```
 
-The explicitly enabled test seeds a fresh remote folder, inspects it, downloads
+The explicitly enabled suite seeds a fresh remote folder, inspects it, downloads
 and independently verifies its content, repeats with zero media transfers, and
-trashes only that run's owned fixture objects. Tokens and generated IDs remain
+trashes only each run's owned fixture objects. The incremental scenario also applies
+owned remote additions, content updates, and file/folder moves before independently
+verifying a second sync and its no-op repeat. Tokens and generated IDs remain
 in private records outside Git. Successful runs retain local records; failed
 runs also retain remote data for inspection. No token needs to be pasted into
 chat or added to CI. Default tests never load live credentials.

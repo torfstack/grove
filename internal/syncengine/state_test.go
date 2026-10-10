@@ -108,3 +108,33 @@ func TestV1ProbeFailurePreservesState(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestStateRejectsMalformedJournal(t *testing.T) {
+	old := baselineFile("file.txt", "file", []byte("old"))
+	api := downloader()
+	op := Operation{Kind: OpReplace, Entry: Entry{Path: "file.txt", Remote: api.children[0]}, Before: []Completed{old}}
+	for _, change := range []func(*Journal){
+		func(j *Journal) { j.TempPath = "user-file" },
+		func(j *Journal) { j.BackupPath = j.TempPath },
+		func(j *Journal) { j.Operation.Before[0].SHA256 = "bad" },
+		func(j *Journal) { j.Operation.Before[0].RemoteID = "other" },
+		func(j *Journal) { j.Phase = "verified" },
+		func(j *Journal) {
+			j.After = []Completed{baselineFile("elsewhere", "other", nil)}
+			j.Phase = "committed"
+		},
+	} {
+		dir := t.TempDir()
+		copyOp := op
+		copyOp.Before = append([]Completed(nil), op.Before...)
+		j := Journal{Operation: copyOp, Phase: "intent", TempPath: ".grove-download-id", BackupPath: ".grove-backup-id"}
+		change(&j)
+		state := State{Version: 2, Completed: []Completed{old}, Transaction: &j}
+		if err := saveState(dir, state); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := loadState(dir, Binding{}); err == nil {
+			t.Fatal("malformed journal accepted")
+		}
+	}
+}

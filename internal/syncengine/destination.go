@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"github.com/torfstack/grove/internal/drive"
 	"github.com/torfstack/grove/internal/privatefs"
 	"os"
 	"path/filepath"
@@ -302,4 +303,23 @@ func probeMoveWith(root *os.Root, state *State, save func() error, move func(str
 		return errors.New("destination filesystem does not support safe moves")
 	}
 	return nil
+}
+
+func probeSnapshot(remote Snapshot, baseline []Completed) Snapshot {
+	out := Snapshot{Entries: append([]Entry(nil), remote.Entries...)}
+	paths := map[string]bool{}
+	for _, e := range out.Entries {
+		paths[e.Path] = true
+	}
+	for _, c := range baseline {
+		if paths[c.Path] {
+			continue
+		}
+		entry := Entry{Path: c.Path}
+		if c.Kind == "folder" {
+			entry.Remote.MIMEType = drive.FolderMIME
+		}
+		out.Entries = append(out.Entries, entry)
+	}
+	return out
 }

@@ -64,19 +64,33 @@ Requirements and design specs live in `docs/spec/`. Implementation plans live in
 Authentication and sync token sessions now share advisory locking. Token writes
 remain atomic, and concurrent writers for a token or sync profile are refused.
 
+## Incremental download sync
+
+Approved spec 000003 and its plan are implemented on `feat/incremental-download`
+in `/private/tmp/grove-incremental-download`, separate from main. The engine now
+plans remote additions, content updates, metadata-only changes, and safe file/
+folder moves. Persisted local hashes detect conflicts before new operations.
+Version-1 profiles recover old pending work and atomically migrate to version 2.
+Transfers, recovery, baseline persistence, replacements, and subtree moves have
+focused boundaries within the existing engine. No second engine or generic
+workflow framework was added.
+
+Offline tests cover real HTTP fixture mutation → inspect → incremental sync →
+independent verification → no-op → owned cleanup; journal-save interruption,
+malformed records, local conflicts, remote changes during download, and filesystem
+case aliases also have regression coverage. Incremental live acceptance is pending
+explicit dedicated-account enablement. Linux runtime/live evidence remains pending
+fresh Linux execution; cross-builds provide compilation evidence only.
+
 ## Next steps
 
-1. The user approved [spec 000003](spec/000003-incremental-download-design.md)
-   for incremental downloads: remote additions, updates, and moves, with persisted
-   local-change detection. Conflicts stop the run and preserve content; automatic
-   conflict resolution and remote-deletion propagation remain deferred.
-2. Review the [implementation plan](implementation-plans/000003-incremental-download-plan.md)
-   and select native or delegated execution. Eight tasks cover state compatibility,
-   focused refactoring, planning, native move primitives, replacements/moves and
-   recovery, integration, fixture acceptance, and final verification. No product
-   code changed and no live tests ran during planning. Documentation checks passed.
-   The user requested maintainable, extensible, simple code after the large
-   initial implementation. Uploads and deletion propagation remain later slices.
+1. Complete whole-branch independent review of incremental downloads. Formatting,
+   lint (0 issues), full offline tests, race tests, native macOS build, Linux amd64
+   cross-build, and diff checks passed on 2026-10-10 before review.
+2. Run the explicitly enabled incremental live suite on the dedicated account,
+   and obtain Linux runtime evidence. No credentials were loaded during this work.
+3. Integrate the branch when authorized. Uploads, deletion propagation, and
+   automatic conflict resolution remain separate later designs.
 
 ## Verification
 

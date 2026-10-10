@@ -1,7 +1,8 @@
 # Architecture
 
-Authentication, the Drive fixture lifecycle, and initial download sync are
-implemented. Incremental sync and daemon orchestration remain to be designed.
+Authentication, the Drive fixture lifecycle, and initial/incremental download sync
+are implemented. Uploads, deletion propagation, and daemon orchestration remain
+to be designed.
 
 ## Current authentication implementation
 
@@ -70,7 +71,38 @@ must already exist; creating an unleased parent tree is not supported. `cmd/grov
 CLI commands receive injected services. The engine's injectable `Service` supports
 HTTP integration tests and the future daemon without spawning the CLI.
 
-State and fixtures remain outside the downloaded tree. Completed populations
-reject later remote additions, modifications, renames, and removals; no deletion
-or overwrite operations exist. This is not a transactionally consistent remote
-snapshot. Live account access remains unverified until the opt-in suite is run.
+State and fixtures remain outside the downloaded tree. Spec 000003 extends the
+same engine with remote additions, replacements, and moves. Local conflicts and
+remote removals stop preflight; no upload or deletion propagation exists. This is
+not a transactionally consistent remote snapshot. Baseline live acceptance passed
+on macOS; incremental live acceptance and Linux live integration remain pending.
+
+## Incremental reconciliation and recovery
+
+The planner matches stable remote IDs against the saved baseline, validates local
+membership/content, and resolves structural dependencies in deterministic order.
+It simulates paths after ancestor moves, so carried descendants are not moved
+again. It emits typed mkdir/download/replace/move/record/skip operations; same-byte
+version changes use record operations without transfer.
+
+Execution separates transfer verification, baseline/journal persistence,
+replacement transitions, and subtree moves. Version-2 state retains the original
+initial-download pending shape and adds a mutually exclusive typed transaction
+for replacements/moves. Version-1 recovery precedes atomic migration. Journal
+validation rejects unsupported phases, unsafe artifacts, inconsistent baselines,
+and unrelated identities before recovery.
+
+Replacement stages verified bytes, moves old content to an owned backup without
+replacement, publishes into the absent target, commits its baseline with cleanup
+intent still present, then removes hash-verified artifacts and clears intent.
+Moves validate exact source membership/hashes, use one native no-replace rename,
+sync both parents, and durably remap the subtree. Linux renameat2 and macOS
+renameatx_np use parent descriptors opened through the rooted filesystem boundary;
+x/sys is pinned in go.mod. Unsupported primitives fail preflight. Recovery checks
+observed bytes/membership instead of trusting the last recorded phase alone.
+
+Fixture mutation uses a separate Drive MutationAPI; the sync engine keeps its
+existing read-only API contract. ApplyChanges accepts loader-validated payloads,
+checks owned complete membership, journals each create/update, and reconciles
+uncertain outcomes through owned identity and expected content. It adds no new
+CLI mutation command or second fixture lifecycle.

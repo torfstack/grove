@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"slices"
 )
 
 func (e *executor) stageDownload(ctx context.Context, entry Entry, path string) (string, error) {
@@ -29,7 +30,7 @@ func (e *executor) stageDownload(ctx context.Context, entry Entry, path string) 
 	if err != nil {
 		return "", err
 	}
-	if fresh.ID != entry.Remote.ID || fresh.Version != entry.Remote.Version || fresh.MD5 != entry.Remote.MD5 || fresh.Size != entry.Remote.Size || fresh.Trashed || !fresh.OwnedByMe {
+	if fresh.Name != entry.Remote.Name || !slices.Equal(fresh.Parents, entry.Remote.Parents) || fresh.ID != entry.Remote.ID || fresh.Version != entry.Remote.Version || fresh.MD5 != entry.Remote.MD5 || fresh.Size != entry.Remote.Size || fresh.Trashed || !fresh.OwnedByMe {
 		return "", errors.New("remote file changed during download")
 	}
 	if err = ctx.Err(); err != nil {

@@ -1,6 +1,6 @@
 # 0003: Incremental downloads with preserved local conflicts
 
-Date: 2026-10-10. Status: accepted scope; implementation plan awaiting review.
+Date: 2026-10-10. Status: accepted scope and plan; implemented with offline verification.
 
 ## Agreed decision
 
@@ -18,8 +18,12 @@ Strict conflicts/removals block independent new work until resolved. Replacement
 and moves require versioned durable intent, verified content, and deterministic
 restart handling; existing version-1 profiles must remain migratable.
 
-## Plan proposals
+## Implementation choices
 
-The paired plan proposes version-2 records, journal-owned replacement backups,
+The approved paired plan uses version-2 records, journal-owned replacement backups,
 native no-replace moves, and narrow fixture mutation support for acceptance tests.
-These implementation choices await plan review. Execution has not started.
+Version 2 retains the legacy initial-download journal shape and adds a mutually
+exclusive replacement/move transaction. A stable ready-operation traversal
+resolves structural dependencies without a separate graph framework. Fixture
+changes accept Verified payloads, matching seed. These preserve the agreed scope
+while reducing duplicated code. Incremental live acceptance remains pending.

@@ -64,15 +64,14 @@ func BuildPlan(remote Snapshot, local []LocalEntry, state State) (Plan, error) {
 	for {
 		changed := false
 		remaining := false
+		indices := map[string]int{}
+		for i, c := range simulated {
+			indices[c.RemoteID] = i
+		}
 		for _, e := range entries {
-			index := -1
-			for i, c := range simulated {
-				if c.RemoteID == e.Remote.ID {
-					index = i
-					break
-				}
-			}
-			if index < 0 {
+			index, known := indices[e.Remote.ID]
+
+			if !known {
 				if entryKind(e) != "folder" || directories[e.Path] {
 					continue
 				}

@@ -212,3 +212,23 @@ func TestServiceMigratesV1AndRecordsMetadata(t *testing.T) {
 		t.Fatal("metadata baseline not updated")
 	}
 }
+
+func TestIncrementalCaseAliasPreflight(t *testing.T) {
+	service, opts, r := httpService(t)
+	if _, err := service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(opts.LocalDir, "B")); err != nil {
+		t.Skip("case-sensitive filesystem")
+	}
+	f := r.files["b"]
+	f.Name = "B"
+	r.files["b"] = f
+	r.files["added-folder"] = drive.File{ID: "added-folder", Name: "!added", MIMEType: drive.FolderMIME, OwnedByMe: true, Parents: []string{"root"}}
+	if _, err := service.Run(context.Background(), opts); err == nil {
+		t.Fatal("case alias accepted")
+	}
+	if _, err := os.Stat(filepath.Join(opts.LocalDir, "!added")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("new operation executed before collision preflight")
+	}
+}

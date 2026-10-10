@@ -132,7 +132,7 @@ func ApplyChanges(ctx context.Context, api drive.MutationAPI, dir string, target
 		if err = reconcileMutation(ctx, api, dir, &r); err != nil {
 			return err
 		}
-		if r.Change.Pending != nil {
+		if r.Change.Pending != nil || !reflect.DeepEqual(runEntries(r)[entry.ID], entry) {
 			return errors.New("fixture update was not confirmed")
 		}
 		old[entry.ID] = entry

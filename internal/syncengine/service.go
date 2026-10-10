@@ -131,7 +131,7 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 				return result, err
 			}
 		}
-		if err = probeDestination(root, snapshot, &state, save); err != nil {
+		if err = probeDestination(root, probeSnapshot(snapshot, state.Completed), &state, save); err != nil {
 			return result, err
 		}
 	}

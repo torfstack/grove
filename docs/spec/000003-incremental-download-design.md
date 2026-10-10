@@ -1,6 +1,6 @@
 # Incremental download sync
 
-Date: 2026-10-10. Status: approved design; implementation plan awaiting review.
+Date: 2026-10-10. Status: approved design; implemented with offline verification; live acceptance pending.
 
 ## Intent and agreed direction
 
@@ -12,7 +12,8 @@ recover safely from interruption. Linux remains the acceptance target.
 The user selected incremental downloads as the next milestone and requested
 focused refactoring to keep the codebase maintainable, extensible, and simple.
 The user approved this written spec. Behavior below is agreed for this slice;
-implementation has not started. Automatic conflict resolution remains deferred.
+implementation is on `feat/incremental-download`. Automatic conflict resolution
+remains deferred.
 
 ## Approach and alternatives
 
@@ -135,5 +136,5 @@ the daemon, native documents, and shared drives remain outside this slice.
 ## Review and next artifact
 
 The paired [implementation plan](../implementation-plans/000003-incremental-download-plan.md)
-is written and awaits review of filesystem transitions, refactoring boundaries,
-and execution method before implementation.
+was approved for native execution. See STATUS for verification and outstanding
+Linux/live acceptance.

@@ -74,7 +74,7 @@ func loadState(profile string, binding Binding) (State, error) {
 		if s.Version != 2 || s.Pending != nil {
 			return State{}, errors.New("invalid journal version")
 		}
-		if err := validateJournal(*s.Transaction); err != nil {
+		if err := validateJournal(*s.Transaction, s.Completed); err != nil {
 			return State{}, err
 		}
 	}
@@ -176,25 +176,5 @@ func applyBaseline(state *State, before, after []Completed) error {
 	}
 	sort.Slice(next, func(i, j int) bool { return next[i].Path < next[j].Path })
 	state.Completed = next
-	return nil
-}
-func validateJournal(j Journal) error {
-	if j.Operation.Kind != OpReplace && j.Operation.Kind != OpMove {
-		return errors.New("invalid journal operation")
-	}
-	if j.Phase != "intent" && j.Phase != "verified" && j.Phase != "backed-up" && j.Phase != "committed" {
-		return errors.New("invalid journal phase")
-	}
-	if !safeRelative(j.Operation.Entry.Path) || len(j.Operation.Before) == 0 {
-		return errors.New("invalid journal baseline")
-	}
-	for _, p := range []string{j.TempPath, j.BackupPath} {
-		if p != "" && (!safeRelative(p) || p == j.Operation.Entry.Path || filepath.Dir(p) != filepath.Dir(j.Operation.Entry.Path)) {
-			return errors.New("invalid journal artifact")
-		}
-	}
-	if j.TempPath != "" && j.TempPath == j.BackupPath {
-		return errors.New("colliding journal paths")
-	}
 	return nil
 }
