@@ -11,6 +11,9 @@ import (
 
 func (e *executor) recover(ctx context.Context, snapshot Snapshot) error {
 	if e.state.Transaction != nil {
+		if e.state.Transaction.Operation.Kind == OpMove {
+			return e.recoverMove(ctx)
+		}
 		if e.state.Transaction.Operation.Kind == OpReplace {
 			return e.recoverReplace(ctx)
 		}

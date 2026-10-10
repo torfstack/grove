@@ -238,19 +238,19 @@ and `(*executor).recoverReplace(context.Context) error`; consume Tasks 1 and 3.
 `(*executor).recoverMove(context.Context) error`; consume baseline and native
 move primitives. Reuse local scan/hash logic to validate exact moved membership.
 
-- [ ] Write `TestMoveTrackedSubtree`: empty/nested folders and files move with
+- [x] Write `TestMoveTrackedSubtree`: empty/nested folders and files move with
   their IDs/hashes intact, no media request, and baseline paths remapped once.
   Write `TestMoveSourceChanged` for unexpected/missing/edited descendants and
   `TestMoveDestinationAppeared` for a raced destination; preserve both trees.
-- [ ] Run `mise exec -- go test ./internal/syncengine -run TestMove -count=1`; confirm failures.
-- [ ] Implement move transitions and observation-based restart matrix. Baseline
+- [x] Run `mise exec -- go test ./internal/syncengine -run TestMove -count=1`; confirm failures.
+- [x] Implement move transitions and observation-based restart matrix. Baseline
   remapping includes unchanged carried children; unrelated descendant relocations
   and replacements remain later operations from Task 2.
-- [ ] Write `TestMoveRecoveryMatrix` for intent-save, rename, both parent-sync,
+- [x] Write `TestMoveRecoveryMatrix` for intent-save, rename, both parent-sync,
   baseline-save, and pending-clear failures. Reload durable records before restart;
   assert both-present/neither-present/changed-destination stops without deletion.
   Include moved folder with child update and separate child move after restart.
-- [ ] Run `mise exec -- go test -race ./internal/syncengine -run 'TestMove|TestPlanNestedMoves' -count=1`; require PASS.
+- [x] Run `mise exec -- go test -race ./internal/syncengine -run 'TestMove|TestPlanNestedMoves' -count=1`; require PASS.
   Commit as `feat: recover tracked file and folder moves`.
 
 ## Task 6: Service integration and CLI outcomes
