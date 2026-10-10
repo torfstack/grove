@@ -197,16 +197,16 @@ destination.go, destination_test.go in `internal/syncengine/`; go.mod/go.sum.
 and extend destination probe to consume planned operation kinds. Add pinned
 x/sys dependency; do not expose platform calls to planner or CLI.
 
-- [ ] Write `TestMoveNoReplace` for file and folder moves, occupied targets,
+- [x] Write `TestMoveNoReplace` for file and folder moves, occupied targets,
   symlink ancestors, and source/target on different parents. Occupied target bytes
   and source must survive unchanged. Test real Linux and macOS implementations.
-- [ ] Run `mise exec -- go test ./internal/syncengine -run 'TestMoveNoReplace|TestProbe' -count=1`; confirm new tests fail.
-- [ ] Implement held-parent-descriptor native calls and sanitized error handling;
+- [x] Run `mise exec -- go test ./internal/syncengine -run 'TestMoveNoReplace|TestProbe' -count=1`; confirm new tests fail.
+- [x] Implement held-parent-descriptor native calls and sanitized error handling;
   extend the existing journaled probe to test required rename capability and cleanup.
-- [ ] Add `TestProbeMoveUnsupported` and `TestProbeMoveRecovery`: unavailable
+- [x] Add `TestProbeMoveUnsupported` and `TestProbeMoveRecovery`: unavailable
   primitive prevents tracked mutations; interrupted probe paths are reconciled
   through durable ownership, never a name glob.
-- [ ] Rerun targeted tests; require PASS. Cross-build Linux and native macOS.
+- [x] Rerun targeted tests; require PASS. Cross-build Linux and native macOS.
   Commit as `feat: add rooted no-replace move primitives`.
 
 ## Task 4: Recoverable replacements

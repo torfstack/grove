@@ -266,3 +266,40 @@ func probeDestinationWithLink(root *os.Root, snapshot Snapshot, state *State, sa
 	}
 	return probeErr
 }
+
+func probeMove(root *os.Root, state *State, save func() error) error {
+	return probeMoveWith(root, state, save, func(source, target string) error { return moveNoReplace(root, source, target) })
+}
+func probeMoveWith(root *os.Root, state *State, save func() error, move func(string, string) error) error {
+	id := nonce()
+	if id == "" {
+		return errors.New("cannot create move probe identity")
+	}
+	state.ProbePath = ".grove-probe-" + id
+	state.ProbeEntries = []Entry{{Path: "source"}, {Path: "target"}}
+	if err := save(); err != nil {
+		return err
+	}
+	if err := root.Mkdir(state.ProbePath, 0700); err != nil {
+		return errors.New("cannot create move probe")
+	}
+	source, target := filepath.Join(state.ProbePath, "source"), filepath.Join(state.ProbePath, "target")
+	err := root.Mkdir(source, 0700)
+	if err == nil {
+		err = move(source, target)
+	}
+	if err == nil {
+		err = root.Mkdir(source, 0700)
+	}
+	if err == nil && move(source, target) == nil {
+		err = errors.New("move primitive replaced occupied target")
+	}
+	cleanupErr := clearProbe(root, state, save)
+	if cleanupErr != nil {
+		return cleanupErr
+	}
+	if err != nil {
+		return errors.New("destination filesystem does not support safe moves")
+	}
+	return nil
+}
