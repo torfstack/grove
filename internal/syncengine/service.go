@@ -113,8 +113,25 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 			break
 		}
 	}
+	if state.Version == 1 {
+		state, err = migrateState(opts.ProfileDir, state)
+		if err != nil {
+			return result, err
+		}
+	}
 	if work {
-		if err = probeDestination(root, snapshot, &state, save); err != nil {
+		needsMove := false
+		for _, op := range plan.Operations {
+			if op.Kind == OpMove || op.Kind == OpReplace {
+				needsMove = true
+			}
+		}
+		if needsMove {
+			if err = probeMove(root, &state, save); err != nil {
+				return result, err
+			}
+		}
+		if err = probeDestination(root, probeSnapshot(snapshot, state.Completed), &state, save); err != nil {
 			return result, err
 		}
 	}
@@ -125,6 +142,11 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 		switch op.Kind {
 		case "download":
 			result.Downloaded++
+		case OpReplace:
+			result.Downloaded++
+			result.Updated++
+		case OpMove:
+			result.Moved++
 		case "mkdir":
 			result.CreatedDirectories++
 		case "skip":

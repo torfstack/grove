@@ -3,6 +3,7 @@ package syncengine
 import (
 	"errors"
 	"github.com/torfstack/grove/internal/drive"
+	"path/filepath"
 	"sort"
 )
 
@@ -16,54 +17,142 @@ func same(e Entry, c Completed) bool {
 	return e.Path == c.Path && e.Remote.ID == c.RemoteID && entryKind(e) == c.Kind && (c.Kind == "folder" || (e.Remote.Version == c.Version && e.Remote.MD5 == c.MD5 && e.Remote.Size == c.Size))
 }
 func BuildPlan(remote Snapshot, local []LocalEntry, state State) (Plan, error) {
+	if err := validateLocal(local, state.Completed); err != nil {
+		return Plan{}, err
+	}
 	entries := append([]Entry(nil), remote.Entries...)
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Path < entries[j].Path })
-	byPath := map[string]Entry{}
+	byID := map[string]Entry{}
+	paths := map[string]bool{}
 	for _, e := range entries {
-		if _, ok := byPath[e.Path]; ok {
-			return Plan{}, errors.New("duplicate planned path")
+		if !safeRelative(e.Path) || e.Remote.ID == "" || paths[e.Path] {
+			return Plan{}, errors.New("invalid remote planned path")
 		}
-		byPath[e.Path] = e
-	}
-	completed := map[string]Completed{}
-	for _, c := range state.Completed {
-		e, ok := byPath[c.Path]
-		if !ok || !same(e, c) {
-			return Plan{}, errors.New("remote changes after initial download are unsupported")
+		if _, ok := byID[e.Remote.ID]; ok {
+			return Plan{}, errors.New("duplicate remote identity")
 		}
-		completed[c.Path] = c
+		byID[e.Remote.ID] = e
+		paths[e.Path] = true
 	}
-	locals := map[string]LocalEntry{}
-	for _, l := range local {
-		if _, ok := byPath[l.Path]; !ok {
-			return Plan{}, errors.New("unexpected local entry")
+	simulated := append([]Completed(nil), state.Completed...)
+	original := map[string]string{}
+	ids := map[string]bool{}
+	for _, c := range simulated {
+		e, ok := byID[c.RemoteID]
+		if !ok {
+			return Plan{}, errors.New("remote removal is unsupported")
 		}
-		locals[l.Path] = l
-	}
-	for _, c := range state.Completed {
-		l, ok := locals[c.Path]
-		if !ok || l.Kind != c.Kind || (c.Kind == "file" && (l.Size != c.Size || l.SHA256 != c.SHA256)) {
-			return Plan{}, errors.New("local content changed since download")
+		if ids[c.RemoteID] || entryKind(e) != c.Kind {
+			return Plan{}, errors.New("remote identity or type conflict")
 		}
+		ids[c.RemoteID] = true
+		original[c.Path] = c.RemoteID
 	}
-	p := Plan{}
 	for _, e := range entries {
-		_, done := completed[e.Path]
-		if done {
-			p.Operations = append(p.Operations, Operation{Kind: "skip", Entry: e})
+		if id, ok := original[e.Path]; ok && id != e.Remote.ID {
+			return Plan{}, errors.New("occupied remote target or path reuse is unsupported")
+		}
+	}
+	plan := Plan{}
+	directories := map[string]bool{".": true}
+	for _, c := range simulated {
+		if c.Kind == "folder" {
+			directories[c.Path] = true
+		}
+	}
+	// Resolve structural dependencies by repeatedly selecting the first ready path.
+	for {
+		changed := false
+		remaining := false
+		indices := map[string]int{}
+		for i, c := range simulated {
+			indices[c.RemoteID] = i
+		}
+		for _, e := range entries {
+			index, known := indices[e.Remote.ID]
+
+			if !known {
+				if entryKind(e) != "folder" || directories[e.Path] {
+					continue
+				}
+				remaining = true
+				if !directories[filepath.Dir(e.Path)] {
+					continue
+				}
+				plan.Operations = append(plan.Operations, Operation{Kind: OpMkdir, Entry: e})
+				directories[e.Path] = true
+				simulated = append(simulated, completedEntry(e, ""))
+				changed = true
+				break
+			}
+			c := simulated[index]
+			if c.Path == e.Path {
+				continue
+			}
+			remaining = true
+			if !directories[filepath.Dir(e.Path)] {
+				continue
+			}
+			if c.Kind == "folder" && containsPath(c.Path, e.Path) {
+				return Plan{}, errors.New("folder cannot move inside itself")
+			}
+			occupied := false
+			for _, v := range simulated {
+				if containsPath(e.Path, v.Path) {
+					occupied = true
+					break
+				}
+			}
+			if occupied {
+				return Plan{}, errors.New("move target is occupied")
+			}
+			before := []Completed{}
+			for _, v := range simulated {
+				if v.Path == c.Path || (c.Kind == "folder" && containsPath(c.Path, v.Path)) {
+					before = append(before, v)
+				}
+			}
+			plan.Operations = append(plan.Operations, Operation{Kind: OpMove, Entry: e, Before: before})
+			simulated = remapBaseline(simulated, c.Path, e.Path)
+			directories = map[string]bool{".": true}
+			for _, v := range simulated {
+				if v.Kind == "folder" {
+					directories[v.Path] = true
+				}
+			}
+			changed = true
+			break
+		}
+		if !remaining {
+			break
+		}
+		if !changed {
+			return Plan{}, errors.New("unsupported cyclic move or missing parent")
+		}
+	}
+	baseline := map[string]Completed{}
+	for _, c := range simulated {
+		baseline[c.RemoteID] = c
+	}
+	for _, e := range entries {
+		c, exists := baseline[e.Remote.ID]
+		if !exists {
+			if !directories[filepath.Dir(e.Path)] {
+				return Plan{}, errors.New("missing planned parent")
+			}
+			plan.Operations = append(plan.Operations, Operation{Kind: OpDownload, Entry: e})
 			continue
 		}
-		if state.PopulationComplete {
-			return Plan{}, errors.New("remote additions after initial population are unsupported")
+		if c.Kind == "folder" {
+			continue
 		}
-		if _, exists := locals[e.Path]; exists {
-			return Plan{}, errors.New("unowned local destination entry")
+		kind := OpSkip
+		if e.Remote.Size != c.Size || e.Remote.MD5 != c.MD5 {
+			kind = OpReplace
+		} else if e.Remote.Version != c.Version {
+			kind = OpRecord
 		}
-		kind := "download"
-		if entryKind(e) == "folder" {
-			kind = "mkdir"
-		}
-		p.Operations = append(p.Operations, Operation{Kind: kind, Entry: e})
+		plan.Operations = append(plan.Operations, Operation{Kind: kind, Entry: e, Before: []Completed{c}})
 	}
-	return p, nil
+	return plan, nil
 }

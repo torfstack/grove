@@ -229,3 +229,15 @@ func TestDirectoryIntentRecovery(t *testing.T) {
 		t.Fatal("directory recovery failed", err)
 	}
 }
+
+func TestRemoteMovedDuringDownload(t *testing.T) {
+	opts, registry := options(t)
+	api := downloader()
+	api.onDownload = func() { api.children[0].Name = "renamed.txt" }
+	if _, err := testRun(context.Background(), opts, api, registry); err == nil {
+		t.Fatal("remote rename during download accepted")
+	}
+	if _, err := os.Stat(filepath.Join(opts.LocalDir, "file.txt")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("stale remote path published")
+	}
+}

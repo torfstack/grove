@@ -32,7 +32,7 @@ Updated: 2026-10-10.
   Its GitHub app is installed; an initial skipped-review notice showed the
   repository configuration was loaded. Main is explicitly enabled for reviews.
 
-## In progress
+## Completed initial download sync
 
 Fixture tooling and initial download sync are implemented together on
 `feat/initial-sync`, following approved [spec 000002](spec/000002-initial-sync-design.md)
@@ -45,7 +45,7 @@ macOS on 2026-10-10: seed, inspect, sync, independent verification, no-op repeat
 and fixture-owned remote cleanup. Token contents were not printed. Whole-branch independent
 review found three valid issues (filesystem-alias exclusion, refresh redirects,
 and fixture root ordering); regression tests reproduced them and all are fixed.
-[PR #5](https://github.com/torfstack/grove/pull/5) is open. Linux CI and security
+[PR #5](https://github.com/torfstack/grove/pull/5) is merged into main at `2805575`. Linux CI and security
 checks passed on the original implementation. CodeRabbit's three findings are
 fixed: fixture cleanup now processes the root last, destination preflight checks
 hardlink publication support, and the auth exclusion test reaches the token lock.
@@ -53,7 +53,7 @@ Formatting, lint, offline tests, and race tests passed after these fixes. Latest
 main (Dependabot PRs #2–#4) is merged into the branch. Linux CI, dependency review,
 CodeQL, and CodeRabbit passed on `29e775e`. CodeRabbit's latest review generated no
 actionable comments and marked the three original threads resolved. Live
-acceptance passed with the user; PR #5 remains open and unmerged.
+acceptance passed with the user; PR #5 is merged.
 
 The user previously placed Desktop OAuth credentials at ~/google_client_secret.json.
 Dedicated test-account browser authentication succeeded. The initial auth
@@ -64,10 +64,57 @@ Requirements and design specs live in `docs/spec/`. Implementation plans live in
 Authentication and sync token sessions now share advisory locking. Token writes
 remain atomic, and concurrent writers for a token or sync profile are refused.
 
+## Incremental download sync
+
+Approved spec 000003 and its plan are implemented on `feat/incremental-download`
+in `/private/tmp/grove-incremental-download`, separate from main. The engine now
+plans remote additions, content updates, metadata-only changes, and safe file/
+folder moves. Persisted local hashes detect conflicts before new operations.
+Version-1 profiles recover old pending work and atomically migrate to version 2.
+Transfers, recovery, baseline persistence, replacements, and subtree moves have
+focused boundaries within the existing engine. No second engine or generic
+workflow framework was added.
+
+Offline tests cover real HTTP fixture mutation → inspect → incremental sync →
+independent verification → no-op → owned cleanup; journal-save interruption,
+malformed records, local conflicts, remote changes during download, and filesystem
+case aliases also have regression coverage. Independent review found temporary/
+probe ownership gaps, a pending-path collision, and superficial migration tests.
+These are fixed with persisted artifact identities, verified-stage hash checks,
+collision validation, and actual version-1 recovery/save-failure tests.
+Formatting, lint (0 issues), full offline/race tests, native macOS build, Linux
+amd64 cross-build, and diff checks pass after the review fixes. Dedicated-account
+live acceptance passed on macOS on 2026-10-10 using the explicitly authorized
+test token: incremental sync in 83.43 seconds, initial sync in 41.06 seconds,
+and the complete live suite in 124.938 seconds. Both workflows verified content,
+no-op repeats, and fixture-owned remote cleanup. Token contents and generated
+Drive IDs were not printed. Linux live integration remains untested.
+Linux CI passed lint, offline tests, race
+tests, and the CLI build on `d30b2bf`; dependency review and CodeQL also passed.
+CodeRabbit's four findings are fixed: stale untouched intents, direct x/sys
+dependency classification, and two documentation inconsistencies. Its completed
+follow-up review of `d30b2bf` generated no actionable comments and reports the
+earlier concerns resolved. Final documentation commit `21581e1` also passed Linux
+CI, dependency review, CodeQL, and CodeRabbit, with no new actionable comments.
+Two original GitHub threads still show open despite
+that summary; their requested changes are present and verified. No replies or
+manual thread-resolution actions were posted.
+
+Known recovery limitation: a crash after exclusive artifact creation but before
+its ownership record is durable preserves the artifact and stops recovery for
+manual inspection. CodeRabbit retained this nonblocking reliability concern,
+consistent with the accepted ownership-safety boundary. An operator reconciliation
+command remains a future proposal.
+
 ## Next steps
 
-1. Review and merge PR #5 when explicitly authorized.
-2. Design incremental sync before expanding the initial-only behavior.
+1. [PR #6](https://github.com/torfstack/grove/pull/6) is open with implementation,
+   independent review fixes, and CodeRabbit fixes complete. Confirm latest checks
+   before integration; merging requires explicit user authorization.
+2. Linux live integration is optional follow-up; the macOS dedicated-account
+   initial and incremental live workflows have passed.
+3. Integrate the branch when authorized. Uploads, deletion propagation, and
+   automatic conflict resolution remain separate later designs.
 
 ## Verification
 

@@ -10,6 +10,7 @@ type Run struct {
 	Version  int      `json:"version"`
 	RunID    string   `json:"run_id"`
 	Manifest Manifest `json:"manifest"`
+	Change   *Change  `json:"change,omitempty"`
 	Objects  []Object `json:"objects"`
 }
 type Object struct {
@@ -69,6 +70,9 @@ func LoadRun(dir string) (Run, error) {
 		if o.Status != "pending" && o.Status != "created" && o.Status != "trashed" {
 			return Run{}, errors.New("invalid fixture run status")
 		}
+	}
+	if err := validateChange(r); err != nil {
+		return Run{}, err
 	}
 	return r, nil
 }

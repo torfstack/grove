@@ -56,3 +56,12 @@ func (w wireFile) file() File {
 	}
 	return f
 }
+
+type Update struct {
+	Name, AddParent, RemoveParent, MIMEType string
+	ContentChanged                          bool
+}
+type MutationAPI interface {
+	API
+	Update(context.Context, string, Update, io.Reader) (File, error)
+}

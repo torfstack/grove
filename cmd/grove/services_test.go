@@ -48,38 +48,7 @@ func TestCLIWorkflowHTTP(t *testing.T) {
 		id := strings.TrimPrefix(r.URL.Path, "/files/")
 		switch r.Method {
 		case "POST":
-			var metadata map[string]any
-			var data []byte
-			if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/") {
-				_, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-				if err != nil {
-					t.Error(err)
-					return
-				}
-				reader := multipart.NewReader(r.Body, params["boundary"])
-				part, err := reader.NextPart()
-				if err != nil {
-					t.Error(err)
-					return
-				}
-				if err = json.NewDecoder(part).Decode(&metadata); err != nil {
-					t.Error(err)
-					return
-				}
-				part, err = reader.NextPart()
-				if err != nil {
-					t.Error(err)
-					return
-				}
-				data, err = io.ReadAll(part)
-				if err != nil {
-					t.Error(err)
-					return
-				}
-			} else if err := json.NewDecoder(r.Body).Decode(&metadata); err != nil {
-				t.Error(err)
-				return
-			}
+			metadata, data := readFixtureBody(t, r)
 			id = strconv.Itoa(len(files) + 1)
 			metadata["id"] = id
 			metadata["ownedByMe"] = true
@@ -95,7 +64,20 @@ func TestCLIWorkflowHTTP(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(metadata)
 		case "PATCH":
 			f := files[id]
-			f["trashed"] = true
+			metadata, data := readFixtureBody(t, r)
+			for key, value := range metadata {
+				f[key] = value
+			}
+			if parent := r.URL.Query().Get("addParents"); parent != "" {
+				f["parents"] = []any{parent}
+			}
+			if r.URL.Query().Get("uploadType") == "multipart" {
+				sum := md5.Sum(data)
+				f["md5Checksum"] = hex.EncodeToString(sum[:])
+				f["size"] = strconv.Itoa(len(data))
+				contents[id] = data
+			}
+			f["version"] = "2"
 			_ = json.NewEncoder(w).Encode(f)
 		case "GET":
 			if r.URL.Path != "/files" {
@@ -178,10 +160,71 @@ func TestCLIWorkflowHTTP(t *testing.T) {
 	if mediaCalls != count {
 		t.Fatal("second run downloaded media")
 	}
+	target, err := fixture.LoadManifest("../../testdata/fixtures/baseline/incremental.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := auth.OpenSession(context.Background(), token, "read-write")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = fixture.ApplyChanges(context.Background(), drive.NewClient(session.HTTPClient, drive.ClientOptions{BaseURL: server.URL, PageSize: 2}), runDir, target)
+	closeErr := session.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if closeErr != nil {
+		t.Fatal(closeErr)
+	}
+	execute("fixture", "inspect", "--run-dir", runDir, "--token-file", token)
+	execute(args...)
+	execute("fixture", "verify", "--manifest", "../../testdata/fixtures/baseline/incremental.json", "--local-dir", local)
+	count = mediaCalls
+	execute(args...)
+	if mediaCalls != count {
+		t.Fatal("incremental repeat downloaded media")
+	}
 	execute("fixture", "cleanup", "--run-dir", runDir, "--token-file", token)
 	for _, f := range files {
 		if f["trashed"] != true {
 			t.Fatal("fixture cleanup incomplete")
 		}
 	}
+}
+
+func readFixtureBody(t *testing.T, r *http.Request) (map[string]any, []byte) {
+	t.Helper()
+	var metadata map[string]any
+	var data []byte
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/") {
+		_, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if err != nil {
+			t.Error(err)
+			return nil, nil
+		}
+		reader := multipart.NewReader(r.Body, params["boundary"])
+		part, err := reader.NextPart()
+		if err != nil {
+			t.Error(err)
+			return nil, nil
+		}
+		if err = json.NewDecoder(part).Decode(&metadata); err != nil {
+			t.Error(err)
+			return nil, nil
+		}
+		part, err = reader.NextPart()
+		if err != nil {
+			t.Error(err)
+			return nil, nil
+		}
+		data, err = io.ReadAll(part)
+		if err != nil {
+			t.Error(err)
+			return nil, nil
+		}
+	} else if err := json.NewDecoder(r.Body).Decode(&metadata); err != nil {
+		t.Error(err)
+		return nil, nil
+	}
+	return metadata, data
 }

@@ -103,3 +103,93 @@ func TestPlanConflicts(t *testing.T) {
 		}
 	}
 }
+
+func TestPlanIncremental(t *testing.T) {
+	old := completed()
+	local := []LocalEntry{{Path: "a", Kind: "file", SHA256: "verified"}}
+	for _, tc := range []struct {
+		name, path, version, md5 string
+		want                     []OperationKind
+	}{
+		{"addition", "b", "1", old.MD5, []OperationKind{OpSkip, OpDownload}},
+		{"update", "a", "2", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", []OperationKind{OpReplace}},
+		{"metadata", "a", "2", old.MD5, []OperationKind{OpRecord}},
+		{"rename", "b", "1", old.MD5, []OperationKind{OpMove, OpSkip}},
+		{"rename-update", "b", "2", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", []OperationKind{OpMove, OpReplace}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := file("a", tc.path)
+			f.Version = tc.version
+			f.MD5 = tc.md5
+			remote := Snapshot{Entries: []Entry{{Path: tc.path, Remote: f}}}
+			if tc.name == "addition" {
+				remote.Entries = []Entry{{Path: "a", Remote: file("a", "a")}, {Path: "b", Remote: file("b", "b")}}
+			}
+			p, err := BuildPlan(remote, local, State{Completed: []Completed{old}, PopulationComplete: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			kinds := []OperationKind{}
+			for _, op := range p.Operations {
+				kinds = append(kinds, op.Kind)
+			}
+			if !reflect.DeepEqual(kinds, tc.want) {
+				t.Fatalf("kinds %v want %v", kinds, tc.want)
+			}
+		})
+	}
+}
+func folderEntry(id, path string) Entry {
+	return Entry{Path: path, Remote: drive.File{ID: id, MIMEType: drive.FolderMIME}}
+}
+func TestPlanNestedMoves(t *testing.T) {
+	c := completed()
+	c.Path = "old/a"
+	state := State{Completed: []Completed{{Path: "old", RemoteID: "folder", Kind: "folder"}, c}, PopulationComplete: true}
+	local := []LocalEntry{{Path: "old", Kind: "folder"}, {Path: "old/a", Kind: "file", SHA256: "verified"}}
+	remote := Snapshot{Entries: []Entry{folderEntry("folder", "new"), {Path: "new/b", Remote: file("a", "b")}}}
+	p, err := BuildPlan(remote, local, state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Operations) != 3 || p.Operations[0].Kind != OpMove || p.Operations[1].Kind != OpMove || p.Operations[1].Before[0].Path != "new/a" {
+		t.Fatalf("wrong nested plan %+v", p)
+	}
+	remote.Entries[1].Path = "new/a"
+	p, err = BuildPlan(remote, local, state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	moves := 0
+	for _, op := range p.Operations {
+		if op.Kind == OpMove {
+			moves++
+		}
+	}
+	if moves != 1 {
+		t.Fatal("child carried twice")
+	}
+}
+func TestPlanRejectsConflicts(t *testing.T) {
+	a, b := completed(), completed()
+	b.Path = "b"
+	b.RemoteID = "b"
+	local := []LocalEntry{{Path: "a", Kind: "file", SHA256: "verified"}, {Path: "b", Kind: "file", SHA256: "verified"}}
+	for _, entries := range [][]Entry{
+		{{Path: "b", Remote: file("a", "b")}, {Path: "a", Remote: file("b", "a")}},
+		{{Path: "c", Remote: file("a", "c")}, {Path: "b", Remote: file("a", "b")}},
+		{{Path: "c", Remote: file("a", "c")}},
+		{{Path: "c", Remote: file("a", "c")}, {Path: "a", Remote: file("b", "a")}},
+	} {
+		p, err := BuildPlan(Snapshot{Entries: entries}, local, State{Completed: []Completed{a, b}, PopulationComplete: true})
+		if err == nil || len(p.Operations) != 0 {
+			t.Fatal("rearrangement accepted")
+		}
+	}
+	changed := file("a", "a")
+	changed.Version = "2"
+	p, err := BuildPlan(Snapshot{Entries: []Entry{{Path: "a", Remote: changed}}}, []LocalEntry{{Path: "a", Kind: "file", SHA256: "local-edit"}}, State{Completed: []Completed{a}})
+	if err == nil || len(p.Operations) != 0 {
+		t.Fatal("local and remote conflict accepted")
+	}
+}

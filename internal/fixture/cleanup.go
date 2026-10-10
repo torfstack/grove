@@ -14,6 +14,9 @@ func Cleanup(ctx context.Context, api drive.API, dir string) error {
 	if err != nil {
 		return err
 	}
+	if err = reconcileMutation(ctx, api, dir, &r); err != nil {
+		return err
+	}
 	if err = reconcile(ctx, api, dir, &r); err != nil {
 		return err
 	}
