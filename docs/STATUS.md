@@ -55,6 +55,12 @@ locking will be revisited for sync and daemon coordination.
 
 ## Verification
 
+Dependabot PR #2 now pins CodeQL `init` and `analyze` to the same revision,
+`24c54180a607b1449ed407dd24f251e4e9147c8d`, addressing CodeRabbit's finding
+about unsupported mixed versions. The workflow-only fix preserves existing
+inputs, permissions, and Go tooling. Fresh hosted CI and CodeRabbit review are
+pending after pushing the fix; inspect both before reporting readiness.
+
 Agent PR workflow now requires waiting for CI and CodeRabbit, retrieving feedback,
 and addressing valid findings before reporting readiness. CodeRabbit's docstring
 coverage quota and generation suggestion are disabled to match our sparse-comment
