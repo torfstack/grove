@@ -157,3 +157,81 @@ func TestRejectProfileInsideGit(t *testing.T) {
 		t.Fatal("generated IDs allowed inside Git")
 	}
 }
+
+func TestCaseAliasDestinationLock(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "Destination")
+	alias := filepath.Join(dir, "destination")
+	if err := os.Mkdir(dest, 0700); err != nil {
+		t.Fatal(err)
+	}
+	one, err := os.Stat(dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	two, err := os.Stat(alias)
+	if err != nil || !os.SameFile(one, two) {
+		t.Skip("case-sensitive filesystem")
+	}
+	lock, err := registerDestination(filepath.Join(dir, "registry1"), filepath.Join(dir, "profile1"), dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = lock.Close() }()
+	second, err := registerDestination(filepath.Join(dir, "registry2"), filepath.Join(dir, "profile2"), alias)
+	if second != nil {
+		_ = second.Close()
+	}
+	if err == nil {
+		t.Fatal("case alias acquired destination lease")
+	}
+}
+func TestDestinationExclusionAcrossRegistries(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "destination")
+	if err := os.Mkdir(dest, 0700); err != nil {
+		t.Fatal(err)
+	}
+	first, err := registerDestination(filepath.Join(dir, "registry1"), filepath.Join(dir, "profile1"), dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = first.Close() }()
+	for _, p := range []string{dest, filepath.Join(dest, "nested")} {
+		second, err := registerDestination(filepath.Join(dir, "registry2"), filepath.Join(dir, "profile2"), p)
+		if second != nil {
+			_ = second.Close()
+		}
+		if err == nil {
+			t.Fatal("registry change bypassed destination lease")
+		}
+	}
+}
+
+func TestCrossRegistryProcessExclusion(t *testing.T) {
+	if os.Getenv("GROVE_CROSS_REGISTRY_HELPER") == "1" {
+		lock, err := registerDestination(os.Getenv("GROVE_DEST_REGISTRY"), os.Getenv("GROVE_DEST_PROFILE"), os.Getenv("GROVE_DEST_PATH"))
+		if err != nil {
+			os.Exit(10)
+		}
+		_ = lock.Close()
+		os.Exit(0)
+	}
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "destination")
+	if err := os.Mkdir(dest, 0700); err != nil {
+		t.Fatal(err)
+	}
+	first, err := registerDestination(filepath.Join(dir, "registry1"), filepath.Join(dir, "profile1"), dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = first.Close() }()
+	for _, path := range []string{dest, filepath.Join(dest, "child")} {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestCrossRegistryProcessExclusion$")
+		cmd.Env = append(os.Environ(), "GROVE_CROSS_REGISTRY_HELPER=1", "GROVE_DEST_REGISTRY="+filepath.Join(dir, "registry2"), "GROVE_DEST_PROFILE="+filepath.Join(dir, "profile2"), "GROVE_DEST_PATH="+path)
+		if err := cmd.Run(); err == nil {
+			t.Fatal("second process acquired an overlapping destination across registries")
+		}
+	}
+}

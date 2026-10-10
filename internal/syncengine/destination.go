@@ -2,7 +2,6 @@ package syncengine
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"github.com/torfstack/grove/internal/privatefs"
@@ -20,54 +19,139 @@ type registryRecord struct {
 	Entries []registration `json:"entries"`
 }
 
-func registerDestination(dir, profile, destination string) (*privatefs.Lock, error) {
-	var err error
-	for _, path := range []*string{&dir, &profile, &destination} {
-		*path, err = privatefs.Canonical(*path)
+type destinationLease struct {
+	locks     []*privatefs.Lock
+	directory bool
+}
+
+func (l *destinationLease) Close() error {
+	var result error
+	for i := len(l.locks) - 1; i >= 0; i-- {
+		if err := l.locks[i].Close(); err != nil {
+			result = err
+		}
+	}
+	l.locks = nil
+	return result
+}
+func (l *destinationLease) attachDirectory(path string) error {
+	if l.directory {
+		return nil
+	}
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return errors.New("destination must be a directory, not a symlink")
+	}
+	lock, err := privatefs.AcquireDirectory(path, false)
+	if err != nil {
+		return err
+	}
+	l.locks = append(l.locks, lock)
+	l.directory = true
+	return nil
+}
+func physicalWithin(parent, path string) bool {
+	if within(parent, path) {
+		return true
+	}
+	info, err := os.Stat(parent)
+	if err != nil {
+		return false
+	}
+	for current := path; ; current = filepath.Dir(current) {
+		other, err := os.Stat(current)
+		if err == nil && os.SameFile(info, other) {
+			return true
+		}
+		if filepath.Dir(current) == current {
+			return false
+		}
+	}
+}
+func registerDestination(dir, profile, destination string) (lease *destinationLease, err error) {
+	for _, p := range []*string{&dir, &profile, &destination} {
+		*p, err = privatefs.Canonical(*p)
 		if err != nil {
 			return nil, err
 		}
 	}
+	if within(destination, dir) {
+		return nil, errors.New("destination registry must be outside the destination")
+	}
+	parent := filepath.Dir(destination)
+	info, err := os.Stat(parent)
+	if err != nil || !info.IsDir() {
+		return nil, errors.New("destination parent directory must already exist")
+	}
+	lease = &destinationLease{}
+	success := false
+	defer func() {
+		if !success {
+			_ = lease.Close()
+		}
+	}()
+	var ancestors []string
+	for current := parent; ; current = filepath.Dir(current) {
+		ancestors = append(ancestors, current)
+		if filepath.Dir(current) == current {
+			break
+		}
+	}
+	for i := len(ancestors) - 1; i >= 0; i-- {
+		lock, err := privatefs.AcquireDirectory(ancestors[i], true)
+		if err != nil {
+			return lease, err
+		}
+		lease.locks = append(lease.locks, lock)
+	}
+	sidecar := filepath.Join(parent, "."+filepath.Base(destination)+".grove-destination.lock")
+	lock, err := privatefs.Acquire(sidecar)
+	if err != nil {
+		return lease, err
+	}
+	lease.locks = append(lease.locks, lock)
+	if err = lease.attachDirectory(destination); err != nil {
+		return lease, err
+	}
 	guard, err := privatefs.Acquire(filepath.Join(dir, "registry.lock"))
 	if err != nil {
-		return nil, err
+		return lease, err
 	}
 	defer func() { _ = guard.Close() }()
 	r := registryRecord{Version: 1}
 	path := filepath.Join(dir, "registry.json")
 	if _, err = os.Lstat(path); err == nil {
 		if err = privatefs.ReadJSON(path, &r); err != nil {
-			return nil, err
+			return lease, err
 		}
 		if r.Version != 1 {
-			return nil, errors.New("unsupported destination registry")
+			return lease, errors.New("unsupported destination registry")
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
-		return nil, errors.New("cannot inspect destination registry")
+		return lease, errors.New("cannot inspect destination registry")
 	}
 	found := false
-	for _, e := range r.Entries {
-		if within(e.Destination, destination) || within(destination, e.Destination) {
-			if e.Profile != profile || e.Destination != destination {
-				return nil, errors.New("destination overlaps another registered profile")
+	for _, entry := range r.Entries {
+		if physicalWithin(entry.Destination, destination) || physicalWithin(destination, entry.Destination) {
+			if entry.Profile != profile || entry.Destination != destination {
+				return lease, errors.New("destination overlaps another registered profile")
 			}
 			found = true
 		}
 	}
-	sum := sha256.Sum256([]byte(destination))
-	lock, err := privatefs.Acquire(filepath.Join(dir, hex.EncodeToString(sum[:])+".lock"))
-	if err != nil {
-		return nil, err
-	}
 	if !found {
 		r.Entries = append(r.Entries, registration{Profile: profile, Destination: destination})
 		if err = privatefs.WriteJSON(path, r); err != nil {
-			_ = lock.Close()
-			return nil, err
+			return lease, err
 		}
 	}
-	return lock, nil
+	success = true
+	return lease, nil
 }
+
 func nonce() string {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {

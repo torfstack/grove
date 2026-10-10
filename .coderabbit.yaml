@@ -26,5 +26,6 @@ reviews:
       instructions: |
         Check OAuth state and PKCE validation, secret redaction, callback lifecycle,
         and preservation of existing tokens on failure. Token storage is plaintext
-        with owner-only permissions by design. Auth locking and Windows support
-        are explicitly deferred; simultaneous auth uses last-successful-write semantics.
+        with owner-only permissions by design. Auth and Drive sessions use canonical token-path process locks. Check persistent
+        refresh writes, omitted refresh-token preservation, and refusal of credential
+        forwarding through redirects. Windows support remains deferred.

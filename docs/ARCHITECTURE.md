@@ -64,7 +64,9 @@ Files use size/MD5 checks and a post-transfer version check before publication.
 
 `internal/privatefs` supplies atomic owner-only JSON records and nonblocking
 process locks. A private destination registry prevents overlapping profile
-bindings. `cmd/grove/services.go` opens authentication after the profile/run locks;
+bindings. Directory-inode leases, shared ancestor locks, and a sibling lock file
+exclude aliases and nested writers across registry locations. Destination parents
+must already exist; creating an unleased parent tree is not supported. `cmd/grove/services.go` opens authentication after the profile/run locks;
 CLI commands receive injected services. The engine's injectable `Service` supports
 HTTP integration tests and the future daemon without spawning the CLI.
 

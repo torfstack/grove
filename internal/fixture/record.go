@@ -31,6 +31,11 @@ func LoadRun(dir string) (Run, error) {
 	if _, err := manifestPaths(r.Manifest); err != nil {
 		return Run{}, err
 	}
+	entries := runEntries(r)
+	objects := map[string]Object{}
+	for _, object := range r.Objects {
+		objects[object.LogicalID] = object
+	}
 	logical := map[string]bool{}
 	remote := map[string]bool{}
 	for _, o := range r.Objects {
@@ -38,6 +43,23 @@ func LoadRun(dir string) (Run, error) {
 			return Run{}, errors.New("invalid fixture run entries")
 		}
 		logical[o.LogicalID] = true
+		entry, ok := entries[o.LogicalID]
+		if !ok {
+			return Run{}, errors.New("unrecognized fixture logical identity")
+		}
+		if entry.Parent == "" {
+			if o.ParentID != "" {
+				return Run{}, errors.New("invalid fixture root parent")
+			}
+		} else {
+			parent, ok := objects[entry.Parent]
+			if !ok || parent.RemoteID == "" || parent.RemoteID != o.ParentID {
+				return Run{}, errors.New("fixture parent does not match manifest")
+			}
+		}
+		if o.Status != "pending" && o.RemoteID == "" {
+			return Run{}, errors.New("missing confirmed fixture identity")
+		}
 		if o.RemoteID != "" {
 			if remote[o.RemoteID] {
 				return Run{}, errors.New("duplicate fixture remote identity")

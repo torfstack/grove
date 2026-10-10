@@ -74,8 +74,11 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 	if err != nil {
 		return result, err
 	}
-	if err = os.MkdirAll(opts.LocalDir, 0700); err != nil {
+	if err = os.Mkdir(opts.LocalDir, 0700); err != nil && !errors.Is(err, os.ErrExist) {
 		return result, errors.New("cannot create destination")
+	}
+	if err = lease.attachDirectory(opts.LocalDir); err != nil {
+		return result, err
 	}
 	root, err := os.OpenRoot(opts.LocalDir)
 	if err != nil {

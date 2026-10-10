@@ -61,6 +61,13 @@ func openSession(ctx context.Context, path, access string, endpoint oauth2.Endpo
 		return nil, errors.New("authentication lacks required Drive access; run grove auth with the required access")
 	}
 	config := oauth2.Config{ClientID: client.ID, ClientSecret: client.Secret, Endpoint: endpoint}
+	refreshClient := http.DefaultClient
+	if injected, ok := ctx.Value(oauth2.HTTPClient).(*http.Client); ok && injected != nil {
+		refreshClient = injected
+	}
+	refreshCopy := *refreshClient
+	refreshCopy.CheckRedirect = func(*http.Request, []*http.Request) error { return errors.New("authentication redirects are refused") }
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, &refreshCopy)
 	source := &persistentSource{source: config.TokenSource(ctx, record.Token), record: record, path: path, save: save}
 	httpClient := oauth2.NewClient(ctx, source)
 	httpClient.CheckRedirect = func(*http.Request, []*http.Request) error { return errors.New("redirect refused") }

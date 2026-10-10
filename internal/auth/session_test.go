@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -122,5 +123,39 @@ func TestAuthSessionExclusion(t *testing.T) {
 	_, err = (Service{}).Authenticate(context.Background(), Options{TokenFile: path, ClientSecret: "absent", Access: "read-only"})
 	if err == nil {
 		t.Fatal("parallel auth accepted")
+	}
+}
+
+func TestRefreshRedirectNeverForwardsCredentials(t *testing.T) {
+	for _, code := range []int{http.StatusTemporaryRedirect, http.StatusPermanentRedirect} {
+		t.Run(http.StatusText(code), func(t *testing.T) {
+			var calls atomic.Int64
+			target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"access_token":"new","token_type":"Bearer","expires_in":3600}`))
+			}))
+			defer target.Close()
+			source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, target.URL, code) }))
+			defer source.Close()
+			scope, _ := Scope("read-only")
+			path, r := sessionRecord(t, scope)
+			r.Token.Expiry = time.Now().Add(-time.Hour)
+			if err := SaveRecord(path, r); err != nil {
+				t.Fatal(err)
+			}
+			session, err := openSession(context.Background(), path, "read-only", oauth2.Endpoint{TokenURL: source.URL}, SaveRecord)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = session.Close() }()
+			resp, requestErr := session.HTTPClient.Get(source.URL)
+			if resp != nil {
+				_ = resp.Body.Close()
+			}
+			if calls.Load() != 0 || requestErr == nil {
+				t.Fatal("refresh redirect forwarded credentials")
+			}
+		})
 	}
 }

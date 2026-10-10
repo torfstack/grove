@@ -74,7 +74,8 @@ The [Drive testbed](docs/TESTBED.md) describes live testing.
 
 ## Initial download sync
 
-Download an account-owned My Drive folder into an absent or empty directory:
+Download an account-owned My Drive folder into an absent or empty directory.
+Its parent directory must already exist:
 
 ```sh
 ./bin/grove sync \
@@ -97,7 +98,9 @@ completion fail safely; nothing is overwritten or deleted. This is initial
 population, not ongoing synchronization. Interrupted transfers restart from
 zero while completed files are preserved.
 
-Profiles and destinations are exclusively locked. Overlapping destinations are
+Profiles and destinations are exclusively locked. Filesystem leases and shared
+ancestor locks also exclude aliases and nested writers across registry locations.
+A private lock file is retained beside each destination. Overlapping destinations are
 registered in `$XDG_STATE_HOME/grove/destinations` (default
 `~/.local/state/grove/destinations`). Registrations retain profile ownership;
 there is no reset command yet. Keep the profile and registry records together

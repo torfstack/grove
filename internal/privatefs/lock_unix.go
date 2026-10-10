@@ -46,3 +46,25 @@ func (l *Lock) Close() error {
 	}
 	return nil
 }
+
+func AcquireDirectory(path string, shared bool) (*Lock, error) {
+	fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0)
+	if err != nil {
+		return nil, errors.New("cannot open directory lease")
+	}
+	file := os.NewFile(uintptr(fd), path)
+	info, err := file.Stat()
+	if err != nil || !info.IsDir() {
+		_ = file.Close()
+		return nil, errors.New("directory lease requires a directory")
+	}
+	mode := syscall.LOCK_EX
+	if shared {
+		mode = syscall.LOCK_SH
+	}
+	if err := syscall.Flock(fd, mode|syscall.LOCK_NB); err != nil {
+		_ = file.Close()
+		return nil, errors.New("destination or ancestor is in use by another Grove command")
+	}
+	return &Lock{file: file}, nil
+}

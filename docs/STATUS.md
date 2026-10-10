@@ -42,7 +42,9 @@ fixture lifecycle, deterministic planning, rooted downloads and recovery, CLI
 wiring, and the opt-in live suite. Offline and race tests, lint, formatting, native
 build, and Linux cross-build passed. Real Drive access remains unverified; the live
 suite was not enabled and no user token was inspected. Whole-branch independent
-review and the requested PR's CI/CodeRabbit review are next.
+review found three valid issues (filesystem-alias exclusion, refresh redirects,
+and fixture root ordering); regression tests reproduced them and all are fixed.
+The requested PR's CI/CodeRabbit review is next.
 
 The user previously placed Desktop OAuth credentials at ~/google_client_secret.json.
 Live authentication remains unverified in this session. The initial auth

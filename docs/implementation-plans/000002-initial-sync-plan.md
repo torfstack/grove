@@ -20,7 +20,7 @@ executables or Drive SDK dependency are needed.
 **Spec:** [000002-initial-sync-design.md](../spec/000002-initial-sync-design.md)
 
 Status: approved for native execution; implementation and offline checks complete,
-independent review/PR feedback and live acceptance pending.
+independent review findings fixed; PR feedback and live acceptance pending.
 All work remains on `feat/initial-sync`. This plan is not evidence that code exists.
 
 ## Global Constraints
@@ -428,3 +428,9 @@ Offline/race suites and formatting/lint passed; native and Linux builds passed.
 Live tests remain explicitly disabled pending dedicated-account authentication.
 An optional live cancellation case is deferred: cancellation/recovery has
 repeatable offline coverage; the enabled live suite demonstrates the baseline.
+
+Fresh whole-branch review reproduced three Important findings: filesystem-alias
+and cross-registry exclusion, OAuth refresh redirects, and root-first fixture
+creation/independent parent validation. Added RED→GREEN regressions and reran
+all required offline checks. Destination parents must already exist; sibling and
+inode/ancestor locks coordinate writers independently of registry configuration.

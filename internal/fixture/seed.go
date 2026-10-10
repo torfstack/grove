@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"github.com/torfstack/grove/internal/drive"
@@ -24,6 +25,10 @@ func Seed(ctx context.Context, api drive.API, v Verified, dir string) (Run, erro
 			if err != nil {
 				return Run{}, err
 			}
+			sum := sha256.Sum256(data)
+			if int64(len(data)) != e.Size || hex.EncodeToString(sum[:]) != e.SHA256 {
+				return Run{}, errors.New("fixture payload changed after validation")
+			}
 			payloads[e.ID] = data
 		}
 	}
@@ -36,13 +41,24 @@ func Seed(ctx context.Context, api drive.API, v Verified, dir string) (Run, erro
 	}
 	run := Run{Version: 1, RunID: hex.EncodeToString(nonce), Manifest: v.Manifest}
 	entries := append([]Entry(nil), v.Manifest.Entries...)
-	sort.Slice(entries, func(i, j int) bool { return paths[entries[i].ID] < paths[entries[j].ID] })
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].Parent == "" {
+			return true
+		}
+		if entries[j].Parent == "" {
+			return false
+		}
+		return paths[entries[i].ID] < paths[entries[j].ID]
+	})
 	ids := map[string]string{}
 	for _, e := range entries {
 		if err = ctx.Err(); err != nil {
 			return run, err
 		}
 		parent := ids[e.Parent]
+		if e.Parent != "" && parent == "" {
+			return run, errors.New("fixture parent has not been created")
+		}
 		run.Objects = append(run.Objects, Object{LogicalID: e.ID, ParentID: parent, Status: "pending"})
 		if err = saveRun(dir, run); err != nil {
 			return run, err

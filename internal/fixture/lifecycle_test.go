@@ -222,3 +222,31 @@ func TestCleanupUnresolvedCreate(t *testing.T) {
 		t.Fatal("unresolved create reported cleaned")
 	}
 }
+
+func TestSeedRootFirstWithPunctuation(t *testing.T) {
+	for _, name := range []string{"!child", "#child", " child", "-child"} {
+		api := newFake()
+		dir := filepath.Join(t.TempDir(), "run")
+		v := Verified{Manifest: Manifest{Version: 1, Entries: []Entry{{ID: "root", Name: "root", Kind: "folder"}, {ID: "child", Parent: "root", Name: name, Kind: "folder"}}}}
+		run, err := Seed(context.Background(), api, v, dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if run.Objects[0].LogicalID != "root" || run.Objects[1].ParentID != run.Objects[0].RemoteID {
+			t.Fatal("child created outside fixture root")
+		}
+	}
+}
+func TestInspectRejectsRecordedParentMismatch(t *testing.T) {
+	api, dir, run := seedFake(t)
+	run.Objects[1].ParentID = ""
+	f := api.files[run.Objects[1].RemoteID]
+	f.Parents = nil
+	api.files[f.ID] = f
+	if err := saveRun(dir, run); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Inspect(context.Background(), api, dir); err == nil {
+		t.Fatal("inspection accepted child outside root")
+	}
+}
