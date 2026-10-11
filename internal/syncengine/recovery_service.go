@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/torfstack/grove/internal/drive"
 	"github.com/torfstack/grove/internal/privatefs"
 )
 
@@ -113,4 +114,92 @@ func inspectRecoveryStage(ctx context.Context, profile, path string, identity *F
 		return "unavailable", nil
 	}
 	return "verified", nil
+}
+
+func (s Service) RetryRecovery(ctx context.Context, opts Options) (report RecoveryReport, err error) {
+	defer func() { err = safeRecoveryError(err) }()
+	if err = ctx.Err(); err != nil {
+		return report, err
+	}
+	canonical, state, lock, err := s.recoveryState(opts)
+	if err != nil {
+		return report, err
+	}
+	defer closeRecoveryResource(lock.Close, &report, &err)
+	report, err = inspectRecoveryState(ctx, canonical.ProfileDir, state)
+	if err != nil {
+		return report, err
+	}
+	if !report.Pending {
+		return report, nil
+	}
+	if report.Reason == "unsupported-operation" {
+		return report, blockedRecovery(report.Reason)
+	}
+	registry := s.RegistryDir
+	if registry == "" {
+		registry, err = registryPath()
+		if err != nil {
+			return report, err
+		}
+	}
+	lease, err := registerDestination(registry, canonical.ProfileDir, canonical.LocalDir)
+	if err != nil {
+		return report, err
+	}
+	defer closeRecoveryResource(lease.Close, &report, &err)
+	root, err := os.OpenRoot(canonical.LocalDir)
+	if err != nil {
+		return report, err
+	}
+	defer closeRecoveryResource(root.Close, &report, &err)
+	open := s.OpenAPI
+	if open == nil {
+		open = defaultOpenAPI
+	}
+	api, closeAPI, err := open(ctx, canonical.TokenFile, "read-write")
+	if err != nil {
+		return report, err
+	}
+	defer closeRecoveryResource(closeAPI, &report, &err)
+	mutation, ok := api.(drive.SyncMutationAPI)
+	if !ok {
+		return report, errors.New("recovery requires mutation-capable Drive API")
+	}
+	priorConflicts := map[string]bool{}
+	for _, c := range state.Conflicts {
+		priorConflicts[c.ID] = true
+	}
+	ex := executor{root: root, profileDir: canonical.ProfileDir, remoteRoot: canonical.RemoteRoot, api: api, mutation: mutation, state: &state, save: func() error { return saveState(canonical.ProfileDir, state) }, resumeUploads: true}
+	recoveryErr := ex.recoverUpload(ctx)
+	report, err = inspectRecoveryState(ctx, canonical.ProfileDir, state)
+	if err != nil {
+		return report, err
+	}
+	if recoveryErr != nil {
+		var blocked *RecoveryBlockedError
+		if errors.As(recoveryErr, &blocked) {
+			report.Reason = blocked.Reason
+		}
+		return report, recoveryErr
+	}
+	if report.Pending {
+		return report, blockedRecovery(report.Reason)
+	}
+	report.Outcome = "completed"
+	for _, c := range state.Conflicts {
+		if !priorConflicts[c.ID] {
+			report.Outcome = "conflict-pending"
+			report.Actions = []RecoveryAction{"resolve-conflict"}
+			break
+		}
+	}
+	return report, nil
+}
+
+func closeRecoveryResource(close func() error, report *RecoveryReport, err *error) {
+	if closeErr := close(); closeErr != nil {
+		*err = errors.Join(*err, closeErr)
+		report.Outcome = "none"
+	}
 }

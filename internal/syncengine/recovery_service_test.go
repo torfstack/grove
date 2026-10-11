@@ -3,6 +3,7 @@ package syncengine
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -208,5 +209,142 @@ func TestInspectRecoveryExclusionAndCancellation(t *testing.T) {
 	cancel()
 	if _, err = s.InspectRecovery(ctx, o); !errors.Is(err, context.Canceled) {
 		t.Fatalf("lost cancellation: %v", err)
+	}
+}
+
+func TestRetryRecoveryOnlyOriginalTransaction(t *testing.T) {
+	for _, policy := range []ConflictPolicy{ConflictAsk, ConflictKeepLocal, ConflictKeepCloud} {
+		for _, competitor := range []bool{false, true} {
+			t.Run(string(policy)+fmt.Sprint(competitor), func(t *testing.T) {
+				s, o, state, ex, base := recoveryFixture(t, OpUpload)
+				setRecoveredHead(t, ex, base, OpUpload)
+				state.ConflictPolicy = policy
+				if err := saveState(o.ProfileDir, *state); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(o.LocalDir, "unrelated"), []byte("new"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				if competitor {
+					base.revisionData = map[string][]byte{"racer": []byte("cloud")}
+					base.revisions = append(base.revisions, drive.Revision{ID: "racer", ModifiedTime: "2026-01-01T12:00:00Z", MD5: md5Hex([]byte("cloud")), Size: 5, HasSize: true})
+				}
+				api := &recoveryAPI{uploadAPI: base}
+				opened, closed := 0, 0
+				s.OpenAPI = func(_ context.Context, _ string, access string) (drive.API, func() error, error) {
+					opened++
+					if access != "read-write" {
+						t.Fatal("wrong access")
+					}
+					return api, func() error { closed++; return nil }, nil
+				}
+				r, err := s.RetryRecovery(context.Background(), o)
+				if err != nil || r.Pending || opened != 1 || closed != 1 {
+					t.Fatalf("retry: %+v %v", r, err)
+				}
+				want := RecoveryOutcome("completed")
+				if competitor {
+					want = "conflict-pending"
+				}
+				if r.Outcome != want {
+					t.Fatalf("outcome %+v", r)
+				}
+				loaded, err := loadState(o.ProfileDir, state.Binding)
+				if err != nil || loaded.Transaction != nil || len(loaded.Completed) != 1 {
+					t.Fatalf("state: %v", err)
+				}
+				if competitor && (len(loaded.Conflicts) != 1 || loaded.Conflicts[0].SelectedSide != "") {
+					t.Fatal("policy applied during retry")
+				}
+				data, err := os.ReadFile(filepath.Join(o.LocalDir, "unrelated"))
+				if err != nil || string(data) != "new" {
+					t.Fatal("unrelated local data modified")
+				}
+			})
+		}
+	}
+}
+
+func TestRetryRecoveryResourceBoundaries(t *testing.T) {
+	for _, mode := range []string{"idle", "unsupported", "blocked", "provider", "close", "cancel", "exclusion"} {
+		t.Run(mode, func(t *testing.T) {
+			s, o, state, ex, base := recoveryFixture(t, OpUpload)
+			setRecoveredHead(t, ex, base, OpUpload)
+			api := &recoveryAPI{uploadAPI: base}
+			sentinel := errors.New("https://private.invalid/session")
+			calls, closed := 0, 0
+			if mode == "idle" {
+				state.Transaction = nil
+			}
+			if mode == "unsupported" {
+				state.Transaction = nil
+				state.Pending = &Pending{Entry: Entry{Path: "b", Remote: file("b", "b")}, Phase: "intent"}
+			}
+			if err := saveState(o.ProfileDir, *state); err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			s.OpenAPI = func(context.Context, string, string) (drive.API, func() error, error) {
+				calls++
+				if mode == "provider" {
+					return nil, nil, sentinel
+				}
+				if mode == "cancel" {
+					cancel()
+				}
+				l, err := privatefs.Acquire(filepath.Join(o.ProfileDir, "profile.lock"))
+				if err == nil {
+					_ = l.Close()
+					t.Fatal("profile lock released during recovery")
+				}
+				if mode == "exclusion" {
+					if _, err = s.Run(context.Background(), o); err == nil {
+						t.Fatal("sync entered locked profile")
+					}
+				}
+				return api, func() error {
+					closed++
+					if mode == "close" {
+						return sentinel
+					}
+					return nil
+				}, nil
+			}
+			if mode == "blocked" {
+				base.file.HeadRevisionID = "rev-1"
+			}
+			r, err := s.RetryRecovery(ctx, o)
+			switch mode {
+			case "idle":
+				if err != nil || calls != 0 || r.Pending {
+					t.Fatal("idle opened provider")
+				}
+			case "unsupported":
+				if err == nil || calls != 0 || r.Reason != "unsupported-operation" {
+					t.Fatalf("unsupported %+v %v", r, err)
+				}
+			case "blocked":
+				var b *RecoveryBlockedError
+				if !errors.As(err, &b) || !r.Pending || r.Reason != "uncertain-write" {
+					t.Fatalf("blocked %+v %v", r, err)
+				}
+			case "provider", "close":
+				if !errors.Is(err, sentinel) {
+					t.Fatalf("failure swallowed: %v", err)
+				}
+			case "cancel":
+				if !errors.Is(err, context.Canceled) {
+					t.Fatalf("cancellation swallowed %v", err)
+				}
+			default:
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if calls == 1 && mode != "provider" && closed != 1 {
+				t.Fatal("API not closed")
+			}
+		})
 	}
 }
