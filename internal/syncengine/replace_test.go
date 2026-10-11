@@ -101,36 +101,6 @@ func TestReplaceRecoveryMatrix(t *testing.T) {
 		})
 	}
 }
-
-func TestLegacyReplaceRecoveryWithNewDriveRevisionMetadata(t *testing.T) {
-	ex, op, profile := replacement(t)
-	op.Entry.Remote.HeadRevisionID, op.Entry.Remote.ModifiedTime = "", ""
-	api := ex.api.(*downloadAPI)
-	api.children[0].HeadRevisionID, api.children[0].ModifiedTime = "", ""
-	save := ex.save
-	ex.save = func() error {
-		if ex.state.Transaction != nil && ex.state.Transaction.Phase == "backed-up" {
-			return os.ErrPermission
-		}
-		return save()
-	}
-	if err := ex.execute(context.Background(), op); err == nil {
-		t.Fatal("fault did not interrupt replacement after backup")
-	}
-	state, err := loadState(profile, Binding{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	*ex.state, ex.save = state, save
-	api.children[0].HeadRevisionID, api.children[0].ModifiedTime = "drive-head", "2026-01-02T00:00:00Z"
-	if err = ex.recover(context.Background(), Snapshot{Entries: []Entry{{Path: op.Entry.Path, Remote: api.children[0]}}}); err != nil {
-		t.Fatal(err)
-	}
-	data, err := ex.root.ReadFile(op.Entry.Path)
-	if err != nil || string(data) != "expected bytes\n" || ex.state.Transaction != nil {
-		t.Fatalf("legacy replacement did not complete: data=%q err=%v", data, err)
-	}
-}
 func TestReplaceRecoveryPreservesUnexpectedContent(t *testing.T) {
 	ex, op, profile := replacement(t)
 	save := ex.save

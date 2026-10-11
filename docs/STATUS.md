@@ -2,6 +2,14 @@
 
 Updated: 2026-10-11.
 
+## Release status
+
+Grove is `pre-release`, with zero deployed users. Earlier-release compatibility
+and migrations are outside the current scope. The durable switch is the
+release-status line in [AGENTS.md](../AGENTS.md#release-compatibility): change it
+to `live`, or tell the agent Grove is live, to require compatibility and migration
+planning. Current-run data safety and interruption recovery remain required.
+
 ## Established
 
 - Project name: Grove; language: Go (the user has more experience with Go).
@@ -168,19 +176,9 @@ offline tests, race tests, native build, and Linux amd64 cross-build. The live
 initial, incremental, pinning, and upload/conflict-recovery scenarios passed.
 The aggregate suite failed in the conditional-write probe's metadata read; its
 standalone retry reached cleanup and failed with a transport error. Retained
-fixtures were cleaned successfully with the ownership-checked CLI. All hosted
-checks passed on `c76dcb5`. CodeRabbit's follow-up identified one additional
-compatibility issue: legacy download/move journals lack both revision fields.
-Regression coverage reproduces replacement recovery after the original file was
-backed up; the fix exempts only fully legacy download entries and keeps upload
-metadata checks strict. Legacy completed baselines also permit the first upload
-when saved version, identity, path, size, and MD5 match the current remote; partial
-metadata or a changed version remains a conflict. Formatting, lint, offline and
-race tests, native build, Linux amd64 cross-build, and diff checks passed after
-the compatibility fixes. Fresh hosted review is pending.
-The fixed same-path policy thread remains marked open; its code and regression
-tests satisfy the requested behavior. The declined uncertain-intent thread also
-remains open. No replies or manual thread-resolution actions were posted.
+fixtures were cleaned successfully with the ownership-checked CLI. Hosted checks
+passed on `c76dcb5`; its review raised the legacy-compatibility finding addressed
+in the review scope update below.
 
 ## Verification
 
@@ -229,3 +227,13 @@ were trashed; local records remain private. An earlier sandboxed attempt failed
 at the first create. Authenticated inspection found no matching remote object;
 its pending record is retained because an absent listing does not resolve an
 uncertain create. Token contents and generated remote IDs are not recorded here.
+
+## Review scope update
+
+The user confirmed that Grove has no deployed users. Removed the legacy-profile
+compatibility changes from `b7f9730`; CodeRabbit's legacy revision-metadata finding
+is declined as outside the agreed pre-release scope. Current-profile metadata
+checks remain strict. The release switch and post-launch migration requirements
+are recorded in AGENTS.md. Formatting, lint, offline tests, race tests, and diff
+checks passed after removing the compatibility changes. Fresh hosted review is
+pending.

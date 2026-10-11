@@ -19,6 +19,18 @@
   Creating a plan does not advance the spec counter. These conventions override
   skill defaults for document paths and date-based filenames.
 
+## Release compatibility
+
+- Release status: `pre-release` (zero deployed users).
+- While `pre-release`, backward compatibility with earlier Grove releases and
+  migration support are not required. Preserve current-run data safety and
+  interruption recovery.
+- The switch is this release-status line: change `pre-release` to `live` when
+  Grove has deployed users. An explicit user instruction that Grove is live also
+  activates this policy; update this line and `docs/STATUS.md` in that session.
+- Once `live`, account for existing profiles, configuration, and persisted state
+  when changing formats or behavior; design and verify necessary migrations.
+
 ## Development
 
 - Use Go. Keep development tools pinned in `mise.toml`; use the same versions in CI.

@@ -81,3 +81,12 @@ create ID: an old head or not-found ID does not establish that the request has
 settled. Automatically abandoning those records could cause a blind update or a
 duplicate create. Operator reconciliation is deferred. Pre-upload pin recovery
 also preserves pre-existing pins and pins whose original ownership is unknown.
+
+## Pre-release compatibility scope (agreed 2026-10-11)
+
+The user confirmed zero deployed users and no requirement to migrate earlier
+Grove releases. Legacy revision-metadata exemptions and baseline compatibility
+added during review are removed. Current-profile recovery and data safety remain
+required. AGENTS.md records the release status and the `pre-release` → `live`
+switch; an explicit user declaration that Grove is live activates compatibility
+and migration planning too.
