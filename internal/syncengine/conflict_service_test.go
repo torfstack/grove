@@ -199,7 +199,7 @@ func TestResolveConflictUploadsLocalCandidate(t *testing.T) {
 	if err = saveState(canonical.ProfileDir, state); err != nil {
 		t.Fatal(err)
 	}
-	api := &uploadAPI{file: remote, data: []byte("cloud candidate"), revisions: []drive.Revision{{ID: "rev-2", MD5: remote.MD5, Size: remote.Size, HasSize: true}}, pinned: map[string]bool{}}
+	api := &uploadAPI{file: remote, data: []byte("cloud candidate"), revisions: []drive.Revision{{ID: "rev-2", MD5: remote.MD5, ModifiedTime: remote.ModifiedTime, Size: remote.Size, HasSize: true}}, pinned: map[string]bool{}}
 	service := Service{RegistryDir: registry, OpenAPI: func(context.Context, string, string) (drive.API, func() error, error) {
 		return api, func() error { return nil }, nil
 	}}

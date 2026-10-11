@@ -166,10 +166,7 @@ func (s Service) RetryRecovery(ctx context.Context, opts Options) (report Recove
 	if !ok {
 		return report, errors.New("recovery requires mutation-capable Drive API")
 	}
-	priorConflicts := map[string]bool{}
-	for _, c := range state.Conflicts {
-		priorConflicts[c.ID] = true
-	}
+	startingJournal := *state.Transaction
 	ex := executor{root: root, profileDir: canonical.ProfileDir, remoteRoot: canonical.RemoteRoot, api: api, mutation: mutation, state: &state, save: func() error { return saveState(canonical.ProfileDir, state) }, resumeUploads: true}
 	recoveryErr := ex.recoverUpload(ctx)
 	report, err = inspectRecoveryState(ctx, canonical.ProfileDir, state)
@@ -188,7 +185,7 @@ func (s Service) RetryRecovery(ctx context.Context, opts Options) (report Recove
 	}
 	report.Outcome = "completed"
 	for _, c := range state.Conflicts {
-		if !priorConflicts[c.ID] {
+		if recoveryConflictBelongs(c, startingJournal) {
 			report.Outcome = "conflict-pending"
 			report.Actions = []RecoveryAction{"resolve-conflict"}
 			break

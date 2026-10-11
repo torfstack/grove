@@ -241,14 +241,14 @@ func (e *executor) captureRecoveredCompetitor(ctx context.Context, j Journal) er
 	}
 	revisions, err := e.mutation.ListRevisions(ctx, j.Operation.Entry.Remote.ID)
 	if err != nil {
-		return errUploadPending
+		return err
 	}
 	for _, revision := range revisions {
 		if revision.ID == j.CompetingRevisionIDs[0] {
 			return e.captureCompetingRevision(ctx, j, revision)
 		}
 	}
-	return errUploadPending
+	return blockedRecovery("history-incomplete")
 }
 
 func (e *executor) finishRecoveredCreate(ctx context.Context, j Journal) error {
@@ -272,6 +272,11 @@ func (e *executor) cleanupRecoveredUpload(ctx context.Context, j Journal) error 
 	}
 	if j.CloudStagePath != "" && j.CloudStageIdentity != nil && !conflictUsesStage(e.state.Conflicts, j.CloudStagePath) {
 		if err := removeVerifiedStageIfPresent(ctx, e.profileDir, j.CloudStagePath, j.CloudStageIdentity, j.CloudSHA256, j.CloudMD5, j.CloudSize); err != nil {
+			return err
+		}
+	}
+	if j.Operation.Conflict != nil {
+		if err := e.cleanupResolvedConflict(ctx, *j.Operation.Conflict); err != nil {
 			return err
 		}
 	}

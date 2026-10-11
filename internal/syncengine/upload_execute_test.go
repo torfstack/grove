@@ -443,7 +443,7 @@ func TestRecoverUploadIntentReconcilesMatchingRemoteWithoutRetry(t *testing.T) {
 	current := preflight
 	current.Version, current.HeadRevisionID, current.ModifiedTime = "2", "rev-2", "2026-01-02T00:00:00Z"
 	current.Size, current.MD5 = int64(len(localBytes)), md5Hex(localBytes)
-	api := &uploadAPI{file: current, data: localBytes, revisions: []drive.Revision{{ID: "rev-1"}, {ID: "rev-2"}}, pinned: map[string]bool{"rev-1": true}}
+	api := &uploadAPI{file: current, data: localBytes, revisions: []drive.Revision{{ID: "rev-1", ModifiedTime: preflight.ModifiedTime}, {ID: "rev-2", ModifiedTime: current.ModifiedTime}}, pinned: map[string]bool{"rev-1": true}}
 	state := State{Version: 3, Completed: []Completed{baseline}}
 	save := func() error { return saveState(profileDir, state) }
 	if err = save(); err != nil {

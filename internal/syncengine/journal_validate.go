@@ -170,5 +170,5 @@ func validateUploadJournal(j Journal, baseline []Completed) error {
 	if (j.Phase == "committed" || j.Phase == "uploaded" || j.Phase == "capture-intent" || j.Phase == "conflict-captured") && len(j.After) != 1 {
 		return errors.New("committed upload has no result baseline")
 	}
-	return nil
+	return validateResolutionJournal(j)
 }
