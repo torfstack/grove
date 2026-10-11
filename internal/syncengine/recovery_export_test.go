@@ -147,7 +147,7 @@ func TestExportRecoveryRejectsUnsafeOutput(t *testing.T) {
 }
 
 func TestExportPublicationRaces(t *testing.T) {
-	for _, mode := range []string{"source-replaced", "parent-renamed", "target-created", "cancel", "read", "sync-file", "link", "sync-parent", "close", "temp-replaced"} {
+	for _, mode := range []string{"source-replaced", "parent-renamed", "target-created", "cancel", "read", "write", "sync-file", "link", "sync-parent", "close", "temp-replaced"} {
 		t.Run(mode, func(t *testing.T) {
 			s, o, state, _, _ := recoveryFixture(t, OpUpload)
 			parent := t.TempDir()
@@ -192,6 +192,13 @@ func TestExportPublicationRaces(t *testing.T) {
 				return originalCopy(w, r)
 			}
 			switch mode {
+			case "write":
+				ops.copy = func(w io.Writer, r io.Reader) (int64, error) {
+					if _, err := w.Write([]byte("par")); err != nil {
+						return 0, err
+					}
+					return 3, sentinel
+				}
 			case "sync-file":
 				ops.syncFile = func(*os.File) error { return sentinel }
 			case "link":

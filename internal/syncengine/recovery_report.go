@@ -1,7 +1,5 @@
 package syncengine
 
-import "errors"
-
 type RecoveryReason string
 type RecoveryAction string
 type RecoveryStageStatus string
@@ -35,8 +33,7 @@ func safeRecoveryError(err error) error {
 	if err == nil {
 		return nil
 	}
-	var blocked *RecoveryBlockedError
-	if errors.As(err, &blocked) {
+	if blocked, ok := err.(*RecoveryBlockedError); ok {
 		return blocked
 	}
 	return &RecoveryError{Message: "recovery operation failed", Cause: err}

@@ -309,3 +309,32 @@ func TestRecoveredFolderCreateValidatesWithoutMedia(t *testing.T) {
 		t.Fatalf("folder failed: %v", err)
 	}
 }
+
+func TestRecoveryResultSaveBoundaries(t *testing.T) {
+	for _, failPhase := range []string{"uploaded", "committed", "clear"} {
+		t.Run(failPhase, func(t *testing.T) {
+			_, o, state, ex, api := recoveryFixture(t, OpUpload)
+			setRecoveredHead(t, ex, api, OpUpload)
+			realSave := ex.save
+			sentinel := errors.New("save fault")
+			ex.save = func() error {
+				if (state.Transaction == nil && failPhase == "clear") || (state.Transaction != nil && state.Transaction.Phase == failPhase) {
+					return sentinel
+				}
+				return realSave()
+			}
+			if err := ex.recoverUpload(context.Background()); !errors.Is(err, sentinel) || state.Transaction == nil {
+				t.Fatalf("failure lost its journal: %v", err)
+			}
+			loaded, err := loadState(o.ProfileDir, state.Binding)
+			if err != nil || loaded.Transaction == nil {
+				t.Fatalf("not restartable %v", err)
+			}
+			*state = loaded
+			ex.save = realSave
+			if err = ex.recoverUpload(context.Background()); err != nil || state.Transaction != nil || state.Completed[0].SHA256 != hashText("edit") {
+				t.Fatalf("restart %v", err)
+			}
+		})
+	}
+}

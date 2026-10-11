@@ -348,3 +348,38 @@ func TestRetryRecoveryResourceBoundaries(t *testing.T) {
 		})
 	}
 }
+
+func TestInspectRecoveryRecordedPhases(t *testing.T) {
+	for _, row := range []struct {
+		kind          OperationKind
+		phase, reason string
+	}{{OpUpload, "staged", "remote-check-required"}, {OpUpload, "pin-intent", "remote-check-required"}, {OpUpload, "pinned", "remote-check-required"}, {OpUpload, "upload-intent", "uncertain-write"}, {OpUpload, "uploaded", "remote-check-required"}, {OpUpload, "retired", "cleanup-pending"}, {OpCreate, "staged", "remote-check-required"}, {OpCreate, "create-intent", "uncertain-write"}, {OpCreate, "created", "remote-check-required"}, {OpCreate, "verified", "remote-check-required"}} {
+		t.Run(string(row.kind)+"/"+row.phase, func(t *testing.T) {
+			s, o, state, _, _ := recoveryFixture(t, row.kind)
+			j := state.Transaction
+			j.Phase = row.phase
+			if row.kind == OpUpload && row.phase != "staged" && row.phase != "pin-intent" && row.phase != "retired" {
+				j.PinnedRevisionID = j.PreflightRevisionID
+			}
+			if row.phase == "uploaded" {
+				j.After = []Completed{baselineFile("a", "a", []byte("edit"))}
+			}
+			if err := saveState(o.ProfileDir, *state); err != nil {
+				t.Fatal(err)
+			}
+			r, err := s.InspectRecovery(context.Background(), o)
+			if err != nil || r.Phase != row.phase || string(r.Reason) != row.reason {
+				t.Fatalf("phase %+v %v", r, err)
+			}
+		})
+	}
+}
+
+func TestRecoverySafeErrorRetainsJoinedFailures(t *testing.T) {
+	sentinel := errors.New("resource-close")
+	err := safeRecoveryError(errors.Join(&RecoveryBlockedError{Reason: "uncertain-write"}, sentinel))
+	var b *RecoveryBlockedError
+	if !errors.Is(err, sentinel) || !errors.As(err, &b) {
+		t.Fatal("joined failure discarded")
+	}
+}
