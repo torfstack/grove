@@ -235,5 +235,18 @@ compatibility changes from `b7f9730`; CodeRabbit's legacy revision-metadata find
 is declined as outside the agreed pre-release scope. Current-profile metadata
 checks remain strict. The release switch and post-launch migration requirements
 are recorded in AGENTS.md. Formatting, lint, offline tests, race tests, and diff
-checks passed after removing the compatibility changes. Fresh hosted review is
-pending.
+checks passed after removing the compatibility changes. Hosted CI and CodeRabbit
+completed on `9226afc`. The latest review found a metadata-only change could
+produce a duplicate ask-policy conflict on retry. A regression reproduced the
+changed identity; conflict identity now excludes metadata version while retaining
+content revision and fingerprints. A different revision still receives a distinct
+identity. Formatting, lint, offline tests, race tests, and diff checks pass for this fix.
+Hosted review of the fix is pending.
+
+The earlier regressed-version suggestion is declined: uploads perform a fresh
+Get and compare revision, timestamp, identity, and content before staging; matching
+content with a different metadata version is deliberately allowed. A version
+regression alone does not establish a content conflict. The uncertain-write
+abandonment suggestion remains declined for the data-safety reasons above.
+These two review threads remain open; no replies or manual resolutions were
+posted. The same-path policy thread is now automatically resolved by CodeRabbit.

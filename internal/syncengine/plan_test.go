@@ -314,3 +314,31 @@ func TestBuildTwoWayPlanConflictsOnLocalAndRemoteSamePathAddition(t *testing.T) 
 		}
 	}
 }
+
+func TestBuildTwoWayPlanRetainsAskConflictAfterMetadataChange(t *testing.T) {
+	remote := file("a", "a")
+	remote.Version, remote.HeadRevisionID = "2", "rev-2"
+	remote.MD5 = md5Text("cloud")
+	remote.Size = 5
+	local := []LocalEntry{{Path: "a", Kind: "file", SHA256: hashText("local"), Size: 5}}
+	state := State{Completed: []Completed{completed()}, PopulationComplete: true, ConflictPolicy: ConflictAsk}
+	plan, err := BuildTwoWayPlan(Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}}, local, state)
+	if err != nil || len(plan.Operations) != 1 || plan.Operations[0].Conflict == nil {
+		t.Fatalf("initial conflict: %+v, %v", plan, err)
+	}
+	pending := *plan.Operations[0].Conflict
+	state.Conflicts = []Conflict{pending}
+	remote.Version = "3"
+	plan, err = BuildTwoWayPlan(Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}}, local, state)
+	if err != nil || len(plan.Operations) != 1 || plan.Operations[0].Conflict == nil {
+		t.Fatalf("retried conflict: %+v, %v", plan, err)
+	}
+	if plan.Operations[0].Conflict.ID != pending.ID || plan.Operations[0].ResolutionSide != "" {
+		t.Fatal("metadata-only retry replaced the unresolved conflict identity")
+	}
+	remote.HeadRevisionID = "rev-3"
+	plan, err = BuildTwoWayPlan(Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}}, local, state)
+	if err != nil || len(plan.Operations) != 1 || plan.Operations[0].Conflict == nil || plan.Operations[0].Conflict.ID == pending.ID {
+		t.Fatalf("new content revision reused the pending identity: %+v, %v", plan, err)
+	}
+}

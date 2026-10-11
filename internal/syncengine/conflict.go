@@ -15,11 +15,10 @@ func conflictID(c Conflict) string {
 		RemoteID      string `json:"remote_id"`
 		BaselineSHA   string `json:"baseline_sha256"`
 		LocalSHA      string `json:"local_sha256"`
-		RemoteVersion string `json:"remote_version"`
 		RemoteMD5     string `json:"remote_md5"`
 		RemoteSize    int64  `json:"remote_size"`
 		CloudRevision string `json:"cloud_revision_id,omitempty"`
-	}{c.Path, c.RemoteID, c.Baseline.SHA256, c.LocalSHA256, c.RemoteVersion, c.RemoteMD5, c.RemoteSize, c.CloudRevisionID}
+	}{c.Path, c.RemoteID, c.Baseline.SHA256, c.LocalSHA256, c.RemoteMD5, c.RemoteSize, c.CloudRevisionID}
 	data, _ := json.Marshal(identity)
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
