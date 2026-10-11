@@ -241,7 +241,12 @@ produce a duplicate ask-policy conflict on retry. A regression reproduced the
 changed identity; conflict identity now excludes metadata version while retaining
 content revision and fingerprints. A different revision still receives a distinct
 identity. Formatting, lint, offline tests, race tests, and diff checks pass for this fix.
-Hosted review of the fix is pending.
+Hosted checks passed on `a541fe3`; CodeQL's first attempt hit an unauthenticated
+GitHub API rate limit during mise tool setup, and the failed-job retry passed.
+CodeRabbit's recent-review summary explicitly covers `9226afc` → `a541fe3` and
+reports no actionable comments. It then automatically paused future reviews after
+several reviewed commits. This documentation-only follow-up may therefore be
+skipped; resuming future bot reviews requires an authorized GitHub bot command.
 
 The earlier regressed-version suggestion is declined: uploads perform a fresh
 Get and compare revision, timestamp, identity, and content before staging; matching
