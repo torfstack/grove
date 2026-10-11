@@ -33,7 +33,7 @@ func validateJournal(j Journal, baseline []Completed) error {
 			return err
 		}
 	}
-	if !safeRelative(op.Entry.Path) || len(op.Before) == 0 {
+	if !safeRelative(op.Entry.Path) || (op.Kind != OpCreate && len(op.Before) == 0) {
 		return errors.New("invalid journal target")
 	}
 	if err := validateCompleted(op.Before); err != nil {

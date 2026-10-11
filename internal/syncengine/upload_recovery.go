@@ -259,6 +259,13 @@ func removeStageIfPresent(profileDir, path string, identity *FileIdentity) error
 }
 
 func verifyPrivateStage(profileDir, path string, identity *FileIdentity, shaExpected, md5Expected string, sizeExpected int64) error {
+	return verifyPrivateStageContext(context.Background(), profileDir, path, identity, shaExpected, md5Expected, sizeExpected)
+}
+
+func verifyPrivateStageContext(ctx context.Context, profileDir, path string, identity *FileIdentity, shaExpected, md5Expected string, sizeExpected int64) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if !safeRelative(path) || identity == nil || identity.Inode == 0 {
 		return errors.New("invalid private upload stage record")
 	}
@@ -279,8 +286,28 @@ func verifyPrivateStage(profileDir, path string, identity *FileIdentity, shaExpe
 	if err != nil {
 		return errors.New("cannot open private upload stage")
 	}
+	opened, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return errors.New("cannot inspect private upload stage")
+	}
+	openedIdentity, err := fileIdentity(opened)
+	if err != nil || !opened.Mode().IsRegular() || openedIdentity != *identity {
+		_ = f.Close()
+		return errors.New("private upload stage ownership changed")
+	}
 	sha, md5sum := sha256.New(), md5.New()
-	_, readErr := io.Copy(io.MultiWriter(sha, md5sum), f)
+	_, readErr := io.Copy(io.MultiWriter(sha, md5sum), &contextReader{ctx: ctx, reader: f})
+	after, statErr := root.Lstat(path)
+	if statErr != nil {
+		_ = f.Close()
+		return errors.New("private upload stage ownership changed")
+	}
+	afterIdentity, identityErr := fileIdentity(after)
+	if identityErr != nil || afterIdentity != *identity || !after.Mode().IsRegular() {
+		_ = f.Close()
+		return errors.New("private upload stage ownership changed")
+	}
 	closeErr := f.Close()
 	if readErr != nil || closeErr != nil || (shaExpected != "" && hex.EncodeToString(sha.Sum(nil)) != shaExpected) || (md5Expected != "" && hex.EncodeToString(md5sum.Sum(nil)) != md5Expected) {
 		return errors.New("private upload stage content changed")
