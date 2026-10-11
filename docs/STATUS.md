@@ -260,8 +260,8 @@ posted. The same-path policy thread is now automatically resolved by CodeRabbit.
 
 The user selected operator recovery after merging PR #7 and agreed a focused
 `recovery inspect`, `recovery retry`, and `recovery export` scope. Proposed
-[spec 000005](spec/000005-operator-reconciliation-design.md) is written and awaits
-written-spec review. Retry processes only the pending transaction; export copies
+[spec 000005](spec/000005-operator-reconciliation-design.md) was approved by the
+user on 2026-10-11. Retry processes only the pending transaction; export copies
 verified staged bytes without abandoning uncertain intent. Force-abandon and
 multiple-competitor selection remain deferred. Inconclusive requests can still
 block indefinitely; this slice does not promise safe reset.
@@ -269,5 +269,8 @@ block indefinitely; this slice does not promise safe reset.
 Code inspection identified contract-sensitive areas to audit during implementation:
 recovered outcome structure/byte verification, history reassessment, and journal
 retirement before stage cleanup. No product code changed or live tests ran in
-this design session. Next: approve/revise the written spec, then write its paired
-implementation plan.
+this design session. The branch `feat/operator-reconciliation` now contains the
+approved spec and its [paired plan](implementation-plans/000005-operator-reconciliation-plan.md).
+The plan awaits review and execution-method selection; native execution is
+recommended. Documentation diff checks passed. No implementation checks or live
+tests ran during planning.

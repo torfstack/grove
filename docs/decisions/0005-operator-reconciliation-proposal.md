@@ -1,6 +1,6 @@
 # 0005: Recovery-only operator controls
 
-Date: 2026-10-11. Status: proposed; command scope agreed, detailed spec pending review.
+Date: 2026-10-11. Status: accepted; written spec approved, implementation pending.
 
 ## Proposal
 
@@ -21,4 +21,5 @@ indefinitely. Multiple-competitor selection remains a separate design.
 
 This improves diagnosis and access to preserved data, with safe retry of
 recoverable transactions. It does not provide a universal unblock/reset command.
-Written-spec approval and the paired implementation plan remain outstanding.
+The user approved the written spec. Its paired implementation plan is written
+and awaits review and execution-method selection.

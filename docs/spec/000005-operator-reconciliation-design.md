@@ -1,6 +1,6 @@
 # 000005: Operator reconciliation for interrupted uploads
 
-Status: proposed; scope agreed, written spec awaiting review.
+Status: approved by the user on 2026-10-11; implementation plan awaiting review.
 
 ## Intent and agreed scope
 
@@ -192,6 +192,5 @@ rename detection, revision-quota redesign, and daemon orchestration need separat
 designs. Users of an inconclusive transaction can export verified bytes and
 retry later; this slice does not claim that exporting permits safe profile reset.
 
-The implementation plan will be
-`docs/implementation-plans/000005-operator-reconciliation-plan.md` and link here
-after written-spec approval.
+The paired [implementation plan](../implementation-plans/000005-operator-reconciliation-plan.md)
+links here and awaits review before implementation.
