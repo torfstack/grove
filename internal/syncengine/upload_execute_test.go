@@ -119,6 +119,31 @@ func TestCurrentUploadRemoteAllowsVersionOnlyMetadataChange(t *testing.T) {
 	}
 }
 
+func TestLegacyRevisionExemptionDoesNotWeakenUploadChecks(t *testing.T) {
+	remote := file("a", "a")
+	ex := executor{api: &uploadAPI{file: remote}}
+	for _, tc := range []struct {
+		name, revision, modified string
+		allowDownload            bool
+	}{
+		{"legacy", "", "", true},
+		{"missing-revision", "", remote.ModifiedTime, false},
+		{"missing-time", remote.HeadRevisionID, "", false},
+		{"changed-revision", "other-head", remote.ModifiedTime, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			entry := Entry{Path: "a", Remote: remote}
+			entry.Remote.HeadRevisionID, entry.Remote.ModifiedTime = tc.revision, tc.modified
+			if err := ex.currentRemote(context.Background(), entry); (err == nil) != tc.allowDownload {
+				t.Fatalf("incorrect legacy download exemption: %v", err)
+			}
+			if err := ex.currentUploadRemote(context.Background(), entry); err == nil {
+				t.Fatal("upload accepted missing or changed revision metadata")
+			}
+		})
+	}
+}
+
 func TestUploadUpdatesWhenRemoteMatchesSavedRevision(t *testing.T) {
 	localDir, profileDir := t.TempDir(), t.TempDir()
 	if err := os.WriteFile(filepath.Join(localDir, "a"), []byte("local edit"), 0600); err != nil {

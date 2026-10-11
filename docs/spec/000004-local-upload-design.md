@@ -104,6 +104,14 @@ Never expand OAuth scopes automatically. Preflight validates file update and fol
 child-creation capabilities as appropriate; scope alone does not establish access.
 All existing token, profile, destination, and ancestor locks continue to apply.
 
+Legacy completed entries that lack both head revision and modification time can
+use their saved version, identity, path, size, and MD5 to establish an unchanged
+remote before the first upload. The fresh remote must supply both revision fields;
+the upload then records them in its new baseline. A changed version or partially
+missing metadata does not qualify. Existing download/move journals lacking both
+fields recover using their original version and content checks; new journals and
+all upload preflight checks retain revision metadata validation.
+
 A pending upload must be reported when invoked without `--two-way`, with a request
 to rerun in that mode; it cannot silently fall through to download recovery. Old
 download transactions retain their existing recovery behavior. Output adds uploaded

@@ -168,8 +168,19 @@ offline tests, race tests, native build, and Linux amd64 cross-build. The live
 initial, incremental, pinning, and upload/conflict-recovery scenarios passed.
 The aggregate suite failed in the conditional-write probe's metadata read; its
 standalone retry reached cleanup and failed with a transport error. Retained
-fixtures were cleaned successfully with the ownership-checked CLI. Hosted review
-of the follow-up is pending.
+fixtures were cleaned successfully with the ownership-checked CLI. All hosted
+checks passed on `c76dcb5`. CodeRabbit's follow-up identified one additional
+compatibility issue: legacy download/move journals lack both revision fields.
+Regression coverage reproduces replacement recovery after the original file was
+backed up; the fix exempts only fully legacy download entries and keeps upload
+metadata checks strict. Legacy completed baselines also permit the first upload
+when saved version, identity, path, size, and MD5 match the current remote; partial
+metadata or a changed version remains a conflict. Formatting, lint, offline and
+race tests, native build, Linux amd64 cross-build, and diff checks passed after
+the compatibility fixes. Fresh hosted review is pending.
+The fixed same-path policy thread remains marked open; its code and regression
+tests satisfy the requested behavior. The declined uncertain-intent thread also
+remains open. No replies or manual thread-resolution actions were posted.
 
 ## Verification
 

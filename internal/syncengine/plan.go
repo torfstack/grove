@@ -296,7 +296,13 @@ func BuildTwoWayPlan(remote Snapshot, local []LocalEntry, state State) (Plan, er
 }
 
 func sameUploadBaseline(entry Entry, completed Completed) bool {
-	return entry.Path == completed.Path && entry.Remote.ID == completed.RemoteID && entryKind(entry) == "file" && completed.Kind == "file" && completed.HeadRevisionID != "" && entry.Remote.HeadRevisionID == completed.HeadRevisionID && completed.ModifiedTime != "" && entry.Remote.ModifiedTime == completed.ModifiedTime && entry.Remote.MD5 == completed.MD5 && entry.Remote.Size == completed.Size
+	if entry.Path != completed.Path || entry.Remote.ID != completed.RemoteID || entryKind(entry) != "file" || completed.Kind != "file" || entry.Remote.MD5 != completed.MD5 || entry.Remote.Size != completed.Size {
+		return false
+	}
+	if completed.HeadRevisionID == "" && completed.ModifiedTime == "" {
+		return entry.Remote.Version == completed.Version && entry.Remote.HeadRevisionID != "" && entry.Remote.ModifiedTime != ""
+	}
+	return completed.HeadRevisionID != "" && entry.Remote.HeadRevisionID == completed.HeadRevisionID && completed.ModifiedTime != "" && entry.Remote.ModifiedTime == completed.ModifiedTime
 }
 
 func conflictResolutionForPath(conflicts []Conflict, path string, policy ConflictPolicy) (*Conflict, ConflictSide) {

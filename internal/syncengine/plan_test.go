@@ -292,6 +292,28 @@ func TestBuildTwoWayPlanRejectsUnknownConflictPolicy(t *testing.T) {
 	}
 }
 
+func TestBuildTwoWayPlanAcceptsMatchingLegacyBaseline(t *testing.T) {
+	for _, tc := range []struct {
+		name, version, revision, modified string
+		want                              OperationKind
+	}{
+		{"legacy-matches", "1", "", "", OpUpload},
+		{"legacy-version-changed", "2", "", "", OpConflict},
+		{"partial-metadata", "1", "", "2026-01-01T00:00:00Z", OpConflict},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			baseline := completed()
+			baseline.HeadRevisionID, baseline.ModifiedTime = tc.revision, tc.modified
+			remote := file("a", "a")
+			remote.Version = tc.version
+			plan, err := BuildTwoWayPlan(Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}}, []LocalEntry{{Path: "a", Kind: "file", SHA256: "local-edit", Size: 11}}, State{Completed: []Completed{baseline}, PopulationComplete: true})
+			if err != nil || len(plan.Operations) != 1 || plan.Operations[0].Kind != tc.want {
+				t.Fatalf("legacy baseline classification=%+v err=%v", plan, err)
+			}
+		})
+	}
+}
+
 func TestBuildTwoWayPlanConflictsOnLocalAndRemoteSamePathAddition(t *testing.T) {
 	remote := Snapshot{Entries: []Entry{{Path: "same.txt", Remote: file("remote", "same.txt")}}}
 	local := []LocalEntry{{Path: "same.txt", Kind: "file", SHA256: "local-content", Size: 12}}
