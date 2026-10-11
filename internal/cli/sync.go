@@ -21,12 +21,13 @@ func newSync(run func(context.Context, syncengine.Options) (syncengine.Result, e
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Downloaded: %d; directories created: %d; Skipped: %d; Updated: %d; Moved: %d\n", result.Downloaded, result.CreatedDirectories, result.Skipped, result.Updated, result.Moved)
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Downloaded: %d; Uploaded: %d; directories created: %d; Skipped: %d; Updated: %d; Moved: %d\n", result.Downloaded, result.Uploaded, result.CreatedDirectories, result.Skipped, result.Updated, result.Moved)
 		return err
 	}}
 	cmd.Flags().StringVar(&opts.ProfileDir, "profile-dir", "", "Private sync profile directory (required)")
 	cmd.Flags().StringVar(&opts.RemoteRoot, "remote-root", "", "Selected Drive folder ID (required)")
 	cmd.Flags().StringVar(&opts.LocalDir, "local-dir", "", "Destination directory (required)")
 	cmd.Flags().StringVar(&opts.TokenFile, "token-file", "", "Authentication record path (required)")
+	cmd.Flags().BoolVar(&opts.TwoWay, "two-way", false, "Enable uploads and conflict handling for this run")
 	return cmd
 }

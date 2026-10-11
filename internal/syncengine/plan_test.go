@@ -27,7 +27,7 @@ func (treeAPI) Create(context.Context, drive.Create, io.Reader) (drive.File, err
 }
 func (treeAPI) Trash(context.Context, string) error { return errors.New("unexpected trash") }
 func file(id, name string) drive.File {
-	return drive.File{ID: id, Name: name, MIMEType: "text/plain", Version: "1", OwnedByMe: true, CanDownload: true, HasSize: true, Size: 0, MD5: "d41d8cd98f00b204e9800998ecf8427e", Parents: []string{"root"}}
+	return drive.File{ID: id, Name: name, MIMEType: "text/plain", Version: "1", ModifiedTime: "2026-01-01T00:00:00Z", HeadRevisionID: "rev-1", OwnedByMe: true, CanDownload: true, HasSize: true, Size: 0, MD5: "d41d8cd98f00b204e9800998ecf8427e", Parents: []string{"root"}}
 }
 func tree() treeAPI {
 	return treeAPI{root: drive.File{ID: "root", Name: "root", MIMEType: drive.FolderMIME, OwnedByMe: true}, children: []drive.File{file("a", "a"), file("b", "b")}}
@@ -76,7 +76,7 @@ func TestPlanStableOrder(t *testing.T) {
 	}
 }
 func completed() Completed {
-	return Completed{Path: "a", RemoteID: "a", Version: "1", MD5: "d41d8cd98f00b204e9800998ecf8427e", SHA256: "verified", Kind: "file", Size: 0}
+	return Completed{Path: "a", RemoteID: "a", Version: "1", ModifiedTime: "2026-01-01T00:00:00Z", HeadRevisionID: "rev-1", MD5: "d41d8cd98f00b204e9800998ecf8427e", SHA256: "verified", Kind: "file", Size: 0}
 }
 func TestPlanResume(t *testing.T) {
 	a := Snapshot{Entries: []Entry{{Path: "a", Remote: file("a", "a")}, {Path: "b", Remote: file("b", "b")}}}
@@ -191,5 +191,154 @@ func TestPlanRejectsConflicts(t *testing.T) {
 	p, err := BuildPlan(Snapshot{Entries: []Entry{{Path: "a", Remote: changed}}}, []LocalEntry{{Path: "a", Kind: "file", SHA256: "local-edit"}}, State{Completed: []Completed{a}})
 	if err == nil || len(p.Operations) != 0 {
 		t.Fatal("local and remote conflict accepted")
+	}
+}
+
+func TestBuildTwoWayPlanUploadsLocalEditWhenRemoteMatchesBaseline(t *testing.T) {
+	remote := file("a", "a")
+	remote.HeadRevisionID = "rev-1"
+	plan, err := BuildTwoWayPlan(
+		Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}},
+		[]LocalEntry{{Path: "a", Kind: "file", SHA256: "local-edit", Size: 11}},
+		State{Completed: []Completed{completed()}, PopulationComplete: true},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Operations) != 1 || plan.Operations[0].Kind != OpUpload || plan.Operations[0].Local.SHA256 != "local-edit" {
+		t.Fatalf("local edit was not planned for upload: %+v", plan.Operations)
+	}
+}
+
+func TestBuildTwoWayPlanIgnoresVersionOnlyChangeWhenRevisionIsUnchanged(t *testing.T) {
+	remote := file("a", "a")
+	remote.Version = "2"
+	plan, err := BuildTwoWayPlan(
+		Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}},
+		[]LocalEntry{{Path: "a", Kind: "file", SHA256: "local-edit", Size: 11}},
+		State{Completed: []Completed{completed()}, PopulationComplete: true},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Operations) != 1 || plan.Operations[0].Kind != OpUpload {
+		t.Fatalf("version-only metadata change blocked an unchanged-content upload: %+v", plan.Operations)
+	}
+}
+
+func TestBuildTwoWayPlanAsksBeforeUploadingWhenRemoteChanged(t *testing.T) {
+	remote := file("a", "a")
+	remote.Version = "2"
+	remote.MD5 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	remote.HeadRevisionID = "rev-2"
+	plan, err := BuildTwoWayPlan(
+		Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}},
+		[]LocalEntry{{Path: "a", Kind: "file", SHA256: "local-edit", Size: 11}},
+		State{Completed: []Completed{completed()}, PopulationComplete: true, ConflictPolicy: ConflictAsk},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Operations) != 1 || plan.Operations[0].Kind != OpConflict || plan.Operations[0].Conflict == nil {
+		t.Fatalf("changed remote did not become a pending conflict: %+v", plan.Operations)
+	}
+	if plan.Operations[0].Conflict.RemoteVersion != "2" || plan.Operations[0].Local.SHA256 != "local-edit" {
+		t.Fatalf("conflict did not retain both candidate fingerprints: %+v", plan.Operations[0])
+	}
+}
+
+func TestBuildTwoWayPlanAppliesConfiguredConflictPolicy(t *testing.T) {
+	remote := file("a", "a")
+	remote.Version = "2"
+	remote.MD5 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	remote.HeadRevisionID = "rev-2"
+	input := Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}}
+	local := []LocalEntry{{Path: "a", Kind: "file", SHA256: "local-edit", Size: 11}}
+	for _, tc := range []struct {
+		policy ConflictPolicy
+		kind   OperationKind
+		side   ConflictSide
+	}{
+		{ConflictKeepLocal, OpConflict, SideLocal},
+		{ConflictKeepCloud, OpConflict, SideCloud},
+	} {
+		plan, err := BuildTwoWayPlan(input, local, State{Completed: []Completed{completed()}, PopulationComplete: true, ConflictPolicy: tc.policy})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(plan.Operations) != 1 || plan.Operations[0].Kind != tc.kind || plan.Operations[0].ResolutionSide != tc.side {
+			t.Fatalf("policy %q produced %+v", tc.policy, plan.Operations)
+		}
+	}
+}
+
+func TestBuildTwoWayPlanCreatesUntrackedLocalEntries(t *testing.T) {
+	plan, err := BuildTwoWayPlan(Snapshot{}, []LocalEntry{
+		{Path: "new", Kind: "folder"},
+		{Path: "new/file.txt", Kind: "file", SHA256: "new-content", Size: 12},
+	}, State{PopulationComplete: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Operations) != 2 || plan.Operations[0].Kind != OpCreate || plan.Operations[0].Local.Path != "new" || plan.Operations[1].Kind != OpCreate || plan.Operations[1].Local.Path != "new/file.txt" {
+		t.Fatalf("local folder and child were not planned in parent order: %+v", plan.Operations)
+	}
+}
+
+func TestBuildTwoWayPlanRejectsUnknownConflictPolicy(t *testing.T) {
+	_, err := BuildTwoWayPlan(Snapshot{}, nil, State{ConflictPolicy: "overwrite"})
+	if err == nil {
+		t.Fatal("unknown conflict policy was accepted")
+	}
+}
+
+func TestBuildTwoWayPlanConflictsOnLocalAndRemoteSamePathAddition(t *testing.T) {
+	remote := Snapshot{Entries: []Entry{{Path: "same.txt", Remote: file("remote", "same.txt")}}}
+	local := []LocalEntry{{Path: "same.txt", Kind: "file", SHA256: "local-content", Size: 12}}
+	for _, tc := range []struct {
+		policy ConflictPolicy
+		want   ConflictSide
+	}{{ConflictAsk, ""}, {ConflictKeepLocal, ""}, {ConflictKeepCloud, SideCloud}} {
+		plan, err := BuildTwoWayPlan(remote, local, State{PopulationComplete: true, ConflictPolicy: tc.policy})
+		if err != nil || len(plan.Operations) != 1 || plan.Operations[0].Kind != OpConflict || plan.Operations[0].Conflict == nil {
+			t.Fatalf("same-path independent additions did not become a conflict: %v %+v", err, plan.Operations)
+		}
+		if plan.Operations[0].Conflict.Baseline != (Completed{}) || plan.Operations[0].ResolutionSide != tc.want {
+			t.Fatalf("policy %q selected an unsupported side for a baseline-free conflict: %+v", tc.policy, plan.Operations[0])
+		}
+		pending := *plan.Operations[0].Conflict
+		pending.SelectedSide = SideLocal
+		repeated, err := BuildTwoWayPlan(remote, local, State{PopulationComplete: true, ConflictPolicy: tc.policy, Conflicts: []Conflict{pending}})
+		if err != nil || len(repeated.Operations) != 1 || repeated.Operations[0].ResolutionSide != tc.want {
+			t.Fatalf("saved unsupported local selection was reused: plan=%+v err=%v", repeated, err)
+		}
+	}
+}
+
+func TestBuildTwoWayPlanRetainsAskConflictAfterMetadataChange(t *testing.T) {
+	remote := file("a", "a")
+	remote.Version, remote.HeadRevisionID = "2", "rev-2"
+	remote.MD5 = md5Text("cloud")
+	remote.Size = 5
+	local := []LocalEntry{{Path: "a", Kind: "file", SHA256: hashText("local"), Size: 5}}
+	state := State{Completed: []Completed{completed()}, PopulationComplete: true, ConflictPolicy: ConflictAsk}
+	plan, err := BuildTwoWayPlan(Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}}, local, state)
+	if err != nil || len(plan.Operations) != 1 || plan.Operations[0].Conflict == nil {
+		t.Fatalf("initial conflict: %+v, %v", plan, err)
+	}
+	pending := *plan.Operations[0].Conflict
+	state.Conflicts = []Conflict{pending}
+	remote.Version = "3"
+	plan, err = BuildTwoWayPlan(Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}}, local, state)
+	if err != nil || len(plan.Operations) != 1 || plan.Operations[0].Conflict == nil {
+		t.Fatalf("retried conflict: %+v, %v", plan, err)
+	}
+	if plan.Operations[0].Conflict.ID != pending.ID || plan.Operations[0].ResolutionSide != "" {
+		t.Fatal("metadata-only retry replaced the unresolved conflict identity")
+	}
+	remote.HeadRevisionID = "rev-3"
+	plan, err = BuildTwoWayPlan(Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}}, local, state)
+	if err != nil || len(plan.Operations) != 1 || plan.Operations[0].Conflict == nil || plan.Operations[0].Conflict.ID == pending.ID {
+		t.Fatalf("new content revision reused the pending identity: %+v, %v", plan, err)
 	}
 }

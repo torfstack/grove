@@ -30,6 +30,68 @@ func TestSyncFlags(t *testing.T) {
 		}
 	}
 }
+
+func TestSyncTwoWayFlag(t *testing.T) {
+	called := false
+	root := NewRoot(Services{Sync: func(_ context.Context, opts syncengine.Options) (syncengine.Result, error) {
+		called = true
+		if !opts.TwoWay {
+			t.Fatal("--two-way was not forwarded")
+		}
+		return syncengine.Result{}, nil
+	}})
+	root.SetArgs([]string{"sync", "--profile-dir", "p", "--remote-root", "r", "--local-dir", "l", "--token-file", "t", "--two-way"})
+	root.SetOut(&bytes.Buffer{})
+	if err := root.ExecuteContext(context.Background()); err != nil || !called {
+		t.Fatal("two-way sync command failed", err)
+	}
+}
+
+func TestSyncReportsUploadedFiles(t *testing.T) {
+	root := NewRoot(Services{Sync: func(context.Context, syncengine.Options) (syncengine.Result, error) {
+		return syncengine.Result{Downloaded: 1, Uploaded: 2}, nil
+	}})
+	root.SetArgs([]string{"sync", "--profile-dir", "p", "--remote-root", "r", "--local-dir", "l", "--token-file", "t"})
+	var out bytes.Buffer
+	root.SetOut(&out)
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Downloaded: 1") || !strings.Contains(out.String(), "Uploaded: 2") {
+		t.Fatalf("sync output did not distinguish uploads from downloads: %q", out.String())
+	}
+}
+
+func TestConflictCommandsForwardProfileSettings(t *testing.T) {
+	policyCalled, listCalled, resolveCalled := false, false, false
+	root := NewRoot(Services{
+		SetConflictPolicy: func(_ context.Context, opts syncengine.Options, policy syncengine.ConflictPolicy) error {
+			policyCalled = opts.RemoteRoot == "r" && policy == syncengine.ConflictKeepLocal
+			return nil
+		},
+		ListConflicts: func(_ context.Context, opts syncengine.Options) ([]syncengine.Conflict, error) {
+			listCalled = opts.ProfileDir == "p"
+			return nil, nil
+		},
+		ResolveConflict: func(_ context.Context, opts syncengine.Options, id string, side syncengine.ConflictSide) error {
+			resolveCalled = opts.TokenFile == "t" && id == "conflict-id" && side == syncengine.SideCloud
+			return nil
+		},
+	})
+	root.SetOut(&bytes.Buffer{})
+	root.SetArgs([]string{"config", "set", "conflict-policy", "keep-local", "--profile-dir", "p", "--remote-root", "r", "--local-dir", "l", "--token-file", "t"})
+	if err := root.ExecuteContext(context.Background()); err != nil || !policyCalled {
+		t.Fatal("policy command failed", err)
+	}
+	root.SetArgs([]string{"conflicts", "list", "--profile-dir", "p", "--remote-root", "r", "--local-dir", "l", "--token-file", "t"})
+	if err := root.ExecuteContext(context.Background()); err != nil || !listCalled {
+		t.Fatal("conflicts list command failed", err)
+	}
+	root.SetArgs([]string{"conflicts", "resolve", "conflict-id", "--keep", "cloud", "--profile-dir", "p", "--remote-root", "r", "--local-dir", "l", "--token-file", "t"})
+	if err := root.ExecuteContext(context.Background()); err != nil || !resolveCalled {
+		t.Fatal("conflicts resolve command failed", err)
+	}
+}
 func TestFixtureFlags(t *testing.T) {
 	called := false
 	root := NewRoot(Services{Verify: func(_ context.Context, o FixtureOptions) (fixture.Report, error) {

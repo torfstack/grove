@@ -77,6 +77,41 @@ success. Failed runs retain their private records and remote data. Offline tests
 cover interruption/recovery and use a local HTTP Drive server for the full CLI
 workflow. Public CI does not receive credentials. See README for executable setup.
 
+`TestConditionalUploadConflictLive` probes Drive's stale-write behavior using
+fixture-owned content. On 2026-10-10 it found no HTTP ETag in the Drive v3
+metadata response. A matching-version resumable update succeeded, but a second
+update using that now-stale version in `If-Match` also returned HTTP 200 and
+replaced the competing content. The test independently verified the change,
+restored the competing bytes, and cleaned up the fixture. A server-enforced
+condition is unavailable, so existing-file uploads use the approved
+preflight-and-revision-recovery design documented below.
+
+A fixture-owned live spike uploaded stale content after a competing edit, found
+the competing bytes in Drive's revision list, marked that revision `keepForever`,
+and downloaded it for independent verification. A focused live test also
+confirmed that the current head can be pinned and unpinned before an update.
+End-to-end upload acceptance passed: Grove uploaded a local edit, uploaded a
+later local edit, recovered a remote write injected during an upload, verified
+the captured revision bytes, and resolved the conflict by installing and
+uploading the cloud candidate.
+
+After PR review fixes on 2026-10-11, initial sync, incremental sync, current-head
+pinning, and upload/conflict recovery passed again. The aggregate live suite
+failed in the separate conditional-write probe's metadata read. A standalone
+probe retry reached cleanup but encountered a transport error; retained fixtures
+were cleaned successfully through the ownership-checked CLI. The aggregate live
+command is not fully green.
+
+The live run found that the initial revisions request must omit an empty
+`pageToken`, and Drive rejects unpinning a revision after it becomes non-head
+(`illegalKeepForeverModification`). Therefore successful updates and recovered
+conflict revisions keep their pins. Drive allows at most 200 pinned revisions per
+file, so repeated uploads consume that quota and further uploads stop safely when
+it is full. Pin operations may also increment metadata `version` without changing
+the head content revision; Grove treats that version-only change as unchanged
+when revision ID, modified time, size, MD5, identity, and path match. Multiple
+possible racing revisions remain journaled for manual recovery.
+
 ## Incremental acceptance
 
 `testdata/fixtures/baseline/incremental.json` retains logical identities while

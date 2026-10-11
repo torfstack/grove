@@ -35,7 +35,7 @@ func NewClient(client *http.Client, opts ClientOptions) *Client {
 	return &Client{http: &copy, base: strings.TrimRight(opts.BaseURL, "/"), pageSize: opts.PageSize}
 }
 
-const fields = "id,name,mimeType,parents,size,md5Checksum,version,driveId,ownedByMe,trashed,appProperties,capabilities(canDownload)"
+const fields = "id,name,mimeType,parents,size,md5Checksum,version,modifiedTime,headRevisionId,driveId,ownedByMe,trashed,appProperties,capabilities(canDownload)"
 
 var ErrNotFound = errors.New("drive object is missing")
 
@@ -59,13 +59,34 @@ func (c *Client) request(ctx context.Context, method, path string, q url.Values,
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return resp, nil
 		}
+		if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusBadRequest {
+			body, readErr := io.ReadAll(io.LimitReader(resp.Body, 16<<10))
+			closeErr := resp.Body.Close()
+			if readErr == nil && closeErr == nil {
+				var payload struct {
+					Error struct {
+						Errors []struct {
+							Reason string `json:"reason"`
+						} `json:"errors"`
+					} `json:"error"`
+				}
+				if json.Unmarshal(body, &payload) == nil {
+					for _, item := range payload.Error.Errors {
+						if item.Reason != "" && safeDriveErrorReason(item.Reason) {
+							return nil, errors.New("drive request rejected with HTTP " + strconv.Itoa(resp.StatusCode) + " (" + item.Reason + ")")
+						}
+					}
+				}
+			}
+			return nil, errors.New("drive request rejected with HTTP " + strconv.Itoa(resp.StatusCode))
+		}
 		_ = resp.Body.Close()
 		if resp.StatusCode == 404 {
 			return nil, ErrNotFound
 		}
 		transient := resp.StatusCode == 429 || resp.StatusCode >= 500
 		if !readOnly || !transient || n+1 == attempts {
-			return nil, errors.New("drive request rejected")
+			return nil, errors.New("drive request rejected with HTTP " + strconv.Itoa(resp.StatusCode))
 		}
 		delay := time.Duration(n+1) * 100 * time.Millisecond
 		if seconds, err := strconv.Atoi(resp.Header.Get("Retry-After")); err == nil && seconds > 0 {
@@ -83,6 +104,18 @@ func (c *Client) request(ctx context.Context, method, path string, q url.Values,
 		}
 	}
 	return nil, errors.New("drive request failed")
+}
+
+func safeDriveErrorReason(reason string) bool {
+	if reason == "" {
+		return false
+	}
+	for _, r := range reason {
+		if !strings.ContainsRune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_", r) {
+			return false
+		}
+	}
+	return true
 }
 func decode(resp *http.Response, target any) error {
 	defer func() { _ = resp.Body.Close() }()

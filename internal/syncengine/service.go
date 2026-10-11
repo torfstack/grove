@@ -12,7 +12,7 @@ import (
 
 type Service struct {
 	RegistryDir string
-	OpenAPI     func(context.Context, string) (drive.API, func() error, error)
+	OpenAPI     func(context.Context, string, string) (drive.API, func() error, error)
 }
 
 func Run(ctx context.Context, opts Options) (Result, error) { return (Service{}).Run(ctx, opts) }
@@ -27,15 +27,21 @@ func (s Service) Run(ctx context.Context, opts Options) (Result, error) {
 	}
 	open := s.OpenAPI
 	if open == nil {
-		open = func(ctx context.Context, token string) (drive.API, func() error, error) {
-			session, err := auth.OpenSession(ctx, token, "read-only")
-			if err != nil {
-				return nil, nil, err
-			}
-			return drive.NewClient(session.HTTPClient, drive.ClientOptions{}), session.Close, nil
-		}
+		open = defaultOpenAPI
 	}
-	return run(ctx, opts, registry, func(ctx context.Context) (drive.API, func() error, error) { return open(ctx, opts.TokenFile) })
+	access := "read-only"
+	if opts.TwoWay {
+		access = "read-write"
+	}
+	return run(ctx, opts, registry, func(ctx context.Context) (drive.API, func() error, error) { return open(ctx, opts.TokenFile, access) })
+}
+
+func defaultOpenAPI(ctx context.Context, token, access string) (drive.API, func() error, error) {
+	session, err := auth.OpenSession(ctx, token, access)
+	if err != nil {
+		return nil, nil, err
+	}
+	return drive.NewClient(session.HTTPClient, drive.ClientOptions{}), session.Close, nil
 }
 
 func run(ctx context.Context, opts Options, registry string, open func(context.Context) (drive.API, func() error, error)) (result Result, err error) {
@@ -61,6 +67,9 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 	_, statErr := os.Lstat(filepath.Join(opts.ProfileDir, "state.json"))
 	isNew := errors.Is(statErr, os.ErrNotExist)
 	if isNew {
+		if opts.TwoWay {
+			return result, errors.New("two-way sync requires a populated profile")
+		}
 		if err = checkInitialDestination(opts.LocalDir); err != nil {
 			return result, err
 		}
@@ -70,6 +79,11 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 		return result, err
 	}
 	defer closeResult(closeAPI, &err)
+	if opts.TwoWay {
+		if _, ok := api.(drive.SyncMutationAPI); !ok {
+			return result, errors.New("two-way sync requires a mutation-capable Drive API")
+		}
+	}
 	snapshot, err := Scan(ctx, api, opts.RemoteRoot)
 	if err != nil {
 		return result, err
@@ -94,7 +108,11 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 	if err = clearProbe(root, &state, save); err != nil {
 		return result, err
 	}
-	ex := executor{root: root, api: api, state: &state, save: save}
+	ex := executor{root: root, profileDir: opts.ProfileDir, remoteRoot: opts.RemoteRoot, api: api, state: &state, save: save}
+	ex.resumeUploads = opts.TwoWay
+	if mutation, ok := api.(drive.SyncMutationAPI); ok {
+		ex.mutation = mutation
+	}
 	if err = ex.recover(ctx, snapshot); err != nil {
 		return result, err
 	}
@@ -102,7 +120,27 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 	if err != nil {
 		return result, err
 	}
-	plan, err := BuildPlan(snapshot, local, state)
+	if opts.TwoWay {
+		if !state.PopulationComplete {
+			return result, errors.New("two-way sync requires a populated profile")
+		}
+		if state.Version == 1 {
+			state, err = migrateState(opts.ProfileDir, state)
+			if err != nil {
+				return result, err
+			}
+		}
+		state, err = migrateUploadState(opts.ProfileDir, state)
+		if err != nil {
+			return result, err
+		}
+	}
+	var plan Plan
+	if opts.TwoWay {
+		plan, err = BuildTwoWayPlan(snapshot, local, state)
+	} else {
+		plan, err = BuildPlan(snapshot, local, state)
+	}
 	if err != nil {
 		return result, err
 	}
@@ -113,7 +151,7 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 			break
 		}
 	}
-	if state.Version == 1 {
+	if !opts.TwoWay && state.Version == 1 {
 		state, err = migrateState(opts.ProfileDir, state)
 		if err != nil {
 			return result, err
@@ -152,6 +190,14 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 		case "skip":
 			if entryKind(op.Entry) == "file" {
 				result.Skipped++
+			}
+		case OpUpload:
+			result.Updated++
+		case OpCreate:
+			if op.Local.Kind == "folder" {
+				result.CreatedDirectories++
+			} else {
+				result.Uploaded++
 			}
 		}
 	}

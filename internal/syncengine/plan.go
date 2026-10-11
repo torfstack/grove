@@ -156,3 +156,196 @@ func BuildPlan(remote Snapshot, local []LocalEntry, state State) (Plan, error) {
 	}
 	return plan, nil
 }
+
+func BuildTwoWayPlan(remote Snapshot, local []LocalEntry, state State) (Plan, error) {
+	if state.ConflictPolicy != "" {
+		if err := validateConflictPolicy(state.ConflictPolicy); err != nil {
+			return Plan{}, err
+		}
+	}
+	local = append([]LocalEntry(nil), local...)
+	sort.Slice(local, func(i, j int) bool { return local[i].Path < local[j].Path })
+	baselineLocal := make([]LocalEntry, 0, len(state.Completed))
+	localByPath := make(map[string]LocalEntry, len(local))
+	for _, entry := range local {
+		if !safeRelative(entry.Path) {
+			return Plan{}, errors.New("invalid local planned path")
+		}
+		if _, exists := localByPath[entry.Path]; exists {
+			return Plan{}, errors.New("duplicate local path")
+		}
+		localByPath[entry.Path] = entry
+	}
+	for _, completed := range state.Completed {
+		entry, exists := localByPath[completed.Path]
+		if !exists || completed.Kind != entry.Kind {
+			return Plan{}, errors.New("tracked local structure changed")
+		}
+		baselineLocal = append(baselineLocal, LocalEntry{Path: completed.Path, Kind: completed.Kind, SHA256: completed.SHA256, Size: completed.Size})
+	}
+	cloudPlan, err := BuildPlan(remote, baselineLocal, state)
+	if err != nil {
+		return Plan{}, err
+	}
+	remoteByID := make(map[string]Entry, len(remote.Entries))
+	for _, entry := range remote.Entries {
+		remoteByID[entry.Remote.ID] = entry
+	}
+	plan := Plan{Operations: append([]Operation(nil), cloudPlan.Operations...)}
+	folders := map[string]bool{".": true}
+	for _, entry := range remote.Entries {
+		if entryKind(entry) == "folder" {
+			folders[entry.Path] = true
+		}
+	}
+	for _, entry := range local {
+		if entry.Kind == "folder" {
+			folders[entry.Path] = true
+		}
+	}
+	for _, completed := range state.Completed {
+		if completed.Kind != "file" {
+			continue
+		}
+		localEntry := localByPath[completed.Path]
+		if pending, side := conflictResolutionForPath(state.Conflicts, completed.Path, state.ConflictPolicy); pending != nil {
+			entry, exists := remoteByID[completed.RemoteID]
+			if !exists || entry.Path != completed.Path {
+				return Plan{}, errors.New("selected conflict overlaps a remote structural change")
+			}
+			plan.Operations = withoutOperationForRemote(plan.Operations, completed.RemoteID)
+			plan.Operations = append(plan.Operations, Operation{Kind: OpConflict, Entry: entry, Local: localEntry, Conflict: pending, ResolutionSide: side, Before: []Completed{completed}})
+			continue
+		}
+		if matchesLocal(completed, localEntry) {
+			continue
+		}
+		entry, exists := remoteByID[completed.RemoteID]
+		if !exists || entry.Path != completed.Path {
+			return Plan{}, errors.New("local edit overlaps a remote structural change")
+		}
+		unchanged := sameUploadBaseline(entry, completed)
+		plan.Operations = withoutOperationForRemote(plan.Operations, completed.RemoteID)
+		if unchanged {
+			plan.Operations = append(plan.Operations, Operation{Kind: OpUpload, Entry: entry, Local: localEntry, Before: []Completed{completed}})
+			continue
+		}
+		conflict := Conflict{Path: completed.Path, Baseline: completed, LocalSHA256: localEntry.SHA256, LocalSize: localEntry.Size, RemoteID: entry.Remote.ID, RemoteVersion: entry.Remote.Version, RemoteMD5: entry.Remote.MD5, RemoteSize: entry.Remote.Size, RemoteRevisionID: entry.Remote.HeadRevisionID, CloudRevisionID: entry.Remote.HeadRevisionID, CloudMD5: entry.Remote.MD5, CloudSize: entry.Remote.Size}
+		conflict.ID = conflictID(conflict)
+		operation := Operation{Kind: OpConflict, Entry: entry, Local: localEntry, Conflict: &conflict, Before: []Completed{completed}}
+		for _, pending := range state.Conflicts {
+			if pending.ID == conflict.ID {
+				operation.ResolutionSide = pending.SelectedSide
+				break
+			}
+		}
+		if operation.ResolutionSide == "" {
+			switch state.ConflictPolicy {
+			case "", ConflictAsk:
+			case ConflictKeepLocal:
+				operation.ResolutionSide = SideLocal
+			case ConflictKeepCloud:
+				operation.ResolutionSide = SideCloud
+			default:
+				return Plan{}, errors.New("invalid conflict policy")
+			}
+		}
+		plan.Operations = append(plan.Operations, operation)
+	}
+	for _, entry := range local {
+		if hasCompletedPath(state.Completed, entry.Path) {
+			continue
+		}
+		if remoteEntry, remoteExists := pathEntry(remote.Entries, entry.Path); remoteExists {
+			if entry.Kind != "file" || entryKind(remoteEntry) != "file" {
+				return Plan{}, errors.New("local and remote structural additions share a path")
+			}
+			plan.Operations = withoutOperationForRemote(plan.Operations, remoteEntry.Remote.ID)
+			conflict := Conflict{Path: entry.Path, LocalSHA256: entry.SHA256, LocalSize: entry.Size, RemoteID: remoteEntry.Remote.ID, RemoteVersion: remoteEntry.Remote.Version, RemoteMD5: remoteEntry.Remote.MD5, RemoteSize: remoteEntry.Remote.Size, RemoteRevisionID: remoteEntry.Remote.HeadRevisionID, CloudRevisionID: remoteEntry.Remote.HeadRevisionID, CloudMD5: remoteEntry.Remote.MD5, CloudSize: remoteEntry.Remote.Size}
+			conflict.ID = conflictID(conflict)
+			operation := Operation{Kind: OpConflict, Entry: remoteEntry, Local: entry, Conflict: &conflict}
+			for _, pending := range state.Conflicts {
+				if pending.ID == conflict.ID {
+					if pending.SelectedSide == SideCloud {
+						operation.ResolutionSide = SideCloud
+					}
+					break
+				}
+			}
+			if operation.ResolutionSide == "" {
+				switch state.ConflictPolicy {
+				case "", ConflictAsk, ConflictKeepLocal:
+				case ConflictKeepCloud:
+					operation.ResolutionSide = SideCloud
+				default:
+					return Plan{}, errors.New("invalid conflict policy")
+				}
+			}
+			plan.Operations = append(plan.Operations, operation)
+			continue
+		}
+		if entry.Kind != "file" && entry.Kind != "folder" {
+			return Plan{}, errors.New("unsupported local entry")
+		}
+		if !folders[filepath.Dir(entry.Path)] {
+			return Plan{}, errors.New("local addition has no known parent folder")
+		}
+		plan.Operations = append(plan.Operations, Operation{Kind: OpCreate, Local: entry})
+	}
+	return plan, nil
+}
+
+func sameUploadBaseline(entry Entry, completed Completed) bool {
+	return entry.Path == completed.Path && entry.Remote.ID == completed.RemoteID && entryKind(entry) == "file" && completed.Kind == "file" && completed.HeadRevisionID != "" && entry.Remote.HeadRevisionID == completed.HeadRevisionID && completed.ModifiedTime != "" && entry.Remote.ModifiedTime == completed.ModifiedTime && entry.Remote.MD5 == completed.MD5 && entry.Remote.Size == completed.Size
+}
+
+func conflictResolutionForPath(conflicts []Conflict, path string, policy ConflictPolicy) (*Conflict, ConflictSide) {
+	for i := range conflicts {
+		if conflicts[i].Path != path {
+			continue
+		}
+		side := conflicts[i].SelectedSide
+		if side == "" {
+			switch policy {
+			case ConflictKeepLocal:
+				side = SideLocal
+			case ConflictKeepCloud:
+				side = SideCloud
+			}
+		}
+		if side != "" {
+			pending := conflicts[i]
+			pending.SelectedSide = side
+			return &pending, side
+		}
+	}
+	return nil, ""
+}
+
+func withoutOperationForRemote(operations []Operation, id string) []Operation {
+	filtered := operations[:0]
+	for _, operation := range operations {
+		if operation.Entry.Remote.ID != id {
+			filtered = append(filtered, operation)
+		}
+	}
+	return filtered
+}
+
+func hasCompletedPath(completed []Completed, path string) bool {
+	for _, entry := range completed {
+		if entry.Path == path {
+			return true
+		}
+	}
+	return false
+}
+
+func pathEntry(entries []Entry, path string) (Entry, bool) {
+	for _, entry := range entries {
+		if entry.Path == path {
+			return entry, true
+		}
+	}
+	return Entry{}, false
+}

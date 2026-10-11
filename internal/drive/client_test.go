@@ -7,9 +7,35 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestForbiddenDriveErrorIncludesReasonWithoutResponseMessage(t *testing.T) {
+	client := NewClient(&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		body := `{"error":{"code":403,"message":"PRIVATE_ERROR_MESSAGE","errors":[{"reason":"insufficientFilePermissions"}]}}`
+		return &http.Response{StatusCode: http.StatusForbidden, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body))}, nil
+	})}, ClientOptions{BaseURL: "https://drive.invalid"})
+	_, err := client.request(context.Background(), http.MethodGet, "https://drive.invalid/drive/v3/revisions", url.Values{}, nil, "", true)
+	if err == nil || !strings.Contains(err.Error(), "insufficientFilePermissions") || strings.Contains(err.Error(), "PRIVATE_ERROR_MESSAGE") {
+		t.Fatalf("forbidden error was not safely diagnosed: %v", err)
+	}
+}
+
+func TestBadRequestDriveErrorReportsActualStatus(t *testing.T) {
+	client := NewClient(&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusBadRequest, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"error":{"message":"private"}}`))}, nil
+	})}, ClientOptions{BaseURL: "https://drive.invalid"})
+	_, err := client.request(context.Background(), http.MethodGet, "https://drive.invalid/drive/v3/files", url.Values{}, nil, "", true)
+	if err == nil || !strings.Contains(err.Error(), "HTTP 400") || strings.Contains(err.Error(), "HTTP 403") || strings.Contains(err.Error(), "private") {
+		t.Fatalf("bad request error did not report a safe actual status: %v", err)
+	}
+}
 
 func TestListAllPages(t *testing.T)       { testPages(t, false, false) }
 func TestEmptyPageContinues(t *testing.T) { testPages(t, false, true) }
@@ -152,11 +178,14 @@ func TestCrossOriginRedirect(t *testing.T) {
 }
 func TestMetadataFields(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = io.WriteString(w, `{"id":"f","size":"7","version":"9","ownedByMe":true,"capabilities":{"canDownload":true}}`)
+		if !strings.Contains(r.URL.Query().Get("fields"), "headRevisionId") || !strings.Contains(r.URL.Query().Get("fields"), "modifiedTime") {
+			t.Error("revision metadata was not requested")
+		}
+		_, _ = io.WriteString(w, `{"id":"f","size":"7","version":"9","modifiedTime":"2026-10-10T10:00:00.000Z","headRevisionId":"revision-9","ownedByMe":true,"capabilities":{"canDownload":true}}`)
 	}))
 	defer s.Close()
 	f, err := NewClient(s.Client(), ClientOptions{BaseURL: s.URL}).Get(context.Background(), "f")
-	if err != nil || f.Size != 7 || f.Version != "9" || !f.OwnedByMe {
+	if err != nil || f.Size != 7 || f.Version != "9" || f.ModifiedTime != "2026-10-10T10:00:00.000Z" || f.HeadRevisionID != "revision-9" || !f.OwnedByMe {
 		t.Fatal("metadata lost", err)
 	}
 }

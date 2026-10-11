@@ -10,12 +10,15 @@ Milestones are ordered proposals; detailed implementation plans come before code
    defined in spec 000002. Prove the live fixture workflow before expanding scope.
 3. **Incremental and two-way sync**: persist state, handle remote and local
    changes, and test conflicts, deletion semantics, retries, and interruption
-   recovery before using valuable data. The next slice is approved in
+   recovery before using valuable data. The completed slice is approved in
    [spec 000003](spec/000003-incremental-download-design.md): incremental downloads
    with local-change detection, remote additions/updates/moves, and focused
-   refactoring. It is implemented on `feat/incremental-download` with offline
-   verification and macOS incremental live acceptance. Uploads, deletion
-   propagation, and automatic conflict resolution follow later.
+   refactoring. It is merged into main with offline verification and macOS
+   incremental live acceptance. Explicit local uploads and conflict policy in
+   [spec 000004](spec/000004-local-upload-design.md) are implemented with preflight
+   revision checks, durable conflict candidates, CLI controls, and macOS live
+   acceptance. Deletion propagation, multi-competitor UI recovery, operator
+   reconciliation, and automatic content merging follow later.
 4. **Linux daemon**: scheduling, watching, remote polling, profile locking,
    observable status, and systemd user service integration.
 5. **Windows and macOS**: native lifecycle integration and platform-specific

@@ -26,14 +26,20 @@ func loadState(profile string, binding Binding) (State, error) {
 	path := filepath.Join(profile, "state.json")
 	_, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return State{Version: 2, Binding: binding}, nil
+		return State{Version: 2, Binding: binding, ConflictPolicy: ConflictAsk}, nil
 	}
 	var s State
 	if err = privatefs.ReadJSON(path, &s); err != nil {
 		return State{}, err
 	}
-	if (s.Version != 1 && s.Version != 2) || s.Binding != binding {
+	if (s.Version != 1 && s.Version != 2 && s.Version != 3) || s.Binding != binding {
 		return State{}, errors.New("unsupported state or changed profile binding")
+	}
+	if s.ConflictPolicy == "" {
+		s.ConflictPolicy = ConflictAsk
+	}
+	if err = validateConflictPolicy(s.ConflictPolicy); err != nil {
+		return State{}, err
 	}
 	seen := map[string]bool{}
 	ids := map[string]bool{}
@@ -46,6 +52,15 @@ func loadState(profile string, binding Binding) (State, error) {
 		}
 		seen[c.Path] = true
 		ids[c.RemoteID] = true
+	}
+	if len(s.Conflicts) > 0 {
+		committedUpload := s.Transaction != nil && s.Transaction.Operation.Kind == OpUpload && s.Transaction.Phase == "committed"
+		if (s.Version != 2 && s.Version != 3) || (s.Transaction != nil && !committedUpload) || s.Pending != nil {
+			return State{}, errors.New("invalid pending conflict state")
+		}
+		if err = validateConflicts(s.Conflicts, s.Completed, s.Version >= 3); err != nil {
+			return State{}, err
+		}
 	}
 	if s.Pending != nil {
 		p := s.Pending
@@ -79,7 +94,7 @@ func loadState(profile string, binding Binding) (State, error) {
 		}
 	}
 	if s.Transaction != nil {
-		if s.Version != 2 || s.Pending != nil {
+		if (s.Version != 2 && s.Version != 3) || s.Pending != nil {
 			return State{}, errors.New("invalid journal version")
 		}
 		if err := validateJournal(*s.Transaction, s.Completed); err != nil {
@@ -141,6 +156,9 @@ func validHash(value string, size int) bool {
 }
 func migrateState(profile string, state State) (State, error) {
 	if state.Version == 2 {
+		if state.ConflictPolicy == "" {
+			state.ConflictPolicy = ConflictAsk
+		}
 		return state, nil
 	}
 	if state.Version != 1 || state.Pending != nil || state.ProbePath != "" {
@@ -148,6 +166,27 @@ func migrateState(profile string, state State) (State, error) {
 	}
 	next := state
 	next.Version = 2
+	if err := saveState(profile, next); err != nil {
+		return state, err
+	}
+	return next, nil
+}
+
+func migrateUploadState(profile string, state State) (State, error) {
+	if state.Version == 3 {
+		return state, nil
+	}
+	if state.Version != 2 || state.Pending != nil || state.Transaction != nil || state.ProbePath != "" {
+		return state, errors.New("legacy recovery required before upload migration")
+	}
+	if state.ConflictPolicy == "" {
+		state.ConflictPolicy = ConflictAsk
+	}
+	if err := validateConflictPolicy(state.ConflictPolicy); err != nil {
+		return state, err
+	}
+	next := state
+	next.Version = 3
 	if err := saveState(profile, next); err != nil {
 		return state, err
 	}

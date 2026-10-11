@@ -7,16 +7,17 @@ It uses Go and targets Linux first, followed by Windows and macOS.
 
 `grove` provides individual CLI operations such as `auth`, `sync`, and `status`.
 `groved` will provide background orchestration after one-shot sync is reliable.
-`grove fixture` and `grove sync` now implement disposable fixture management and
-initial and incremental downloads; `status` and daemon command syntax remain unfinalized.
+`grove fixture` implements disposable fixture management. `grove sync` supports
+initial and incremental downloads, plus explicit `--two-way` uploads on populated
+profiles. Profile conflict policy and candidate resolution are shared engine
+operations; `status` and daemon command syntax remain unfinalized.
 
 Development should prioritize fast iteration and meaningful tests, including a
 dedicated Google test account with reproducible fixtures.
 
 ## Requirements to settle before affected implementation
 
-- Upload direction and automatic treatment of local edits/conflicts.
-- Conflict resolution, deletion propagation, and recovery behavior.
+- Deletion propagation and automatic conflict resolution.
 - Selection and exclusion of remote folders and local paths.
 - Mapping Drive duplicate names and filesystem-incompatible names.
 - Google-native document representation, shortcuts, and shared content.
@@ -46,11 +47,26 @@ Approved spec 000003 is implemented on `feat/incremental-download`. Reusing a
 profile applies remote additions, updates, and safe renames/moves using persisted
 remote identities and local content hashes. A changed version with unchanged
 size/MD5 advances metadata without a media download. Local conflicts and remote
-removals stop new operations during preflight. Uploads, deletion propagation,
-and automatic conflict resolution remain deferred. Recovery may finish an
-already journaled operation before planning new work.
+removals stop new operations during preflight. Explicit local uploads and
+profile-scoped conflict policy are implemented in
+[spec 000004](spec/000004-local-upload-design.md). Deletion propagation remains
+deferred. Recovery may finish an already journaled operation before planning new
+work.
 
 An unchanged run performs no destination writes or media transfers. Replacements
 retain verified old content until the new baseline is durable; the local target
 may briefly be absent. Unsupported native move primitives, occupied targets,
 path swaps/cycles, and same-run reuse of tracked vacated paths fail safely.
+
+## Local upload behavior
+
+[Spec 000004](spec/000004-local-upload-design.md) defines explicit `--two-way`
+sync on populated profiles: new local files/folders and revision-aware local
+content updates, retaining downloads and profile-scoped conflict policy shared by
+the CLI and future daemon. The choices are ask (default), keep-local, and
+keep-cloud. Download-only remains the default. Drive does not enforce conditional
+writes, and retained revision pins consume its per-file quota; multiple concurrent
+competitors require manual recovery. Deletions and local renames remain deferred.
+Independent local and cloud additions at the same path remain pending under
+keep-local; this slice supports choosing cloud for those conflicts. Uncertain
+remote writes preserve their journal and may require operator reconciliation.

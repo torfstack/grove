@@ -1,6 +1,14 @@
 # Project status
 
-Updated: 2026-10-10.
+Updated: 2026-10-11.
+
+## Release status
+
+Grove is `pre-release`, with zero deployed users. Earlier-release compatibility
+and migrations are outside the current scope. The durable switch is the
+release-status line in [AGENTS.md](../AGENTS.md#release-compatibility): change it
+to `live`, or tell the agent Grove is live, to require compatibility and migration
+planning. Current-run data safety and interruption recovery remain required.
 
 ## Established
 
@@ -66,8 +74,8 @@ remain atomic, and concurrent writers for a token or sync profile are refused.
 
 ## Incremental download sync
 
-Approved spec 000003 and its plan are implemented on `feat/incremental-download`
-in `/private/tmp/grove-incremental-download`, separate from main. The engine now
+Approved spec 000003 and its plan are implemented and merged into main through
+[PR #6](https://github.com/torfstack/grove/pull/6) at `69768d6`. The engine now
 plans remote additions, content updates, metadata-only changes, and safe file/
 folder moves. Persisted local hashes detect conflicts before new operations.
 Version-1 profiles recover old pending work and atomically migrate to version 2.
@@ -96,8 +104,10 @@ dependency classification, and two documentation inconsistencies. Its completed
 follow-up review of `d30b2bf` generated no actionable comments and reports the
 earlier concerns resolved. Final documentation commit `21581e1` also passed Linux
 CI, dependency review, CodeQL, and CodeRabbit, with no new actionable comments.
-Two original GitHub threads still show open despite
-that summary; their requested changes are present and verified. No replies or
+Live-acceptance documentation commit `c5f12a3` passed Linux CI, dependency review,
+CodeQL, and CodeRabbit with no new actionable comments. One original move-recovery
+thread still shows open despite that summary; its requested changes are present
+and verified. No replies or
 manual thread-resolution actions were posted.
 
 Known recovery limitation: a crash after exclusive artifact creation but before
@@ -106,15 +116,69 @@ manual inspection. CodeRabbit retained this nonblocking reliability concern,
 consistent with the accepted ownership-safety boundary. An operator reconciliation
 command remains a future proposal.
 
-## Next steps
+## Approved local upload sync
 
-1. [PR #6](https://github.com/torfstack/grove/pull/6) is open with implementation,
-   independent review fixes, and CodeRabbit fixes complete. Confirm latest checks
-   before integration; merging requires explicit user authorization.
-2. Linux live integration is optional follow-up; the macOS dedicated-account
-   initial and incremental live workflows have passed.
-3. Integrate the branch when authorized. Uploads, deletion propagation, and
-   automatic conflict resolution remain separate later designs.
+Implementation of approved [spec 000004](spec/000004-local-upload-design.md) is
+complete for the current scope on `docs/local-upload-design`, following its
+paired plan. Grove now has an explicit `grove sync --two-way` path; the normal
+path remains read-only. The shared engine uploads local edits when Drive's head revision and modification time
+match the saved baseline, persists the new revision as the next baseline, and
+uploads a later local edit on a subsequent run. It also has durable `ask` conflict
+candidates, profile policy/list/resolve service operations, and CLI controls for
+`ask`, `keep-local`, and `keep-cloud`.
+
+The engine detects remote changes before upload, captures a single post-preflight
+competing revision into a durable conflict, and supports `ask`, `keep-local`, and
+`keep-cloud` through profile service methods and CLI commands. The opt-in live
+acceptance passed on macOS: an ordinary upload, a later local edit, a remote
+write injected during upload, independent verification of the preserved revision,
+and cloud-side resolution back to Drive. The focused live test used the dedicated
+test token and fixture-owned remote data; cleanup completed. The broader
+`mise run test-live` passed incremental sync, current-head
+pinning, conditional-upload probing, and upload/race recovery, but the initial
+sync case hit a transient fixture transport error during cleanup. A standalone
+retry then failed while seeding; its partial fixture was cleaned successfully.
+
+Live testing also fixed the initial empty `pageToken` that Drive rejected with
+HTTP 403 `pageTokenExpired`. Drive rejects unpinning an old revision after it
+becomes non-head, so successful uploads and captured conflict revisions retain
+their keepForever pins. The 200-pinned-revision per-file quota is therefore a
+lifetime limit; Grove fails closed when full. Pinning can increment Drive's
+metadata version without changing its content revision, so version-only increases
+are allowed when head revision, modifiedTime, size, MD5, identity, and path still
+match. Multiple simultaneous post-preflight candidates remain pinned and
+journaled, but are not yet exposed for interactive resolution. Linux live runtime
+acceptance remains untested; Linux amd64 cross-build passed.
+
+Final local verification on 2026-10-10: `mise run fmt`, `git diff --check`,
+`mise run lint`, `mise run test`, `mise run test-race`, native build, and Linux
+amd64 cross-build passed. The full live-suite limitation above remains open.
+
+The preexisting status correction recording PR #6's merge was committed as
+`9ba3d41` on the design branch.
+
+[PR #7](https://github.com/torfstack/grove/pull/7) is open against main. Linux CI,
+dependency review, and CodeQL passed on `2bd237d`. CodeRabbit reviewed that commit
+and posted seven findings. Six are addressed in the current follow-up: correct
+HTTP status reporting, upload-specific version-only recovery, pending unsupported
+local choices for independent additions, upload counts, cloud-resolution baseline
+timestamps, and preservation of pre-existing revision pins. Journals without
+recorded pin ownership preserve the pin conservatively.
+
+The suggestion to discard an uncertain upload/create intent after observing an
+old head or a missing allocated ID is declined: neither observation proves a
+potentially in-flight request has settled. Discarding the identity could authorize
+a blind update or a duplicate create. Regression tests verify retained journals
+and stages for those observations. Operator reconciliation remains follow-up
+work; such profiles can remain blocked when no conclusive result appears.
+Follow-up verification on 2026-10-11 passed formatting, diff checks, lint,
+offline tests, race tests, native build, and Linux amd64 cross-build. The live
+initial, incremental, pinning, and upload/conflict-recovery scenarios passed.
+The aggregate suite failed in the conditional-write probe's metadata read; its
+standalone retry reached cleanup and failed with a transport error. Retained
+fixtures were cleaned successfully with the ownership-checked CLI. Hosted checks
+passed on `c76dcb5`; its review raised the legacy-compatibility finding addressed
+in the review scope update below.
 
 ## Verification
 
@@ -163,3 +227,31 @@ were trashed; local records remain private. An earlier sandboxed attempt failed
 at the first create. Authenticated inspection found no matching remote object;
 its pending record is retained because an absent listing does not resolve an
 uncertain create. Token contents and generated remote IDs are not recorded here.
+
+## Review scope update
+
+The user confirmed that Grove has no deployed users. Removed the legacy-profile
+compatibility changes from `b7f9730`; CodeRabbit's legacy revision-metadata finding
+is declined as outside the agreed pre-release scope. Current-profile metadata
+checks remain strict. The release switch and post-launch migration requirements
+are recorded in AGENTS.md. Formatting, lint, offline tests, race tests, and diff
+checks passed after removing the compatibility changes. Hosted CI and CodeRabbit
+completed on `9226afc`. The latest review found a metadata-only change could
+produce a duplicate ask-policy conflict on retry. A regression reproduced the
+changed identity; conflict identity now excludes metadata version while retaining
+content revision and fingerprints. A different revision still receives a distinct
+identity. Formatting, lint, offline tests, race tests, and diff checks pass for this fix.
+Hosted checks passed on `a541fe3`; CodeQL's first attempt hit an unauthenticated
+GitHub API rate limit during mise tool setup, and the failed-job retry passed.
+CodeRabbit's recent-review summary explicitly covers `9226afc` → `a541fe3` and
+reports no actionable comments. It then automatically paused future reviews after
+several reviewed commits. This documentation-only follow-up may therefore be
+skipped; resuming future bot reviews requires an authorized GitHub bot command.
+
+The earlier regressed-version suggestion is declined: uploads perform a fresh
+Get and compare revision, timestamp, identity, and content before staging; matching
+content with a different metadata version is deliberately allowed. A version
+regression alone does not establish a content conflict. The uncertain-write
+abandonment suggestion remains declined for the data-safety reasons above.
+These two review threads remain open; no replies or manual resolutions were
+posted. The same-path policy thread is now automatically resolved by CodeRabbit.

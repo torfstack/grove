@@ -56,8 +56,8 @@ func TestIncrementalSyncLive(t *testing.T) {
 	}
 	opts := syncengine.Options{ProfileDir: filepath.Join(base, "profile"), RemoteRoot: rootID, LocalDir: filepath.Join(base, "local"), TokenFile: cfg.Token}
 	counter := &mediaCounter{}
-	service := syncengine.Service{RegistryDir: filepath.Join(base, "registry"), OpenAPI: func(ctx context.Context, token string) (drive.API, func() error, error) {
-		session, err := auth.OpenSession(ctx, token, "read-only")
+	service := syncengine.Service{RegistryDir: filepath.Join(base, "registry"), OpenAPI: func(ctx context.Context, token, access string) (drive.API, func() error, error) {
+		session, err := auth.OpenSession(ctx, token, access)
 		if err != nil {
 			return nil, nil, err
 		}
