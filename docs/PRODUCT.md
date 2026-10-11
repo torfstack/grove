@@ -70,3 +70,12 @@ competitors require manual recovery. Deletions and local renames remain deferred
 Independent local and cloud additions at the same path remain pending under
 keep-local; this slice supports choosing cloud for those conflicts. Uncertain
 remote writes preserve their journal and may require operator reconciliation.
+
+## Operator recovery
+
+[Spec 000005](spec/000005-operator-reconciliation-design.md) adds offline
+`recovery inspect`, recovery-only `recovery retry`, and private verified-stage
+`recovery export`. Retry never starts new sync work or applies conflict policy.
+Export copies bytes without clearing intent. Uncertain writes can remain blocked
+indefinitely; force-abandon, unrecorded artifact reconciliation and selection
+among multiple competitors remain deferred.

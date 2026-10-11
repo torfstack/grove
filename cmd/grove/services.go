@@ -45,7 +45,7 @@ func services(authenticate cli.AuthenticateFunc, driveOptions drive.ClientOption
 		return fixture.VerifyLocal(ctx, v, opts.LocalDir)
 	}, Cleanup: func(ctx context.Context, opts cli.FixtureOptions) error {
 		return withFixture(ctx, opts, "read-write", driveOptions, func(api drive.API) error { return fixture.Cleanup(ctx, api, opts.RunDir) })
-	}, Sync: syncService.Run, SetConflictPolicy: syncService.SetConflictPolicy, ListConflicts: syncService.ListConflicts, ResolveConflict: syncService.ResolveConflict}
+	}, InspectRecovery: syncService.InspectRecovery, RetryRecovery: syncService.RetryRecovery, ExportRecovery: syncService.ExportRecovery, Sync: syncService.Run, SetConflictPolicy: syncService.SetConflictPolicy, ListConflicts: syncService.ListConflicts, ResolveConflict: syncService.ResolveConflict}
 }
 func withFixture(ctx context.Context, opts cli.FixtureOptions, access string, driveOptions drive.ClientOptions, work func(drive.API) error) (err error) {
 	dir, err := privatefs.Canonical(opts.RunDir)
