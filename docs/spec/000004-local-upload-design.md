@@ -257,6 +257,14 @@ intent and report reconciliation required. No automatic rollback, trash, deletio
 or overwrite resolves ambiguity. Retained stage data remains private until safe
 cleanup or a separately designed operator reconciliation command.
 
+An unchanged head or a not-found preallocated create ID after a lost response
+does not prove that an in-flight request has settled. Preserve its intent and
+stage instead of allocating a new ID or authorizing another update. A profile
+can remain blocked until a conclusive result appears or operator reconciliation
+is implemented. Before pinning, record whether the revision was already kept;
+pre-upload recovery releases only a pin Grove introduced. Older journals with
+unknown pin ownership preserve the pin.
+
 ## Architecture and state migration
 
 Extend the existing engine rather than adding a second synchronization workflow.

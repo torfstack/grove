@@ -293,15 +293,24 @@ func TestBuildTwoWayPlanRejectsUnknownConflictPolicy(t *testing.T) {
 }
 
 func TestBuildTwoWayPlanConflictsOnLocalAndRemoteSamePathAddition(t *testing.T) {
-	plan, err := BuildTwoWayPlan(
-		Snapshot{Entries: []Entry{{Path: "same.txt", Remote: file("remote", "same.txt")}}},
-		[]LocalEntry{{Path: "same.txt", Kind: "file", SHA256: "local-content", Size: 12}},
-		State{PopulationComplete: true},
-	)
-	if err != nil || len(plan.Operations) != 1 || plan.Operations[0].Kind != OpConflict || plan.Operations[0].Conflict == nil {
-		t.Fatalf("same-path independent additions did not become a conflict: %v %+v", err, plan.Operations)
-	}
-	if plan.Operations[0].Conflict.Baseline != (Completed{}) {
-		t.Fatalf("new-file conflict unexpectedly has a baseline: %+v", plan.Operations[0].Conflict)
+	remote := Snapshot{Entries: []Entry{{Path: "same.txt", Remote: file("remote", "same.txt")}}}
+	local := []LocalEntry{{Path: "same.txt", Kind: "file", SHA256: "local-content", Size: 12}}
+	for _, tc := range []struct {
+		policy ConflictPolicy
+		want   ConflictSide
+	}{{ConflictAsk, ""}, {ConflictKeepLocal, ""}, {ConflictKeepCloud, SideCloud}} {
+		plan, err := BuildTwoWayPlan(remote, local, State{PopulationComplete: true, ConflictPolicy: tc.policy})
+		if err != nil || len(plan.Operations) != 1 || plan.Operations[0].Kind != OpConflict || plan.Operations[0].Conflict == nil {
+			t.Fatalf("same-path independent additions did not become a conflict: %v %+v", err, plan.Operations)
+		}
+		if plan.Operations[0].Conflict.Baseline != (Completed{}) || plan.Operations[0].ResolutionSide != tc.want {
+			t.Fatalf("policy %q selected an unsupported side for a baseline-free conflict: %+v", tc.policy, plan.Operations[0])
+		}
+		pending := *plan.Operations[0].Conflict
+		pending.SelectedSide = SideLocal
+		repeated, err := BuildTwoWayPlan(remote, local, State{PopulationComplete: true, ConflictPolicy: tc.policy, Conflicts: []Conflict{pending}})
+		if err != nil || len(repeated.Operations) != 1 || repeated.Operations[0].ResolutionSide != tc.want {
+			t.Fatalf("saved unsupported local selection was reused: plan=%+v err=%v", repeated, err)
+		}
 	}
 }

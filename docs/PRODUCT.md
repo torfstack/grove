@@ -67,3 +67,6 @@ the CLI and future daemon. The choices are ask (default), keep-local, and
 keep-cloud. Download-only remains the default. Drive does not enforce conditional
 writes, and retained revision pins consume its per-file quota; multiple concurrent
 competitors require manual recovery. Deletions and local renames remain deferred.
+Independent local and cloud additions at the same path remain pending under
+keep-local; this slice supports choosing cloud for those conflicts. Uncertain
+remote writes preserve their journal and may require operator reconciliation.

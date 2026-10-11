@@ -95,6 +95,13 @@ later local edit, recovered a remote write injected during an upload, verified
 the captured revision bytes, and resolved the conflict by installing and
 uploading the cloud candidate.
 
+After PR review fixes on 2026-10-11, initial sync, incremental sync, current-head
+pinning, and upload/conflict recovery passed again. The aggregate live suite
+failed in the separate conditional-write probe's metadata read. A standalone
+probe retry reached cleanup but encountered a transport error; retained fixtures
+were cleaned successfully through the ownership-checked CLI. The aggregate live
+command is not fully green.
+
 The live run found that the initial revisions request must omit an empty
 `pageToken`, and Drive rejects unpinning a revision after it becomes non-head
 (`illegalKeepForeverModification`). Therefore successful updates and recovered

@@ -21,7 +21,7 @@ func newSync(run func(context.Context, syncengine.Options) (syncengine.Result, e
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Downloaded: %d; directories created: %d; Skipped: %d; Updated: %d; Moved: %d\n", result.Downloaded, result.CreatedDirectories, result.Skipped, result.Updated, result.Moved)
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Downloaded: %d; Uploaded: %d; directories created: %d; Skipped: %d; Updated: %d; Moved: %d\n", result.Downloaded, result.Uploaded, result.CreatedDirectories, result.Skipped, result.Updated, result.Moved)
 		return err
 	}}
 	cmd.Flags().StringVar(&opts.ProfileDir, "profile-dir", "", "Private sync profile directory (required)")

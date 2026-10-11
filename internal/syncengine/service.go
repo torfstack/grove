@@ -197,7 +197,7 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 			if op.Local.Kind == "folder" {
 				result.CreatedDirectories++
 			} else {
-				result.Downloaded++
+				result.Uploaded++
 			}
 		}
 	}

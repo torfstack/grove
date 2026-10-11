@@ -24,11 +24,15 @@ type uploadAPI struct {
 	race                bool
 	revisionDownloadErr error
 	pinErr              error
+	getErr              error
 }
 
 func (a *uploadAPI) Get(_ context.Context, id string) (drive.File, error) {
 	if id == "root" {
 		return drive.File{ID: "root", Name: "root", MIMEType: drive.FolderMIME, OwnedByMe: true}, nil
+	}
+	if a.getErr != nil {
+		return drive.File{}, a.getErr
 	}
 	return a.file, nil
 }
@@ -96,6 +100,23 @@ func (a *uploadAPI) DownloadRevision(_ context.Context, _, revisionID string, w 
 func md5Hex(data []byte) string {
 	sum := md5.Sum(data)
 	return hex.EncodeToString(sum[:])
+}
+
+func TestCurrentUploadRemoteAllowsVersionOnlyMetadataChange(t *testing.T) {
+	remote := file("a", "a")
+	remote.Size, remote.MD5 = 3, md5Hex([]byte("old"))
+	entry := Entry{Path: "a", Remote: remote}
+	current := remote
+	current.Version = "2"
+	ex := executor{api: &uploadAPI{file: current}}
+	if err := ex.currentUploadRemote(context.Background(), entry); err != nil {
+		t.Fatalf("version-only metadata increase invalidated unchanged revision: %v", err)
+	}
+	current.HeadRevisionID = "rev-changed"
+	ex.api = &uploadAPI{file: current}
+	if err := ex.currentUploadRemote(context.Background(), entry); err == nil {
+		t.Fatal("changed content revision passed current-remote validation")
+	}
 }
 
 func TestUploadUpdatesWhenRemoteMatchesSavedRevision(t *testing.T) {
@@ -168,6 +189,110 @@ func TestRecoverPreflightPinRejectionWithoutBlindUnpin(t *testing.T) {
 	}
 	if state.Transaction != nil || api.updates != 0 || api.pinned["rev-1"] {
 		t.Fatalf("recovery did not safely clear a rejected pin intent: state=%+v updates=%d pins=%+v", state, api.updates, api.pinned)
+	}
+}
+
+func TestRecoverPreflightPinPreservesPriorOwnership(t *testing.T) {
+	for _, phase := range []string{"pin-intent", "pinned"} {
+		for _, ownership := range []string{"existing", "grove", "unknown"} {
+			t.Run(phase+"/"+ownership, func(t *testing.T) {
+				localDir, profileDir := t.TempDir(), t.TempDir()
+				if err := os.WriteFile(filepath.Join(localDir, "a"), []byte("edit"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				root, err := os.OpenRoot(localDir)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer func() { _ = root.Close() }()
+				remote := file("a", "a")
+				remote.Size, remote.MD5 = 3, md5Hex([]byte("old"))
+				baseline := baselineFile("a", "a", []byte("old"))
+				baseline.ModifiedTime, baseline.HeadRevisionID = remote.ModifiedTime, remote.HeadRevisionID
+				current := remote
+				current.Version = "2"
+				api := &uploadAPI{file: current, revisions: []drive.Revision{{ID: remote.HeadRevisionID, KeepForever: true}}, pinned: map[string]bool{remote.HeadRevisionID: true}}
+				state := State{Version: 3, Completed: []Completed{baseline}}
+				ex := executor{root: root, profileDir: profileDir, api: api, mutation: api, state: &state, save: func() error { return saveState(profileDir, state) }, resumeUploads: true}
+				op := Operation{Kind: OpUpload, Entry: Entry{Path: "a", Remote: remote}, Local: LocalEntry{Path: "a", Kind: "file", SHA256: hashText("edit"), Size: 4}, Before: []Completed{baseline}}
+				if err = ex.prepareUpload(context.Background(), op); err != nil {
+					t.Fatal(err)
+				}
+				j := *state.Transaction
+				j.Phase = phase
+				if phase == "pinned" {
+					j.PinnedRevisionID = remote.HeadRevisionID
+				}
+				if ownership != "unknown" {
+					wasKept := ownership == "existing"
+					j.PreflightPinWasKept = &wasKept
+				}
+				if err = ex.journal(j); err != nil {
+					t.Fatal(err)
+				}
+				if err = ex.recoverUpload(context.Background()); err != nil {
+					t.Fatal(err)
+				}
+				if state.Transaction != nil || api.pinned[remote.HeadRevisionID] != (ownership != "grove") {
+					t.Fatalf("recovery changed a pin it did not own: transaction=%v pins=%v", state.Transaction, api.pinned)
+				}
+				if _, err = os.Stat(filepath.Join(profileDir, j.StagePath)); !errors.Is(err, os.ErrNotExist) {
+					t.Fatalf("abandoned pre-upload stage remains: %v", err)
+				}
+			})
+		}
+	}
+}
+
+func TestRecoverUncertainWritePreservesIntentUntilResultIsKnown(t *testing.T) {
+	for _, kind := range []OperationKind{OpUpload, OpCreate} {
+		t.Run(string(kind), func(t *testing.T) {
+			localDir, profileDir := t.TempDir(), t.TempDir()
+			if err := os.WriteFile(filepath.Join(localDir, "a"), []byte("edit"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			root, err := os.OpenRoot(localDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = root.Close() }()
+			remote := file("a", "a")
+			remote.Size, remote.MD5 = 3, md5Hex([]byte("old"))
+			baseline := baselineFile("a", "a", []byte("old"))
+			baseline.ModifiedTime, baseline.HeadRevisionID = remote.ModifiedTime, remote.HeadRevisionID
+			api := &uploadAPI{file: remote, pinned: map[string]bool{remote.HeadRevisionID: true}}
+			state := State{Version: 3}
+			op := Operation{Kind: kind, Entry: Entry{Path: "a", Remote: remote}, Local: LocalEntry{Path: "a", Kind: "file", SHA256: hashText("edit"), Size: 4}}
+			phase := "upload-intent"
+			if kind == OpUpload {
+				state.Completed, op.Before = []Completed{baseline}, []Completed{baseline}
+			} else {
+				op.OperationMarker = "create-marker"
+				api.getErr = drive.ErrNotFound
+				phase = "create-intent"
+			}
+			ex := executor{root: root, profileDir: profileDir, api: api, mutation: api, state: &state, save: func() error { return saveState(profileDir, state) }, resumeUploads: true}
+			if err = ex.prepareUpload(context.Background(), op); err != nil {
+				t.Fatal(err)
+			}
+			j := *state.Transaction
+			j.Phase = phase
+			if kind == OpUpload {
+				j.PinnedRevisionID = remote.HeadRevisionID
+			}
+			if err = ex.journal(j); err != nil {
+				t.Fatal(err)
+			}
+			if err = ex.recoverUpload(context.Background()); !errors.Is(err, errUploadPending) {
+				t.Fatalf("uncertain operation was abandoned: %v", err)
+			}
+			if state.Transaction == nil || state.Transaction.Phase != phase || api.updates != 0 {
+				t.Fatal("recovery discarded or repeated a potentially in-flight write")
+			}
+			if err = verifyPrivateStage(profileDir, j.StagePath, j.StageIdentity, j.StageSHA256, j.StageMD5, j.StageSize); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 

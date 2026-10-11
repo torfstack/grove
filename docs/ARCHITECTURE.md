@@ -131,6 +131,8 @@ afterward. One detected competitor is downloaded into a private conflict
 candidate; the local upload and cloud candidate remain available to the profile
 service and CLI. Conflict policy and resolution stay in the shared service
 boundary so a future desktop daemon can expose them without a second sync engine.
+Upload journals record the original keepForever state. Pre-upload recovery
+releases only a pin Grove introduced; missing ownership metadata preserves it.
 Drive does not permit unpinning non-head keepForever revisions, so successful
 uploads consume the per-file 200-revision pin quota. Multiple possible competitors
 remain journaled and pinned for manual recovery.

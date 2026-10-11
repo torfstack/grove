@@ -41,6 +41,33 @@ func TestConflictServicePersistsPolicyAndListsPendingConflict(t *testing.T) {
 	}
 }
 
+func TestResolveConflictRejectsLocalChoiceForUntrackedAddition(t *testing.T) {
+	opts, registry := options(t)
+	if err := os.MkdirAll(opts.ProfileDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	canonical, err := canonicalOptions(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conflict := Conflict{
+		Path: "same.txt", LocalSHA256: hashText("local"), LocalSize: 5,
+		RemoteID: "remote", RemoteVersion: "1", RemoteMD5: md5Text("cloud"), RemoteSize: 5,
+		LocalStagePath: ".grove-upload-local", LocalStageIdentity: &FileIdentity{Device: 1, Inode: 2},
+		CloudStagePath: ".grove-cloud-conflict-cloud", CloudStageIdentity: &FileIdentity{Device: 1, Inode: 3}, CloudSHA256: hashText("cloud"),
+	}
+	conflict.ID = conflictID(conflict)
+	state := State{Version: 3, Binding: Binding{RemoteRoot: opts.RemoteRoot, LocalDir: canonical.LocalDir, TokenFile: canonical.TokenFile}, Conflicts: []Conflict{conflict}, PopulationComplete: true}
+	if err = saveState(canonical.ProfileDir, state); err != nil {
+		t.Fatal(err)
+	}
+	service := Service{RegistryDir: registry}
+	err = service.ResolveConflict(context.Background(), opts, conflict.ID, SideLocal)
+	if err == nil || err.Error() != "local resolution is not supported for an untracked same-path addition" {
+		t.Fatalf("unsupported local choice was not rejected before touching candidates: %v", err)
+	}
+}
+
 func TestRemoteConflictCandidateIgnoresVersionOnlyChange(t *testing.T) {
 	conflict := Conflict{Path: "a", RemoteID: "remote-a", RemoteVersion: "2", RemoteMD5: md5Text("cloud"), RemoteSize: 5, RemoteRevisionID: "rev-2"}
 	remote := file("remote-a", "a")
@@ -114,7 +141,7 @@ func TestResolveConflictKeepsCloudCandidate(t *testing.T) {
 	if err = saveState(canonical.ProfileDir, state); err != nil {
 		t.Fatal(err)
 	}
-	api := &uploadAPI{file: remote, data: []byte("cloud candidate"), revisions: []drive.Revision{{ID: "rev-2", MD5: remote.MD5, Size: remote.Size, HasSize: true}}, pinned: map[string]bool{}}
+	api := &uploadAPI{file: remote, data: []byte("cloud candidate"), revisions: []drive.Revision{{ID: "rev-2", MD5: remote.MD5, ModifiedTime: remote.ModifiedTime, Size: remote.Size, HasSize: true}}, pinned: map[string]bool{}}
 	service := Service{RegistryDir: registry, OpenAPI: func(context.Context, string, string) (drive.API, func() error, error) {
 		return api, func() error { return nil }, nil
 	}}
@@ -130,8 +157,18 @@ func TestResolveConflictKeepsCloudCandidate(t *testing.T) {
 		t.Fatalf("resolved conflict remains pending: %+v, %v", remaining, err)
 	}
 	updated, err := loadState(canonical.ProfileDir, state.Binding)
-	if err != nil || len(updated.Completed) != 1 || updated.Completed[0].SHA256 != hashText("cloud candidate") || updated.Completed[0].HeadRevisionID != remote.HeadRevisionID {
+	if err != nil || len(updated.Completed) != 1 || updated.Completed[0].SHA256 != hashText("cloud candidate") || updated.Completed[0].HeadRevisionID != remote.HeadRevisionID || updated.Completed[0].ModifiedTime != remote.ModifiedTime {
 		t.Fatalf("cloud resolution did not update baseline: %+v, %v", updated, err)
+	}
+	if err = os.WriteFile(filepath.Join(opts.LocalDir, "a"), []byte("later local edit"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	opts.TwoWay = true
+	if _, err = service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	if api.updates != 1 || string(api.data) != "later local edit" {
+		t.Fatal("a later local edit did not upload after cloud resolution")
 	}
 }
 

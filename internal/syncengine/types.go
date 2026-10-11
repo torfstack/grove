@@ -125,6 +125,7 @@ type Journal struct {
 	AllocatedID               string        `json:"allocated_id,omitempty"`
 	OperationMarker           string        `json:"operation_marker,omitempty"`
 	PreflightRevisionID       string        `json:"preflight_revision_id,omitempty"`
+	PreflightPinWasKept       *bool         `json:"preflight_pin_was_kept,omitempty"`
 	PinnedRevisionID          string        `json:"pinned_revision_id,omitempty"`
 	CompetingRevisionIDs      []string      `json:"competing_revision_ids,omitempty"`
 	RevisionHistoryUnverified bool          `json:"revision_history_unverified,omitempty"`
@@ -141,4 +142,4 @@ type Options struct {
 	ProfileDir, RemoteRoot, LocalDir, TokenFile string
 	TwoWay                                      bool
 }
-type Result struct{ Downloaded, CreatedDirectories, Skipped, Updated, Moved int }
+type Result struct{ Downloaded, Uploaded, CreatedDirectories, Skipped, Updated, Moved int }

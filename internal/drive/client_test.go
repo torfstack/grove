@@ -27,6 +27,16 @@ func TestForbiddenDriveErrorIncludesReasonWithoutResponseMessage(t *testing.T) {
 	}
 }
 
+func TestBadRequestDriveErrorReportsActualStatus(t *testing.T) {
+	client := NewClient(&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusBadRequest, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"error":{"message":"private"}}`))}, nil
+	})}, ClientOptions{BaseURL: "https://drive.invalid"})
+	_, err := client.request(context.Background(), http.MethodGet, "https://drive.invalid/drive/v3/files", url.Values{}, nil, "", true)
+	if err == nil || !strings.Contains(err.Error(), "HTTP 400") || strings.Contains(err.Error(), "HTTP 403") || strings.Contains(err.Error(), "private") {
+		t.Fatalf("bad request error did not report a safe actual status: %v", err)
+	}
+}
+
 func TestListAllPages(t *testing.T)       { testPages(t, false, false) }
 func TestEmptyPageContinues(t *testing.T) { testPages(t, false, true) }
 func TestIncompleteListing(t *testing.T)  { testPages(t, true, false) }

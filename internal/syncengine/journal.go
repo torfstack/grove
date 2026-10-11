@@ -92,11 +92,19 @@ func (e *executor) removeVerified(ctx context.Context, path string, expected Com
 	return e.parentSync(path)
 }
 func (e *executor) currentRemote(ctx context.Context, entry Entry) error {
+	return e.checkCurrentRemote(ctx, entry, false)
+}
+
+func (e *executor) currentUploadRemote(ctx context.Context, entry Entry) error {
+	return e.checkCurrentRemote(ctx, entry, true)
+}
+
+func (e *executor) checkCurrentRemote(ctx context.Context, entry Entry, allowVersionChange bool) error {
 	current, err := e.api.Get(ctx, entry.Remote.ID)
 	if err != nil {
 		return err
 	}
-	if current.Trashed || !current.OwnedByMe || current.Name != entry.Remote.Name || len(current.Parents) != 1 || len(entry.Remote.Parents) != 1 || current.Parents[0] != entry.Remote.Parents[0] || current.Version != entry.Remote.Version || current.MD5 != entry.Remote.MD5 || current.Size != entry.Remote.Size || current.HeadRevisionID != entry.Remote.HeadRevisionID || current.ModifiedTime != entry.Remote.ModifiedTime {
+	if current.Trashed || !current.OwnedByMe || current.Name != entry.Remote.Name || len(current.Parents) != 1 || len(entry.Remote.Parents) != 1 || current.Parents[0] != entry.Remote.Parents[0] || (!allowVersionChange && current.Version != entry.Remote.Version) || current.MD5 != entry.Remote.MD5 || current.Size != entry.Remote.Size || current.HeadRevisionID != entry.Remote.HeadRevisionID || current.ModifiedTime != entry.Remote.ModifiedTime {
 		return errPendingRemoteChanged
 	}
 	return nil

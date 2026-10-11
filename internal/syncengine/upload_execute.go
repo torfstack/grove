@@ -135,7 +135,7 @@ func (e *executor) upload(ctx context.Context, op Operation) error {
 		if len(op.Before) != 1 || op.Entry.Remote.HeadRevisionID == "" || op.Entry.Remote.ModifiedTime == "" {
 			return errors.New("remote revision metadata is required before upload")
 		}
-		if err := e.currentRemote(ctx, op.Entry); err != nil {
+		if err := e.currentUploadRemote(ctx, op.Entry); err != nil {
 			return err
 		}
 	}
@@ -162,6 +162,13 @@ func (e *executor) upload(ctx context.Context, op Operation) error {
 			return errors.New("cannot open upload stage")
 		}
 		if op.Kind == OpUpload {
+			wasKept, pinErr := e.preflightRevisionWasKept(ctx, op.Entry.Remote.ID, j.PreflightRevisionID)
+			if pinErr != nil {
+				_ = stage.Close()
+				_ = stageRoot.Close()
+				return pinErr
+			}
+			j.PreflightPinWasKept = &wasKept
 			j.Phase = "pin-intent"
 			if err = e.journal(j); err != nil {
 				_ = stage.Close()
@@ -285,6 +292,19 @@ func (e *executor) upload(ctx context.Context, op Operation) error {
 		}
 	}
 	return e.clearJournal()
+}
+
+func (e *executor) preflightRevisionWasKept(ctx context.Context, fileID, revisionID string) (bool, error) {
+	revisions, err := e.mutation.ListRevisions(ctx, fileID)
+	if err != nil {
+		return false, err
+	}
+	for _, revision := range revisions {
+		if revision.ID == revisionID {
+			return revision.KeepForever, nil
+		}
+	}
+	return false, errors.New("preflight revision is missing before pinning")
 }
 
 func competingRevisionIDs(revisions []drive.Revision, boundary, preflight, head string) ([]string, bool) {
@@ -421,7 +441,7 @@ func (e *executor) resolveConflictOperation(ctx context.Context, operation Opera
 	if operation.ResolutionSide != SideCloud {
 		return errors.New("invalid conflict resolution side")
 	}
-	if err := e.installCloudCandidate(ctx, *saved); err != nil {
+	if err := e.installCloudCandidate(ctx, *saved, operation.Entry.Remote); err != nil {
 		return err
 	}
 	var baseline *Completed
@@ -481,7 +501,7 @@ func (e *executor) forgetConflict(_ context.Context, conflict Conflict) error {
 	return nil
 }
 
-func (e *executor) installCloudCandidate(ctx context.Context, conflict Conflict) error {
+func (e *executor) installCloudCandidate(ctx context.Context, conflict Conflict, head drive.File) error {
 	cloudSize := conflict.CloudSize
 	if conflict.CloudRevisionID == "" {
 		cloudSize = conflict.RemoteSize
@@ -539,6 +559,9 @@ func (e *executor) installCloudCandidate(ctx context.Context, conflict Conflict)
 		baselineSHA, baselineSize = conflict.LocalSHA256, conflict.LocalSize
 	}
 	after := Completed{Path: conflict.Path, RemoteID: conflict.RemoteID, Version: conflict.RemoteVersion, HeadRevisionID: conflict.RemoteRevisionID, MD5: conflict.RemoteMD5, SHA256: baselineSHA, Kind: "file", Size: baselineSize}
+	if head.HeadRevisionID == conflict.RemoteRevisionID {
+		after.ModifiedTime = head.ModifiedTime
+	}
 	if conflict.Baseline.RemoteID != "" {
 		if err = applyBaseline(e.state, []Completed{conflict.Baseline}, []Completed{after}); err != nil {
 			return err

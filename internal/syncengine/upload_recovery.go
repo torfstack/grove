@@ -56,15 +56,12 @@ func (e *executor) recoverUpload(ctx context.Context) error {
 		return e.finishCapturedConflict(ctx, j)
 	case "staged", "pin-intent", "pinned":
 		if j.Operation.Kind == OpUpload {
-			if err := e.currentRemote(ctx, j.Operation.Entry); err != nil {
+			if err := e.currentUploadRemote(ctx, j.Operation.Entry); err != nil {
 				return errUploadPending
 			}
-			pinID := j.PinnedRevisionID
-			if j.Phase == "pin-intent" {
-				pinID = j.PreflightRevisionID
-			}
-			if pinID != "" {
-				if err := e.releasePreflightPinIfPresent(ctx, j.Operation.Entry.Remote.ID, pinID); err != nil {
+			pinCreatedByGrove := j.PreflightPinWasKept != nil && !*j.PreflightPinWasKept
+			if pinCreatedByGrove {
+				if err := e.releasePreflightPinIfPresent(ctx, j.Operation.Entry.Remote.ID, j.PreflightRevisionID); err != nil {
 					return errUploadPending
 				}
 			}

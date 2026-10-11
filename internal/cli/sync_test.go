@@ -47,6 +47,21 @@ func TestSyncTwoWayFlag(t *testing.T) {
 	}
 }
 
+func TestSyncReportsUploadedFiles(t *testing.T) {
+	root := NewRoot(Services{Sync: func(context.Context, syncengine.Options) (syncengine.Result, error) {
+		return syncengine.Result{Downloaded: 1, Uploaded: 2}, nil
+	}})
+	root.SetArgs([]string{"sync", "--profile-dir", "p", "--remote-root", "r", "--local-dir", "l", "--token-file", "t"})
+	var out bytes.Buffer
+	root.SetOut(&out)
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Downloaded: 1") || !strings.Contains(out.String(), "Uploaded: 2") {
+		t.Fatalf("sync output did not distinguish uploads from downloads: %q", out.String())
+	}
+}
+
 func TestConflictCommandsForwardProfileSettings(t *testing.T) {
 	policyCalled, listCalled, resolveCalled := false, false, false
 	root := NewRoot(Services{

@@ -233,3 +233,11 @@ a transient initial-sync fixture transport failure during cleanup; focused uploa
 acceptance passed and the failed partial fixture was cleaned. Linux runtime has
 not yet been exercised. Code review used fresh self-review because collaboration
 rules prohibited spawning the reviewer agent.
+
+PR #7 review follow-up fixes six findings: HTTP status reporting, pin-induced
+version changes during upload recovery, unsupported keep-local selection for
+independent additions, upload result counts, cloud-resolution baseline timestamps,
+and preservation of existing pins. The proposed automatic abandonment of uncertain
+writes is declined because an old head or not-found create ID cannot prove the
+request has settled. Regression tests cover retained intent and private stages;
+operator reconciliation remains deferred.

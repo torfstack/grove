@@ -47,6 +47,10 @@ func (s Service) ResolveConflict(ctx context.Context, opts Options, id string, s
 		_ = lock.Close()
 		return errors.New("pending conflict not found")
 	}
+	if conflict.Baseline.RemoteID == "" && side == SideLocal {
+		_ = lock.Close()
+		return errors.New("local resolution is not supported for an untracked same-path addition")
+	}
 	if err = verifyPrivateStage(canonical.ProfileDir, conflict.LocalStagePath, conflict.LocalStageIdentity, conflict.LocalSHA256, "", conflict.LocalSize); err != nil {
 		_ = lock.Close()
 		return err

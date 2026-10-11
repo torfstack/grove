@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-10.
+Updated: 2026-10-11.
 
 ## Established
 
@@ -113,8 +113,7 @@ command remains a future proposal.
 Implementation of approved [spec 000004](spec/000004-local-upload-design.md) is
 complete for the current scope on `docs/local-upload-design`, following its
 paired plan. Grove now has an explicit `grove sync --two-way` path; the normal
-path remains read-only. The
-shared engine uploads local edits when Drive's head revision and modification time
+path remains read-only. The shared engine uploads local edits when Drive's head revision and modification time
 match the saved baseline, persists the new revision as the next baseline, and
 uploads a later local edit on a subsequent run. It also has durable `ask` conflict
 candidates, profile policy/list/resolve service operations, and CLI controls for
@@ -149,6 +148,28 @@ amd64 cross-build passed. The full live-suite limitation above remains open.
 
 The preexisting status correction recording PR #6's merge was committed as
 `9ba3d41` on the design branch.
+
+[PR #7](https://github.com/torfstack/grove/pull/7) is open against main. Linux CI,
+dependency review, and CodeQL passed on `2bd237d`. CodeRabbit reviewed that commit
+and posted seven findings. Six are addressed in the current follow-up: correct
+HTTP status reporting, upload-specific version-only recovery, pending unsupported
+local choices for independent additions, upload counts, cloud-resolution baseline
+timestamps, and preservation of pre-existing revision pins. Journals without
+recorded pin ownership preserve the pin conservatively.
+
+The suggestion to discard an uncertain upload/create intent after observing an
+old head or a missing allocated ID is declined: neither observation proves a
+potentially in-flight request has settled. Discarding the identity could authorize
+a blind update or a duplicate create. Regression tests verify retained journals
+and stages for those observations. Operator reconciliation remains follow-up
+work; such profiles can remain blocked when no conclusive result appears.
+Follow-up verification on 2026-10-11 passed formatting, diff checks, lint,
+offline tests, race tests, native build, and Linux amd64 cross-build. The live
+initial, incremental, pinning, and upload/conflict-recovery scenarios passed.
+The aggregate suite failed in the conditional-write probe's metadata read; its
+standalone retry reached cleanup and failed with a transport error. Retained
+fixtures were cleaned successfully with the ownership-checked CLI. Hosted review
+of the follow-up is pending.
 
 ## Verification
 

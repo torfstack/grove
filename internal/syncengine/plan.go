@@ -266,15 +266,15 @@ func BuildTwoWayPlan(remote Snapshot, local []LocalEntry, state State) (Plan, er
 			operation := Operation{Kind: OpConflict, Entry: remoteEntry, Local: entry, Conflict: &conflict}
 			for _, pending := range state.Conflicts {
 				if pending.ID == conflict.ID {
-					operation.ResolutionSide = pending.SelectedSide
+					if pending.SelectedSide == SideCloud {
+						operation.ResolutionSide = SideCloud
+					}
 					break
 				}
 			}
 			if operation.ResolutionSide == "" {
 				switch state.ConflictPolicy {
-				case "", ConflictAsk:
-				case ConflictKeepLocal:
-					operation.ResolutionSide = SideLocal
+				case "", ConflictAsk, ConflictKeepLocal:
 				case ConflictKeepCloud:
 					operation.ResolutionSide = SideCloud
 				default:

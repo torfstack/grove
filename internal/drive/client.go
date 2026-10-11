@@ -78,7 +78,7 @@ func (c *Client) request(ctx context.Context, method, path string, q url.Values,
 					}
 				}
 			}
-			return nil, errors.New("drive request rejected with HTTP 403")
+			return nil, errors.New("drive request rejected with HTTP " + strconv.Itoa(resp.StatusCode))
 		}
 		_ = resp.Body.Close()
 		if resp.StatusCode == 404 {

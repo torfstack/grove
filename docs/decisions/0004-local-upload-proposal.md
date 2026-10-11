@@ -74,3 +74,10 @@ private staging, a new journal version, remote-outcome reconciliation,
 revision preservation, and write-capability validation. Profile policy and
 pending-conflict service operations remain shared-engine behavior for a future
 daemon/UI client.
+
+PR review on 2026-10-11 identified a blocked-recovery case when an uncertain
+request has not produced a visible remote result. Keep the intent and original
+create ID: an old head or not-found ID does not establish that the request has
+settled. Automatically abandoning those records could cause a blind update or a
+duplicate create. Operator reconciliation is deferred. Pre-upload pin recovery
+also preserves pre-existing pins and pins whose original ownership is unknown.

@@ -135,7 +135,7 @@ func validateUploadJournal(j Journal, baseline []Completed) error {
 		if j.Phase != "staged" && j.Phase != "create-intent" && j.Phase != "created" && j.Phase != "verified" && j.Phase != "committed" {
 			return errors.New("invalid create phase")
 		}
-		if !safeRelative(op.Local.Path) || op.Local.Path != op.Entry.Path || (op.Local.Kind != "file" && op.Local.Kind != "folder") || len(op.Before) != 0 || j.AllocatedID == "" || op.Entry.Remote.ID != j.AllocatedID || j.OperationMarker == "" || j.PreflightRevisionID != "" || j.PinnedRevisionID != "" {
+		if !safeRelative(op.Local.Path) || op.Local.Path != op.Entry.Path || (op.Local.Kind != "file" && op.Local.Kind != "folder") || len(op.Before) != 0 || j.AllocatedID == "" || op.Entry.Remote.ID != j.AllocatedID || j.OperationMarker == "" || j.PreflightRevisionID != "" || j.PinnedRevisionID != "" || j.PreflightPinWasKept != nil {
 			return errors.New("invalid create intent")
 		}
 	default:
