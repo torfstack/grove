@@ -17,8 +17,11 @@ Milestones are ordered proposals; detailed implementation plans come before code
    incremental live acceptance. Explicit local uploads and conflict policy in
    [spec 000004](spec/000004-local-upload-design.md) are implemented with preflight
    revision checks, durable conflict candidates, CLI controls, and macOS live
-   acceptance. Deletion propagation, multi-competitor UI recovery, operator
-   reconciliation, and automatic content merging follow later.
+   acceptance. The next selected slice is operator reconciliation, proposed in
+   [spec 000005](spec/000005-operator-reconciliation-design.md): offline inspection,
+   recovery-only retry, and verified stage export. Deletion propagation,
+   multi-competitor UI recovery, force-abandon, and automatic content merging
+   follow later.
 4. **Linux daemon**: scheduling, watching, remote polling, profile locking,
    observable status, and systemd user service integration.
 5. **Windows and macOS**: native lifecycle integration and platform-specific

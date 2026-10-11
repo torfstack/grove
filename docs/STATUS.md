@@ -157,7 +157,7 @@ amd64 cross-build passed. The full live-suite limitation above remains open.
 The preexisting status correction recording PR #6's merge was committed as
 `9ba3d41` on the design branch.
 
-[PR #7](https://github.com/torfstack/grove/pull/7) is open against main. Linux CI,
+[PR #7](https://github.com/torfstack/grove/pull/7) is merged into main at `f58620d`. Linux CI,
 dependency review, and CodeQL passed on `2bd237d`. CodeRabbit reviewed that commit
 and posted seven findings. Six are addressed in the current follow-up: correct
 HTTP status reporting, upload-specific version-only recovery, pending unsupported
@@ -255,3 +255,19 @@ regression alone does not establish a content conflict. The uncertain-write
 abandonment suggestion remains declined for the data-safety reasons above.
 These two review threads remain open; no replies or manual resolutions were
 posted. The same-path policy thread is now automatically resolved by CodeRabbit.
+
+## Next slice: operator reconciliation
+
+The user selected operator recovery after merging PR #7 and agreed a focused
+`recovery inspect`, `recovery retry`, and `recovery export` scope. Proposed
+[spec 000005](spec/000005-operator-reconciliation-design.md) is written and awaits
+written-spec review. Retry processes only the pending transaction; export copies
+verified staged bytes without abandoning uncertain intent. Force-abandon and
+multiple-competitor selection remain deferred. Inconclusive requests can still
+block indefinitely; this slice does not promise safe reset.
+
+Code inspection identified contract-sensitive areas to audit during implementation:
+recovered outcome structure/byte verification, history reassessment, and journal
+retirement before stage cleanup. No product code changed or live tests ran in
+this design session. Next: approve/revise the written spec, then write its paired
+implementation plan.
