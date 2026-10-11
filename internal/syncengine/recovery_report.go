@@ -41,3 +41,5 @@ func safeRecoveryError(err error) error {
 	}
 	return &RecoveryError{Message: "recovery operation failed", Cause: err}
 }
+
+func blockedRecovery(reason RecoveryReason) error { return &RecoveryBlockedError{Reason: reason} }

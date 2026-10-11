@@ -122,7 +122,7 @@ func validateUploadJournal(j Journal, baseline []Completed) error {
 	op := j.Operation
 	switch op.Kind {
 	case OpUpload:
-		if j.Phase != "staged" && j.Phase != "pin-intent" && j.Phase != "pinned" && j.Phase != "upload-intent" && j.Phase != "uploaded" && j.Phase != "capture-intent" && j.Phase != "conflict-captured" && j.Phase != "committed" {
+		if j.Phase != "retired" && j.Phase != "staged" && j.Phase != "pin-intent" && j.Phase != "pinned" && j.Phase != "upload-intent" && j.Phase != "uploaded" && j.Phase != "capture-intent" && j.Phase != "conflict-captured" && j.Phase != "committed" {
 			return errors.New("invalid upload phase")
 		}
 		if !safeRelative(op.Entry.Path) || op.Local.Path != op.Entry.Path || op.Local.Kind != "file" || len(op.Before) != 1 || op.Before[0].Kind != "file" || op.Before[0].Path != op.Entry.Path || op.Before[0].RemoteID != op.Entry.Remote.ID || j.PreflightRevisionID == "" || j.PreflightRevisionID != op.Entry.Remote.HeadRevisionID {
@@ -132,7 +132,7 @@ func validateUploadJournal(j Journal, baseline []Completed) error {
 			return err
 		}
 	case OpCreate:
-		if j.Phase != "staged" && j.Phase != "create-intent" && j.Phase != "created" && j.Phase != "verified" && j.Phase != "committed" {
+		if j.Phase != "retired" && j.Phase != "staged" && j.Phase != "create-intent" && j.Phase != "created" && j.Phase != "verified" && j.Phase != "committed" {
 			return errors.New("invalid create phase")
 		}
 		if !safeRelative(op.Local.Path) || op.Local.Path != op.Entry.Path || (op.Local.Kind != "file" && op.Local.Kind != "folder") || len(op.Before) != 0 || j.AllocatedID == "" || op.Entry.Remote.ID != j.AllocatedID || j.OperationMarker == "" || j.PreflightRevisionID != "" || j.PinnedRevisionID != "" || j.PreflightPinWasKept != nil {
@@ -148,7 +148,7 @@ func validateUploadJournal(j Journal, baseline []Completed) error {
 	} else if j.StagePath != "" || j.StageIdentity != nil || j.StageSHA256 != "" || j.StageMD5 != "" || j.StageSize != 0 {
 		return errors.New("folder create has upload stage")
 	}
-	if op.Kind == OpUpload && j.Phase != "staged" && j.Phase != "pin-intent" && j.PinnedRevisionID != j.PreflightRevisionID {
+	if op.Kind == OpUpload && j.Phase != "retired" && j.Phase != "staged" && j.Phase != "pin-intent" && j.PinnedRevisionID != j.PreflightRevisionID {
 		return errors.New("preflight revision is not pinned")
 	}
 	seen := map[string]bool{}
@@ -164,7 +164,7 @@ func validateUploadJournal(j Journal, baseline []Completed) error {
 	if j.Phase == "conflict-captured" && (j.CloudStagePath == "" || j.CloudStageIdentity == nil || !validHash(j.CloudSHA256, 32) || j.CloudRevisionID == "" || !validHash(j.CloudMD5, 16) || j.CloudSize < 0 || len(j.After) != 1) {
 		return errors.New("conflict revision was not preserved")
 	}
-	if j.Phase != "committed" && j.Phase != "uploaded" && j.Phase != "capture-intent" && j.Phase != "conflict-captured" && len(j.After) != 0 {
+	if j.Phase != "committed" && j.Phase != "verified" && j.Phase != "uploaded" && j.Phase != "capture-intent" && j.Phase != "conflict-captured" && len(j.After) != 0 {
 		return errors.New("uncommitted upload has a result baseline")
 	}
 	if (j.Phase == "committed" || j.Phase == "uploaded" || j.Phase == "capture-intent" || j.Phase == "conflict-captured") && len(j.After) != 1 {
