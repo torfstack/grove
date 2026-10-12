@@ -147,7 +147,7 @@ func TestExportRecoveryRejectsUnsafeOutput(t *testing.T) {
 }
 
 func TestExportPublicationRaces(t *testing.T) {
-	for _, mode := range []string{"source-replaced", "parent-renamed", "target-created", "cancel", "read", "write", "sync-file", "link", "sync-parent", "close", "temp-replaced"} {
+	for _, mode := range []string{"source-replaced", "parent-renamed", "target-created", "cancel", "read", "write", "sync-file", "link", "sync-parent", "close", "temp-replaced", "temp-replaced-before-link"} {
 		t.Run(mode, func(t *testing.T) {
 			s, o, state, _, _ := recoveryFixture(t, OpUpload)
 			parent := t.TempDir()
@@ -202,25 +202,50 @@ func TestExportPublicationRaces(t *testing.T) {
 			case "sync-file":
 				ops.syncFile = func(*os.File) error { return sentinel }
 			case "link":
-				ops.link = func(*os.Root, string, string) error { return sentinel }
+				ops.link = func(*os.Root, string, *os.Root, string) error { return sentinel }
 			case "sync-parent":
 				ops.syncParent = func(*os.Root) error { return sentinel }
 			case "close":
 				ops.close = func(f *os.File) error { _ = originalClose(f); return sentinel }
 			case "temp-replaced":
 				ops.syncFile = func(f *os.File) error {
-					path := filepath.Join(parent, filepath.Base(f.Name()))
+					paths, err := filepath.Glob(filepath.Join(parent, ".grove-export-*", "stage"))
+					if err != nil || len(paths) != 1 {
+						t.Fatalf("find export stage: %v (%v)", paths, err)
+					}
+					path := paths[0]
 					if err := os.Rename(path, path+".original"); err != nil {
 						t.Fatal(err)
 					}
 					return os.WriteFile(path, []byte("intruder"), 0600)
+				}
+			case "temp-replaced-before-link":
+				ops.link = func(sourceRoot *os.Root, source string, targetRoot *os.Root, target string) error {
+					path := sourceRoot.Name()
+					if err := os.Rename(path, path+".original"); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.Mkdir(path, 0700); err != nil {
+						t.Fatal(err)
+					}
+					intruder, err := os.OpenFile(filepath.Join(path, source), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if _, err = intruder.Write([]byte("intruder")); err != nil {
+						t.Fatal(err)
+					}
+					if err = intruder.Close(); err != nil {
+						t.Fatal(err)
+					}
+					return linkExportNoReplace(sourceRoot, source, targetRoot, target)
 				}
 			}
 			published, err := exportRecoveryStage(ctx, o.ProfileDir, *state.Transaction, SideLocal, d, ops)
 			if err == nil {
 				t.Fatal("fault accepted")
 			}
-			if mode == "sync-parent" {
+			if mode == "sync-parent" || mode == "temp-replaced-before-link" {
 				if !published {
 					t.Fatal("lost published result")
 				}
@@ -233,11 +258,17 @@ func TestExportPublicationRaces(t *testing.T) {
 					t.Fatal("racing target overwritten")
 				}
 			}
+			if mode == "temp-replaced-before-link" {
+				data, readErr := os.ReadFile(output)
+				if readErr != nil || string(data) != "edit" {
+					t.Fatalf("published substituted content: %q, %v", data, readErr)
+				}
+			}
 			if mode == "temp-replaced" {
-				files, _ := os.ReadDir(parent)
+				files, _ := filepath.Glob(filepath.Join(parent, ".grove-export-*", "*"))
 				found := false
-				for _, f := range files {
-					data, _ := os.ReadFile(filepath.Join(parent, f.Name()))
+				for _, path := range files {
+					data, _ := os.ReadFile(path)
 					found = found || string(data) == "intruder"
 				}
 				if !found {

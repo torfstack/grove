@@ -207,3 +207,11 @@ opened.
 - The independent reviewer declined judgment on live Drive/Linux runtime,
   migrations, deferred recovery modes, and stronger authorship proof for the
   scope reasons recorded above. No minor findings were deferred.
+- CodeRabbit's PR #8 security architecture review identified a possible
+  temporary-path replacement immediately before export publication. A new test
+  reproduced substituted bytes; publication now links from an open handle to a
+  private staging directory. Linux and macOS use the existing Unix boundary;
+  other platforms return the existing unsupported-publication error. The cost if
+  this mitigation is wrong is an export containing unverified bytes, so the
+  regression verifies the actual published contents. Fresh hosted checks and
+  CodeRabbit review are required after the fix is pushed.
