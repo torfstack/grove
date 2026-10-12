@@ -476,6 +476,49 @@ func TestRecoverResumesMultipleCandidateCaptureAfterDownloadFailure(t *testing.T
 	}
 }
 
+func TestRecoverKeepsNewlyDiscoveredCaptureInStableJournalOrder(t *testing.T) {
+	localDir, profileDir := t.TempDir(), t.TempDir()
+	localBytes := []byte("local edit")
+	if err := os.WriteFile(filepath.Join(localDir, "a"), localBytes, 0600); err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.OpenRoot(localDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = root.Close() }()
+	remote := file("a", "a")
+	remote.HeadRevisionID = "rev-1"
+	remote.Size, remote.MD5 = 3, md5Hex([]byte("old"))
+	cloudC, cloudB := []byte("later revision"), []byte("earlier revision")
+	injected := errors.New("new competitor download interrupted")
+	api := &uploadAPI{file: remote, data: []byte("old"), pinned: map[string]bool{}, revisions: []drive.Revision{{ID: "rev-1", MD5: remote.MD5, ModifiedTime: remote.ModifiedTime, Size: 3, HasSize: true}}, revisionData: map[string][]byte{"rev-c": cloudC, "rev-b": cloudB}, revisionDownloadErrs: map[string]error{"rev-c": injected}, revisionDownloadCounts: map[string]int{}, extraRaceRevisions: []drive.Revision{{ID: "rev-c", MD5: md5Hex(cloudC), ModifiedTime: "2026-01-01T13:00:00Z", Size: int64(len(cloudC)), HasSize: true}}}
+	baseline := baselineFile("a", "a", []byte("old"))
+	baseline.ModifiedTime, baseline.HeadRevisionID = remote.ModifiedTime, remote.HeadRevisionID
+	state := State{Version: 3, Completed: []Completed{baseline}}
+	save := func() error { return saveState(profileDir, state) }
+	if err = save(); err != nil {
+		t.Fatal(err)
+	}
+	op := Operation{Kind: OpUpload, Entry: Entry{Path: "a", Remote: remote}, Local: LocalEntry{Path: "a", Kind: "file", SHA256: hashText(string(localBytes)), Size: int64(len(localBytes))}, Before: []Completed{baseline}}
+	ex := executor{root: root, profileDir: profileDir, api: api, mutation: api, state: &state, save: save, resumeUploads: true}
+	if err = ex.execute(context.Background(), op); !errors.Is(err, injected) {
+		t.Fatalf("initial single-candidate capture error = %v", err)
+	}
+	api.revisionDownloadErrs = map[string]error{"rev-b": injected}
+	api.revisions = append(api.revisions, drive.Revision{ID: "rev-b", MD5: md5Hex(cloudB), ModifiedTime: "2026-01-01T12:00:00Z", Size: int64(len(cloudB)), HasSize: true})
+	if err = ex.recoverUpload(context.Background()); !errors.Is(err, injected) {
+		t.Fatalf("newly discovered capture error = %v", err)
+	}
+	loaded, loadErr := loadState(profileDir, state.Binding)
+	if loadErr != nil {
+		t.Fatalf("interrupted candidate journal is not loadable: %v", loadErr)
+	}
+	if len(loaded.Transaction.CandidateCaptures) != 2 || loaded.Transaction.CandidateCaptures[0].Candidate.RevisionID != "rev-b" || loaded.Transaction.CandidateCaptures[1].Candidate.RevisionID != "rev-c" {
+		t.Fatalf("interrupted candidate order = %+v", loaded.Transaction.CandidateCaptures)
+	}
+}
+
 func TestRecoverRetriesIncompleteCompetingRevisionCapture(t *testing.T) {
 	localDir, profileDir := t.TempDir(), t.TempDir()
 	localBytes := []byte("local edit")

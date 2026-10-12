@@ -327,5 +327,9 @@ sync-engine suites passed. Task 4 is committed as `02e1611`; focused CLI and
 sync-engine conflict/recovery tests passed. Full local verification passed on
 macOS: `mise run fmt`, `mise run lint`, `mise run test`, `mise run test-race`,
 `mise exec -- go build ./...`, and `GOOS=linux GOARCH=amd64 mise exec -- go build ./...`.
-The live Drive suite was not enabled. Hosted CI and CodeRabbit review remain
-pending. The requested pull request base is `main`.
+The live Drive suite was not enabled. PR #9 targets `main`. Its first CodeRabbit
+review found a recovery-order bug: a newly discovered earlier revision could be
+journaled after a later candidate and make state unloadable. The regression test
+reproduced the issue, and captures are now inserted in stable order before each
+journal save. Full local checks passed again after the fix. Fresh hosted CI and
+CodeRabbit review on the updated head are pending.

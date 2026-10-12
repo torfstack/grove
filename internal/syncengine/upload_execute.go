@@ -384,11 +384,17 @@ func (e *executor) captureCompetingRevision(ctx context.Context, j *Journal, rev
 		if path == ".grove-cloud-conflict-" {
 			return errors.New("cannot create cloud conflict stage identity")
 		}
-		j.CandidateCaptures = append(j.CandidateCaptures, CandidateCapture{
+		entry := CandidateCapture{
 			Candidate: CloudCandidate{RevisionID: revision.ID, ModifiedTime: revision.ModifiedTime, MD5: revision.MD5, Size: revision.Size, StagePath: path},
 			Phase:     "pin-intent",
+		}
+		at := sort.Search(len(j.CandidateCaptures), func(i int) bool {
+			return cloudCandidateLess(entry.Candidate, j.CandidateCaptures[i].Candidate)
 		})
-		capture = &j.CandidateCaptures[len(j.CandidateCaptures)-1]
+		j.CandidateCaptures = append(j.CandidateCaptures, CandidateCapture{})
+		copy(j.CandidateCaptures[at+1:], j.CandidateCaptures[at:])
+		j.CandidateCaptures[at] = entry
+		capture = &j.CandidateCaptures[at]
 		if err := e.journal(*j); err != nil {
 			return err
 		}
