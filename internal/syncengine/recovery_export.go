@@ -84,6 +84,9 @@ func exportRecoveryStage(ctx context.Context, profile string, j Journal, candida
 	if j.Operation.Kind != OpUpload && j.Operation.Kind != OpCreate {
 		return false, errors.New("unsupported export transaction")
 	}
+	if !exportPublicationSupported() {
+		return false, errors.New("safe export publication is supported on Linux and macOS only")
+	}
 	path, identity, shaExpected, md5Expected, size := j.StagePath, j.StageIdentity, j.StageSHA256, j.StageMD5, j.StageSize
 	if candidate == SideCloud {
 		if j.Phase != "conflict-captured" && j.Phase != "committed" {
@@ -131,6 +134,11 @@ func exportRecoveryStage(ctx context.Context, profile string, j Journal, candida
 		return false, err
 	}
 	tempDirPresent := true
+	defer func() {
+		if tempDirPresent {
+			err = errors.Join(err, removeOwnedExportDir(d.root, tempDir, dirIdentity))
+		}
+	}()
 	tempRoot, err := d.root.OpenRoot(tempDir)
 	if err != nil {
 		return false, err
@@ -148,9 +156,6 @@ func exportRecoveryStage(ctx context.Context, profile string, j Journal, candida
 		}
 		if tempRootOpen {
 			err = errors.Join(err, tempRoot.Close())
-		}
-		if tempDirPresent {
-			err = errors.Join(err, removeOwnedExportDir(d.root, tempDir, dirIdentity))
 		}
 	}()
 	target, err = tempRoot.OpenFile("stage", os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)

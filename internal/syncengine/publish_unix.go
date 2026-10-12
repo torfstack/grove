@@ -9,6 +9,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+func exportPublicationSupported() bool { return true }
+
 func publish(root *os.Root, temp, target string) error {
 	if err := root.Link(temp, target); err != nil {
 		return errors.New("cannot publish file without replacing existing content")

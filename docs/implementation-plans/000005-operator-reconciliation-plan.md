@@ -213,5 +213,10 @@ opened.
   private staging directory. Linux and macOS use the existing Unix boundary;
   other platforms return the existing unsupported-publication error. The cost if
   this mitigation is wrong is an export containing unverified bytes, so the
-  regression verifies the actual published contents. Fresh hosted checks and
-  CodeRabbit review are required after the fix is pushed.
+  regression verifies the actual published contents.
+- CodeRabbit's follow-up found that failures opening the staging root could leave
+  an empty directory. Identity-checked cleanup is registered as soon as identity
+  is captured, and unsupported platforms fail before staging. If the identity
+  lookup itself fails, cleanup does not remove a path whose ownership cannot be
+  established; the cost if wrong is an empty private directory left behind.
+  Fresh hosted checks and CodeRabbit review are required after the fix is pushed.

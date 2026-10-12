@@ -294,10 +294,14 @@ in `6d89055` and covered by regression tests. The focused recovery tests, full
 offline suite, full race suite, lint, native build and Linux cross-build passed
 after those fixes. No additional independent review was run. The branch is
 pushed to `origin` and PR #8 is open against `main`. CI passed on `c5dd8c6`.
-CodeRabbit's completed review had no actionable inline comments or review
-threads, but its security architecture section identified a possible export
-temporary-path substitution immediately before publication. A regression test
-reproduced publication of substituted bytes. Export now stages in a private
-directory and links from its open directory handle; the regression and all
-required local checks passed. The fix is being pushed for fresh CI and CodeRabbit
-review. Do not report PR readiness until both cover the latest commit.
+CodeRabbit's completed review identified a possible export temporary-path
+substitution immediately before publication. A regression test reproduced
+publication of substituted bytes. Export now stages in a private directory and
+links from its open directory handle. A follow-up review found that failures
+opening the staging root could leave its empty directory; identity-checked
+cleanup is now registered before opening it, and unsupported platforms stop
+before staging. All required local checks passed after these fixes. If the
+directory identity itself cannot be read, cleanup avoids removing an unverified
+path; this rare error can leave an empty private directory. Fresh hosted checks
+and CodeRabbit review are pending after pushing the latest fix; do not report PR
+readiness until both cover the latest commit.
