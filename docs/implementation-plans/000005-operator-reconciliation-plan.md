@@ -160,16 +160,18 @@ func (d *exportDestination) Close() error
 - [x] Compare every spec requirement with Tasks 1–5's tests, inspect changed code for forbidden mutation paths and sensitive output, and verify no unfinished placeholders. Address valid gaps with failing regression tests before fixes.
 - [x] Update STATUS and roadmap with implemented behavior, verification and limitations. Mark the decision accepted/implemented only for delivered behavior; preserve indefinite blocking and deferred work explicitly.
 - [x] Commit the verification/status update. Use the selected execution workflow's independent review when authorized; assess findings against spec and rerun only affected checks plus mandatory checks after Go fixes.
-- [ ] If opening/updating a non-draft PR is authorized, follow AGENTS.md: wait for latest CI and CodeRabbit, retrieve summary/comments/threads, fix actionable feedback and repeat. Do not post bot commands/replies, resolve threads or merge without appropriate authorization. Report skipped/stalled review explicitly and record follow-up in STATUS.
+- [x] For PR #8, wait for hosted checks and CodeRabbit, retrieve its summary/comments/threads, assess findings, and record review coverage and any skipped commits in STATUS. The user authorized the manual review request; no new findings were posted for the docs-only head because CodeRabbit's incremental system skips already-reviewed changes.
 
 ## Execution handoff
 
 The user approved native execution on `feat/operator-reconciliation`. Tasks 1–6
 are implemented, reviewed and verified. Independent review of `e860420` reported
 five important findings, all fixed in `6d89055`; targeted regression tests and
-the full required checks passed afterward. No live run or external PR action was
-performed. Hosted CI and CodeRabbit feedback remain unavailable until a PR is
-opened.
+the full required checks passed afterward. PR #8 is open against `main`, with
+hosted checks passing on `d118fdc`. CodeRabbit's reviewed code findings were
+addressed; its authorized manual review command completed on `d118fdc` without
+new comments, while its incremental system skipped already-reviewed
+documentation-only changes.
 
 ### Execution record and rulings
 

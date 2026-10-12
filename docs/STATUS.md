@@ -310,10 +310,11 @@ exported bytes and published flag. Formatting, lint, full offline tests, race
 tests, native build and Linux cross-build passed. Fresh CI, CodeQL, dependency
 review, and CodeRabbit all passed on `5ff663b`. CodeRabbit's review covered
 `98009ef` through `5ff663b`, reported no actionable comments, and resolved the
-temporary directory thread. On the documentation-only head `035c985`, CI,
-CodeQL, and dependency review passed; CodeRabbit reported “Review paused” and did
-not review that commit. Resuming requires the `@coderabbitai review` GitHub
-command. The workspace approval reviewer rejected posting it because explicit
-authorization to send bot commands was not established. The PR remains open;
-the next step is to obtain that authorization and request a review of the latest
-head. The rare Lstat ownership-unknown cleanup case is recorded above.
+temporary directory thread. On head `d118fdc`, CI, CodeQL, dependency review,
+and the CodeRabbit status check passed. The user authorized a manual
+`@coderabbitai review` request. CodeRabbit reported that the review finished,
+but its incremental system does not re-review already reviewed commits; the
+documentation-only commits were skipped as similar to previous changes. No new
+inline comments or review threads were posted, and the existing code findings
+remain addressed. PR #8 remains open and unmerged. The rare Lstat
+ownership-unknown cleanup case is recorded above.
