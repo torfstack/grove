@@ -292,6 +292,8 @@ No live tests ran. Linux live runtime acceptance remains untested. Independent
 whole-branch review of `e860420` found five important issues; all five were fixed
 in `6d89055` and covered by regression tests. The focused recovery tests, full
 offline suite, full race suite, lint, native build and Linux cross-build passed
-after those fixes. No additional independent review was run. No PR has been
-opened or pushed for this slice, so hosted CI and CodeRabbit have not reviewed
-it.
+after those fixes. No additional independent review was run. The branch was
+pushed to `origin`, but PR creation is pending GitHub CLI authentication: `gh
+auth status` reports the configured `torfstack` token is invalid. Hosted CI and
+CodeRabbit review are pending the PR. After authenticating, open the PR against
+`main`, then follow the repository review workflow and record its outcome here.
