@@ -223,5 +223,7 @@ opened.
   publication could be reported as unpublished. The link helper now returns the
   publication result independently from close errors, and an injected close
   failure verifies the output bytes and published flag. The cost if wrong is a
-  misleading CLI message about whether the output may exist. Fresh hosted checks
-  and CodeRabbit review are required after the fix is pushed.
+  misleading CLI message about whether the output may exist. CodeRabbit's latest
+  review through `98009ef` generated no actionable comments, and the temporary
+  directory thread is resolved. Hosted CI, CodeQL, and dependency review also
+  passed on that commit. Any follow-up commit requires fresh hosted verification.

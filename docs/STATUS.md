@@ -307,6 +307,8 @@ CodeRabbit then found that a directory-handle close failure after successful
 publication could be reported as if no output existed. Publication success is
 now tracked separately from close errors, with a regression that verifies the
 exported bytes and published flag. Formatting, lint, full offline tests, race
-tests, native build and Linux cross-build passed. Fresh hosted checks and
-CodeRabbit review are pending after pushing this fix; do not report PR readiness
-until both cover the latest commit.
+tests, native build and Linux cross-build passed. Fresh CI, CodeQL, dependency
+review, and CodeRabbit all passed on `98009ef`. CodeRabbit's latest review covered
+`1e22d67` through `98009ef` and reported no actionable comments; the temporary
+directory thread is resolved. The rare Lstat ownership-unknown cleanup case is
+recorded above. New hosted review is pending after this status update commit.
