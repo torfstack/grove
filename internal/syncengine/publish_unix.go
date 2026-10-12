@@ -21,16 +21,20 @@ func publish(root *os.Root, temp, target string) error {
 	return nil
 }
 
-func linkExportNoReplace(sourceRoot *os.Root, source string, targetRoot *os.Root, target string) (err error) {
+func linkExportNoReplace(sourceRoot *os.Root, source string, targetRoot *os.Root, target string) (bool, error) {
+	return linkExportNoReplaceWith(sourceRoot, source, targetRoot, target, unix.Linkat, func(f *os.File) error { return f.Close() })
+}
+
+func linkExportNoReplaceWith(sourceRoot *os.Root, source string, targetRoot *os.Root, target string, linkat func(int, string, int, string, int) error, closeFile func(*os.File) error) (bool, error) {
 	sourceDir, err := sourceRoot.Open(".")
 	if err != nil {
-		return err
+		return false, err
 	}
-	defer func() { err = errors.Join(err, sourceDir.Close()) }()
 	targetDir, err := targetRoot.Open(".")
 	if err != nil {
-		return err
+		return false, errors.Join(err, closeFile(sourceDir))
 	}
-	defer func() { err = errors.Join(err, targetDir.Close()) }()
-	return unix.Linkat(int(sourceDir.Fd()), source, int(targetDir.Fd()), target, 0)
+	linkErr := linkat(int(sourceDir.Fd()), source, int(targetDir.Fd()), target, 0)
+	published := linkErr == nil
+	return published, errors.Join(linkErr, closeFile(sourceDir), closeFile(targetDir))
 }

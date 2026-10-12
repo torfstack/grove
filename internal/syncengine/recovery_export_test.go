@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/torfstack/grove/internal/privatefs"
+	"golang.org/x/sys/unix"
 )
 
 func TestExportRecoveryOfflineCopiesVerifiedStage(t *testing.T) {
@@ -147,7 +148,7 @@ func TestExportRecoveryRejectsUnsafeOutput(t *testing.T) {
 }
 
 func TestExportPublicationRaces(t *testing.T) {
-	for _, mode := range []string{"source-replaced", "parent-renamed", "target-created", "cancel", "read", "write", "sync-file", "link", "sync-parent", "close", "temp-replaced", "temp-replaced-before-link"} {
+	for _, mode := range []string{"source-replaced", "parent-renamed", "target-created", "cancel", "read", "write", "sync-file", "link", "link-close", "sync-parent", "close", "temp-replaced", "temp-replaced-before-link"} {
 		t.Run(mode, func(t *testing.T) {
 			s, o, state, _, _ := recoveryFixture(t, OpUpload)
 			parent := t.TempDir()
@@ -202,7 +203,14 @@ func TestExportPublicationRaces(t *testing.T) {
 			case "sync-file":
 				ops.syncFile = func(*os.File) error { return sentinel }
 			case "link":
-				ops.link = func(*os.Root, string, *os.Root, string) error { return sentinel }
+				ops.link = func(*os.Root, string, *os.Root, string) (bool, error) { return false, sentinel }
+			case "link-close":
+				ops.link = func(sourceRoot *os.Root, source string, targetRoot *os.Root, target string) (bool, error) {
+					return linkExportNoReplaceWith(sourceRoot, source, targetRoot, target, unix.Linkat, func(f *os.File) error {
+						_ = f.Close()
+						return sentinel
+					})
+				}
 			case "sync-parent":
 				ops.syncParent = func(*os.Root) error { return sentinel }
 			case "close":
@@ -220,7 +228,7 @@ func TestExportPublicationRaces(t *testing.T) {
 					return os.WriteFile(path, []byte("intruder"), 0600)
 				}
 			case "temp-replaced-before-link":
-				ops.link = func(sourceRoot *os.Root, source string, targetRoot *os.Root, target string) error {
+				ops.link = func(sourceRoot *os.Root, source string, targetRoot *os.Root, target string) (bool, error) {
 					path := sourceRoot.Name()
 					if err := os.Rename(path, path+".original"); err != nil {
 						t.Fatal(err)
@@ -245,7 +253,7 @@ func TestExportPublicationRaces(t *testing.T) {
 			if err == nil {
 				t.Fatal("fault accepted")
 			}
-			if mode == "sync-parent" || mode == "temp-replaced-before-link" {
+			if mode == "sync-parent" || mode == "temp-replaced-before-link" || mode == "link-close" {
 				if !published {
 					t.Fatal("lost published result")
 				}
@@ -262,6 +270,12 @@ func TestExportPublicationRaces(t *testing.T) {
 				data, readErr := os.ReadFile(output)
 				if readErr != nil || string(data) != "edit" {
 					t.Fatalf("published substituted content: %q, %v", data, readErr)
+				}
+			}
+			if mode == "link-close" {
+				data, readErr := os.ReadFile(output)
+				if readErr != nil || string(data) != "edit" {
+					t.Fatalf("published bytes after close failure: %q, %v", data, readErr)
 				}
 			}
 			if mode == "temp-replaced" {

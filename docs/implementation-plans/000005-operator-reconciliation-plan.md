@@ -219,4 +219,9 @@ opened.
   is captured, and unsupported platforms fail before staging. If the identity
   lookup itself fails, cleanup does not remove a path whose ownership cannot be
   established; the cost if wrong is an empty private directory left behind.
-  Fresh hosted checks and CodeRabbit review are required after the fix is pushed.
+- CodeRabbit then found that a directory-handle close failure after successful
+  publication could be reported as unpublished. The link helper now returns the
+  publication result independently from close errors, and an injected close
+  failure verifies the output bytes and published flag. The cost if wrong is a
+  misleading CLI message about whether the output may exist. Fresh hosted checks
+  and CodeRabbit review are required after the fix is pushed.

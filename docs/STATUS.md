@@ -303,5 +303,10 @@ cleanup is now registered before opening it, and unsupported platforms stop
 before staging. All required local checks passed after these fixes. If the
 directory identity itself cannot be read, cleanup avoids removing an unverified
 path; this rare error can leave an empty private directory. Fresh hosted checks
-and CodeRabbit review are pending after pushing the latest fix; do not report PR
-readiness until both cover the latest commit.
+CodeRabbit then found that a directory-handle close failure after successful
+publication could be reported as if no output existed. Publication success is
+now tracked separately from close errors, with a regression that verifies the
+exported bytes and published flag. Formatting, lint, full offline tests, race
+tests, native build and Linux cross-build passed. Fresh hosted checks and
+CodeRabbit review are pending after pushing this fix; do not report PR readiness
+until both cover the latest commit.

@@ -31,7 +31,7 @@ type recoveryExportIO struct {
 	copy       func(io.Writer, io.Reader) (int64, error)
 	syncFile   func(*os.File) error
 	close      func(*os.File) error
-	link       func(*os.Root, string, *os.Root, string) error
+	link       func(*os.Root, string, *os.Root, string) (bool, error)
 	syncParent func(*os.Root) error
 }
 
@@ -207,10 +207,16 @@ func exportRecoveryStage(ctx context.Context, profile string, j Journal, candida
 	if err = ctx.Err(); err != nil {
 		return false, err
 	}
-	if err = ops.link(tempRoot, "stage", d.root, d.target); err != nil {
-		return false, err
+	linked, linkErr := ops.link(tempRoot, "stage", d.root, d.target)
+	if linked {
+		published = true
 	}
-	published = true
+	if linkErr != nil {
+		return published, linkErr
+	}
+	if !linked {
+		return false, errors.New("export publication did not occur")
+	}
 	if err = removeOwnedStage(tempRoot, "stage", tempIdentity); err != nil {
 		return true, err
 	}
