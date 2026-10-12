@@ -102,6 +102,16 @@ probe retry reached cleanup but encountered a transport error; retained fixtures
 were cleaned successfully through the ownership-checked CLI. The aggregate live
 command is not fully green.
 
+On macOS on 2026-10-12, a fresh full-suite run passed incremental sync,
+current-head pinning, conditional-write probing, and two-way upload/concurrent
+revision recovery. Initial sync failed its post-download consistency check:
+Drive returned the same file identity, parents, content, ownership, and trash
+state, but a different metadata version. The failed fixture was cleaned with
+the ownership-checked CLI. The conditional-write probe again showed that Drive
+accepted a stale version condition with HTTP 200; the probe restored the
+competing content and cleaned its fixture. Initial-sync live verification
+remains unresolved.
+
 The live run found that the initial revisions request must omit an empty
 `pageToken`, and Drive rejects unpinning a revision after it becomes non-head
 (`illegalKeepForeverModification`). Therefore successful updates and recovered

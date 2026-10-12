@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-11.
+Updated: 2026-10-12.
 
 ## Release status
 
@@ -154,6 +154,17 @@ acceptance remains untested; Linux amd64 cross-build passed.
 Final local verification on 2026-10-10: `mise run fmt`, `git diff --check`,
 `mise run lint`, `mise run test`, `mise run test-race`, native build, and Linux
 amd64 cross-build passed. The full live-suite limitation above remains open.
+
+Live suite rerun on macOS on 2026-10-12 using the dedicated token and a fresh
+private run directory: incremental sync, current-head revision pinning, the
+conditional-write probe, and two-way upload/concurrent-revision recovery passed.
+Initial sync failed because Drive reported a changed metadata version while
+identity, parents, content hash/size, ownership, and trashed status still
+matched. The conditional-write probe confirmed Drive accepted a stale version
+condition with HTTP 200; it restored the competing content and cleaned its
+fixture. The failed initial-sync fixture was cleaned with the ownership-checked
+CLI. Token contents and generated Drive IDs were not printed. Initial-sync live
+verification remains unresolved; Linux live runtime remains untested.
 
 The preexisting status correction recording PR #6's merge was committed as
 `9ba3d41` on the design branch.
