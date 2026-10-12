@@ -23,6 +23,7 @@ type Services struct {
 	Sync              func(context.Context, syncengine.Options) (syncengine.Result, error)
 	SetConflictPolicy func(context.Context, syncengine.Options, syncengine.ConflictPolicy) error
 	ListConflicts     func(context.Context, syncengine.Options) ([]syncengine.Conflict, error)
+	ConflictDetails   func(context.Context, syncengine.Options, string) (syncengine.ConflictDetail, error)
 	ResolveConflict   func(context.Context, syncengine.Options, string, syncengine.ConflictSide, int) error
 }
 

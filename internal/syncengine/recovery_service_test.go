@@ -375,6 +375,21 @@ func TestInspectRecoveryRecordedPhases(t *testing.T) {
 	}
 }
 
+func TestInspectRecoveryCandidateCaptureCounts(t *testing.T) {
+	s, o, state, _, _ := recoveryFixture(t, OpUpload)
+	path, identity := createConflictTestStage(t, o.ProfileDir, ".grove-cloud-conflict-recovery", []byte("cloud"))
+	candidate := CloudCandidate{RevisionID: "rev-candidate", MD5: md5Hex([]byte("cloud")), Size: 5, SHA256: hashText("cloud"), StagePath: path, StageIdentity: &identity}
+	state.Transaction.CompetingRevisionIDs = []string{"rev-candidate"}
+	state.Transaction.CandidateCaptures = []CandidateCapture{{Candidate: candidate, Phase: "captured"}}
+	if err := saveState(o.ProfileDir, *state); err != nil {
+		t.Fatal(err)
+	}
+	report, err := s.InspectRecovery(context.Background(), o)
+	if err != nil || report.RecordedCandidateCount != 1 || report.VerifiedCandidateCount != 1 {
+		t.Fatalf("partial capture report=%+v err=%v", report, err)
+	}
+}
+
 func TestRecoverySafeErrorRetainsJoinedFailures(t *testing.T) {
 	sentinel := errors.New("resource-close")
 	err := safeRecoveryError(errors.Join(&RecoveryBlockedError{Reason: "uncertain-write"}, sentinel))

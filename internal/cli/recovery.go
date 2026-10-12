@@ -71,12 +71,12 @@ func newRecovery(services Services) *cobra.Command {
 }
 
 func writeRecoveryReport(w io.Writer, r syncengine.RecoveryReport) error {
-	_, err := fmt.Fprintf(w, "Recovery outcome: %s\nPending: %t\nOperation: %s\nPhase: %s\nReason: %s\nLocal stage: %s\nCloud stage: %s\nRecorded competitors: %d\n",
+	_, err := fmt.Fprintf(w, "Recovery outcome: %s\nPending: %t\nOperation: %s\nPhase: %s\nReason: %s\nLocal stage: %s\nCloud stage: %s\nRecorded competitors: %d\nRecorded cloud candidates: %d\nVerified cloud candidates: %d\n",
 		recoveryField(string(r.Outcome), "none pending completed conflict-pending"), r.Pending,
 		recoveryField(string(r.Operation), "upload create download replace move"),
 		recoveryField(r.Phase, "intent downloading verified staged pin-intent pinned upload-intent uploaded create-intent created capture-intent conflict-captured committed retired backed-up cancelled"),
 		recoveryField(string(r.Reason), "none remote-check-required unsupported-operation stage-unavailable uncertain-write remote-changed history-incomplete multiple-competitors capture-pending cleanup-pending"),
-		recoveryField(string(r.Local.Status), "none verified unavailable partial"), recoveryField(string(r.Cloud.Status), "none verified unavailable partial"), r.CompetitorCount)
+		recoveryField(string(r.Local.Status), "none verified unavailable partial"), recoveryField(string(r.Cloud.Status), "none verified unavailable partial"), r.CompetitorCount, r.RecordedCandidateCount, r.VerifiedCandidateCount)
 	if err != nil {
 		return err
 	}

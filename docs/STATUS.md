@@ -316,5 +316,14 @@ and the CodeRabbit status check passed. The user authorized a manual
 but its incremental system does not re-review already reviewed commits; the
 documentation-only commits were skipped as similar to previous changes. No new
 inline comments or review threads were posted, and the existing code findings
-remain addressed. PR #8 remains open and unmerged. The rare Lstat
+remain addressed. PR #8 merged into `main` at `24e2ebb`. The rare Lstat
 ownership-unknown cleanup case is recorded above.
+
+Multiple conflict candidates are being implemented on branch
+`feat/multiple-conflict-candidates` from the approved [spec 000006](spec/000006-multiple-conflict-candidates-design.md)
+and [implementation plan](implementation-plans/000006-multiple-conflict-candidates-plan.md).
+Tasks 1–3 are committed as `3352fd3`, `6f7289e`, and `cfcbf49`; their focused
+sync-engine suites passed. Task 4 is in progress. Current focused CLI and
+sync-engine conflict/recovery tests pass. Full project checks, Linux builds,
+hosted CI, and CodeRabbit review remain pending. The requested pull request base
+is `main`.

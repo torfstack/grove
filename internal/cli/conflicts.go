@@ -64,11 +64,42 @@ func newConflicts(services Services) *cobra.Command {
 		}
 		return nil
 	}
+	show := &cobra.Command{Use: "show <id>", Short: "Show conflict candidate details", Args: cobra.ExactArgs(1)}
+	var showOpts syncengine.Options
+	addProfileFlags(show, &showOpts)
+	show.RunE = func(command *cobra.Command, args []string) error {
+		if err := requireProfileOptions(showOpts); err != nil {
+			return err
+		}
+		if services.ConflictDetails == nil {
+			return errors.New("conflict service unavailable")
+		}
+		detail, err := services.ConflictDetails(command.Context(), showOpts, args[0])
+		if err != nil {
+			return err
+		}
+		if _, err = fmt.Fprintf(command.OutOrStdout(), "%s\t%s\n", detail.ID, detail.Path); err != nil {
+			return err
+		}
+		for _, item := range detail.Candidates {
+			selected := ""
+			if item.Selected {
+				selected = "\tselected"
+			}
+			if _, err = fmt.Fprintf(command.OutOrStdout(), "%d\t%s\t%s\t%d%s\n", item.Ordinal, item.Side, item.ModifiedTime, item.Size, selected); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	cmd.AddCommand(show)
 	resolve := &cobra.Command{Use: "resolve <id>", Short: "Choose a conflict candidate", Args: cobra.ExactArgs(1)}
 	var resolveOpts syncengine.Options
 	var keep string
+	var candidate int
 	addProfileFlags(resolve, &resolveOpts)
-	resolve.Flags().StringVar(&keep, "keep", "", "Candidate to keep: local or cloud (required)")
+	resolve.Flags().StringVar(&keep, "keep", "", "Candidate to keep: local or cloud")
+	resolve.Flags().IntVar(&candidate, "candidate", 0, "Cloud candidate ordinal shown by conflicts show")
 	resolve.RunE = func(command *cobra.Command, args []string) error {
 		if err := requireProfileOptions(resolveOpts); err != nil {
 			return err
@@ -76,13 +107,30 @@ func newConflicts(services Services) *cobra.Command {
 		if services.ResolveConflict == nil {
 			return errors.New("conflict service unavailable")
 		}
-		if keep != "local" && keep != "cloud" {
+		if keep != "" && keep != "local" && keep != "cloud" {
 			return errors.New("--keep must be local or cloud")
 		}
-		if err := services.ResolveConflict(command.Context(), resolveOpts, args[0], syncengine.ConflictSide(keep), 0); err != nil {
+		side := syncengine.ConflictSide(keep)
+		if candidate > 0 {
+			if keep == "local" {
+				return errors.New("--candidate cannot be used with --keep local")
+			}
+			side = syncengine.SideCloud
+		}
+		if side == "" {
+			return errors.New("provide --keep local|cloud or --candidate <ordinal>")
+		}
+		if candidate < 0 {
+			return errors.New("--candidate must be a positive ordinal")
+		}
+		if err := services.ResolveConflict(command.Context(), resolveOpts, args[0], side, candidate); err != nil {
 			return err
 		}
-		_, err := fmt.Fprintf(command.OutOrStdout(), "Resolved conflict %s using %s\n", args[0], keep)
+		choice := string(side)
+		if side == syncengine.SideCloud && candidate > 0 {
+			choice = fmt.Sprintf("cloud candidate %d", candidate)
+		}
+		_, err := fmt.Fprintf(command.OutOrStdout(), "Resolved conflict %s using %s\n", args[0], choice)
 		return err
 	}
 	cmd.AddCommand(list, resolve)

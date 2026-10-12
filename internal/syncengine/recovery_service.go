@@ -53,6 +53,14 @@ func inspectRecoveryState(ctx context.Context, profile string, state State) (Rec
 	}
 	j := state.Transaction
 	if j == nil {
+		for _, conflict := range state.Conflicts {
+			r.RecordedCandidateCount += len(conflictCandidates(conflict))
+			r.VerifiedCandidateCount += len(conflictCandidates(conflict))
+		}
+		if r.RecordedCandidateCount > 0 {
+			r.Outcome = "conflict-pending"
+			r.Actions = []RecoveryAction{"resolve-conflict"}
+		}
 		return r, nil
 	}
 	r.Pending = true
@@ -60,6 +68,18 @@ func inspectRecoveryState(ctx context.Context, profile string, state State) (Rec
 	r.Operation = j.Operation.Kind
 	r.Phase = j.Phase
 	r.CompetitorCount = len(j.CompetingRevisionIDs)
+	r.RecordedCandidateCount = len(j.CandidateCaptures)
+	for _, capture := range j.CandidateCaptures {
+		if capture.Phase == "captured" {
+			status, inspectErr := inspectRecoveryStage(ctx, profile, capture.Candidate.StagePath, capture.Candidate.StageIdentity, capture.Candidate.SHA256, capture.Candidate.MD5, capture.Candidate.Size)
+			if inspectErr != nil {
+				return r, inspectErr
+			}
+			if status == "verified" {
+				r.VerifiedCandidateCount++
+			}
+		}
+	}
 	if j.Operation.Kind != OpUpload && j.Operation.Kind != OpCreate {
 		r.Reason = "unsupported-operation"
 		r.Actions = []RecoveryAction{"sync"}

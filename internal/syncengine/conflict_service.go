@@ -108,6 +108,12 @@ func (s Service) ResolveConflict(ctx context.Context, opts Options, id string, s
 		_ = lock.Close()
 		return err
 	}
+	apiClosed := false
+	defer func() {
+		if !apiClosed {
+			_ = closeAPI()
+		}
+	}()
 	snapshot, scanErr := Scan(ctx, api, canonical.RemoteRoot)
 	if scanErr != nil || !matchesRemoteConflict(snapshot, *conflict) {
 		_ = lock.Close()
@@ -138,6 +144,7 @@ func (s Service) ResolveConflict(ctx context.Context, opts Options, id string, s
 		}
 	}
 	closeAPIErr := closeAPI()
+	apiClosed = true
 	if closeAPIErr != nil {
 		_ = lock.Close()
 		return errors.New("cannot close remote candidate check")

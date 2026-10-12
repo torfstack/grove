@@ -7,14 +7,16 @@ type RecoveryOutcome string
 
 type RecoveryStage struct{ Status RecoveryStageStatus }
 type RecoveryReport struct {
-	Pending         bool
-	Operation       OperationKind
-	Phase           string
-	Reason          RecoveryReason
-	Actions         []RecoveryAction
-	Local, Cloud    RecoveryStage
-	CompetitorCount int
-	Outcome         RecoveryOutcome
+	Pending                bool
+	Operation              OperationKind
+	Phase                  string
+	Reason                 RecoveryReason
+	Actions                []RecoveryAction
+	Local, Cloud           RecoveryStage
+	CompetitorCount        int
+	RecordedCandidateCount int
+	VerifiedCandidateCount int
+	Outcome                RecoveryOutcome
 }
 
 type RecoveryBlockedError struct{ Reason RecoveryReason }
