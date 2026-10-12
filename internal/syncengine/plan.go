@@ -305,6 +305,10 @@ func conflictResolutionForPath(conflicts []Conflict, path string, policy Conflic
 			continue
 		}
 		side := conflicts[i].SelectedSide
+		multi := len(conflictCandidates(conflicts[i])) > 1
+		if multi && side == "" {
+			return &conflicts[i], ""
+		}
 		if side == "" {
 			switch policy {
 			case ConflictKeepLocal:

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -44,12 +45,22 @@ func normalizeConflict(c Conflict) Conflict {
 		})
 		return c
 	}
-	if c.CandidateSetVersion != 0 || len(c.CloudCandidates) != 0 || c.CloudRevisionID == "" || c.CloudStagePath == "" || c.CloudStageIdentity == nil {
+	if c.CandidateSetVersion != 0 || len(c.CloudCandidates) != 0 || (c.CloudRevisionID == "" && c.RemoteRevisionID == "") || c.CloudStagePath == "" || c.CloudStageIdentity == nil {
 		return c
+	}
+	revisionID, md5, size := c.CloudRevisionID, c.CloudMD5, c.CloudSize
+	if revisionID == "" {
+		revisionID = c.RemoteRevisionID
+	}
+	if md5 == "" {
+		md5 = c.RemoteMD5
+	}
+	if size == 0 {
+		size = c.RemoteSize
 	}
 	c.CandidateSetVersion = 1
 	c.CloudCandidates = []CloudCandidate{{
-		RevisionID: c.CloudRevisionID, MD5: c.CloudMD5, Size: c.CloudSize,
+		RevisionID: revisionID, MD5: md5, Size: size,
 		SHA256: c.CloudSHA256, StagePath: c.CloudStagePath, StageIdentity: c.CloudStageIdentity,
 	}}
 	return c
@@ -60,6 +71,23 @@ func normalizeConflicts(conflicts []Conflict) []Conflict {
 		conflicts[i] = normalizeConflict(conflicts[i])
 	}
 	return conflicts
+}
+
+func conflictCandidates(c Conflict) []CloudCandidate {
+	c = normalizeConflict(c)
+	return append([]CloudCandidate(nil), c.CloudCandidates...)
+}
+
+func selectedCloudCandidate(c Conflict) (CloudCandidate, error) {
+	candidates := conflictCandidates(c)
+	ordinal := c.SelectedCandidate
+	if ordinal == 0 && len(candidates) == 1 {
+		ordinal = 1
+	}
+	if c.SelectedSide != SideCloud || ordinal < 1 || ordinal > len(candidates) {
+		return CloudCandidate{}, errors.New("selected cloud candidate is missing")
+	}
+	return candidates[ordinal-1], nil
 }
 
 func cloudCandidateLess(left, right CloudCandidate) bool {
@@ -155,6 +183,9 @@ func validateConflicts(conflicts []Conflict, completed []Completed, requireStage
 		}
 		if c.SelectedSide != "" && c.SelectedSide != SideLocal && c.SelectedSide != SideCloud {
 			return errors.New("invalid pending conflict selection")
+		}
+		if c.SelectedCandidate < 0 || (c.SelectedSide == SideLocal && c.SelectedCandidate != 0) || (c.SelectedSide == SideCloud && len(conflictCandidates(c)) > 0 && c.SelectedCandidate > len(conflictCandidates(c))) {
+			return fmt.Errorf("invalid selected conflict candidate ordinal %d", c.SelectedCandidate)
 		}
 		seenIDs[c.ID] = true
 		seenPaths[c.Path] = true

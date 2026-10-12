@@ -70,6 +70,21 @@ type Conflict struct {
 	CloudStageIdentity  *FileIdentity    `json:"cloud_stage_identity,omitempty"`
 	CloudSHA256         string           `json:"cloud_sha256,omitempty"`
 	SelectedSide        ConflictSide     `json:"selected_side,omitempty"`
+	SelectedCandidate   int              `json:"selected_candidate,omitempty"`
+}
+
+type ConflictCandidateView struct {
+	Ordinal      int          `json:"ordinal"`
+	Side         ConflictSide `json:"side"`
+	ModifiedTime string       `json:"modified_time,omitempty"`
+	Size         int64        `json:"size"`
+	Selected     bool         `json:"selected"`
+}
+
+type ConflictDetail struct {
+	ID         string                  `json:"id"`
+	Path       string                  `json:"path"`
+	Candidates []ConflictCandidateView `json:"candidates"`
 }
 type FileIdentity struct {
 	Device uint64 `json:"device"`

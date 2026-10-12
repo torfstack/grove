@@ -33,7 +33,13 @@ func validateResolutionJournal(j Journal) error {
 	if c == nil {
 		return nil
 	}
-	if j.Operation.Kind != OpUpload || j.Operation.ResolutionSide != SideLocal || len(j.Operation.Before) != 1 || c.Baseline != j.Operation.Before[0] || c.Path != j.Operation.Entry.Path || c.RemoteID != j.Operation.Entry.Remote.ID || c.LocalSHA256 != j.StageSHA256 || c.LocalSize != j.StageSize {
+	validStage := c.LocalSHA256 == j.StageSHA256 && c.LocalSize == j.StageSize
+	if c.SelectedSide == SideCloud && c.SelectedCandidate > 0 {
+		if candidate, err := selectedCloudCandidate(*c); err == nil {
+			validStage = candidate.SHA256 == j.StageSHA256 && candidate.Size == j.StageSize
+		}
+	}
+	if j.Operation.Kind != OpUpload || j.Operation.ResolutionSide != SideLocal || len(j.Operation.Before) != 1 || c.Baseline != j.Operation.Before[0] || c.Path != j.Operation.Entry.Path || c.RemoteID != j.Operation.Entry.Remote.ID || !validStage {
 		return errors.New("invalid resolution upload journal")
 	}
 	return validateConflicts([]Conflict{*c}, j.Operation.Before, true)
@@ -55,13 +61,11 @@ func (e *executor) cleanupResolvedConflict(ctx context.Context, c Conflict) erro
 			return err
 		}
 	}
-	size := c.CloudSize
-	if c.CloudRevisionID == "" {
-		size = c.RemoteSize
-	}
-	if !conflictUsesStage(e.state.Conflicts, c.CloudStagePath) {
-		if err := removeVerifiedStageIfPresent(ctx, e.profileDir, c.CloudStagePath, c.CloudStageIdentity, c.CloudSHA256, c.CloudMD5, size); err != nil {
-			return err
+	for _, candidate := range conflictCandidates(c) {
+		if !conflictUsesStage(e.state.Conflicts, candidate.StagePath) {
+			if err := removeVerifiedStageIfPresent(ctx, e.profileDir, candidate.StagePath, candidate.StageIdentity, candidate.SHA256, candidate.MD5, candidate.Size); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

@@ -577,7 +577,7 @@ func (e *executor) resolveConflictOperation(ctx context.Context, operation Opera
 	}
 	for _, candidate := range local {
 		if candidate.Path == saved.Path && !matchesLocal(*baseline, candidate) {
-			selected := Operation{Kind: OpUpload, Entry: operation.Entry, Local: candidate, Before: []Completed{*baseline}}
+			selected := Operation{Kind: OpUpload, Entry: operation.Entry, Local: candidate, Before: []Completed{*baseline}, Conflict: saved, ResolutionSide: SideLocal}
 			return e.upload(ctx, selected)
 		}
 	}
@@ -593,7 +593,7 @@ func findConflict(conflicts []Conflict, id string) *Conflict {
 	return nil
 }
 
-func (e *executor) forgetConflict(_ context.Context, conflict Conflict) error {
+func (e *executor) forgetConflict(ctx context.Context, conflict Conflict) error {
 	next := *e.state
 	filtered := next.Conflicts[:0]
 	for _, current := range next.Conflicts {
@@ -608,9 +608,16 @@ func (e *executor) forgetConflict(_ context.Context, conflict Conflict) error {
 	for _, stage := range []struct {
 		path     string
 		identity *FileIdentity
-	}{{conflict.LocalStagePath, conflict.LocalStageIdentity}, {conflict.CloudStagePath, conflict.CloudStageIdentity}} {
+	}{{conflict.LocalStagePath, conflict.LocalStageIdentity}} {
 		if stage.path != "" && stage.identity != nil {
 			if err := removeStage(e.profileDir, stage.path, stage.identity); err != nil {
+				return err
+			}
+		}
+	}
+	for _, candidate := range conflictCandidates(conflict) {
+		if candidate.StagePath != "" && candidate.StageIdentity != nil && !conflictUsesStage(e.state.Conflicts, candidate.StagePath) {
+			if err := removeVerifiedStageIfPresent(ctx, e.profileDir, candidate.StagePath, candidate.StageIdentity, candidate.SHA256, candidate.MD5, candidate.Size); err != nil {
 				return err
 			}
 		}
@@ -619,16 +626,17 @@ func (e *executor) forgetConflict(_ context.Context, conflict Conflict) error {
 }
 
 func (e *executor) installCloudCandidate(ctx context.Context, conflict Conflict, head drive.File) error {
-	cloudSize := conflict.CloudSize
-	if conflict.CloudRevisionID == "" {
-		cloudSize = conflict.RemoteSize
+	candidate, err := selectedCloudCandidate(conflict)
+	if err != nil {
+		return err
 	}
-	if err := verifyPrivateStage(e.profileDir, conflict.CloudStagePath, conflict.CloudStageIdentity, conflict.CloudSHA256, conflict.CloudMD5, cloudSize); err != nil {
+	cloudSize := candidate.Size
+	if err := verifyPrivateStage(e.profileDir, candidate.StagePath, candidate.StageIdentity, candidate.SHA256, candidate.MD5, cloudSize); err != nil {
 		return err
 	}
 	current, err := e.inspectFile(ctx, conflict.Path, Completed{Kind: "file", Size: conflict.LocalSize, SHA256: conflict.LocalSHA256})
 	if err != nil {
-		cloudPresent, cloudErr := e.inspectFile(ctx, conflict.Path, Completed{Kind: "file", Size: cloudSize, SHA256: conflict.CloudSHA256})
+		cloudPresent, cloudErr := e.inspectFile(ctx, conflict.Path, Completed{Kind: "file", Size: cloudSize, SHA256: candidate.SHA256})
 		if cloudErr != nil || !cloudPresent {
 			return errors.New("local conflict candidate changed")
 		}
@@ -643,7 +651,7 @@ func (e *executor) installCloudCandidate(ctx context.Context, conflict Conflict,
 	if err != nil {
 		return errors.New("cannot open cloud conflict stage")
 	}
-	source, err := profileRoot.Open(conflict.CloudStagePath)
+	source, err := profileRoot.Open(candidate.StagePath)
 	if err != nil {
 		_ = profileRoot.Close()
 		return errors.New("cannot open cloud conflict stage")
@@ -660,7 +668,7 @@ func (e *executor) installCloudCandidate(ctx context.Context, conflict Conflict,
 	closeTargetErr := target.Close()
 	closeSourceErr := source.Close()
 	closeRootErr := profileRoot.Close()
-	if copyErr != nil || syncErr != nil || closeTargetErr != nil || closeSourceErr != nil || closeRootErr != nil || hex.EncodeToString(sha.Sum(nil)) != conflict.CloudSHA256 {
+	if copyErr != nil || syncErr != nil || closeTargetErr != nil || closeSourceErr != nil || closeRootErr != nil || hex.EncodeToString(sha.Sum(nil)) != candidate.SHA256 {
 		_ = e.root.Remove(temp)
 		return errors.New("cannot verify cloud conflict candidate")
 	}
@@ -671,8 +679,8 @@ func (e *executor) installCloudCandidate(ctx context.Context, conflict Conflict,
 	if err = e.parentSync(conflict.Path); err != nil {
 		return err
 	}
-	baselineSHA, baselineSize := conflict.CloudSHA256, cloudSize
-	if conflict.CloudRevisionID != "" && conflict.CloudRevisionID != conflict.RemoteRevisionID {
+	baselineSHA, baselineSize := candidate.SHA256, cloudSize
+	if candidate.RevisionID != conflict.RemoteRevisionID {
 		baselineSHA, baselineSize = conflict.LocalSHA256, conflict.LocalSize
 	}
 	after := Completed{Path: conflict.Path, RemoteID: conflict.RemoteID, Version: conflict.RemoteVersion, HeadRevisionID: conflict.RemoteRevisionID, MD5: conflict.RemoteMD5, SHA256: baselineSHA, Kind: "file", Size: baselineSize}

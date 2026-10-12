@@ -79,7 +79,7 @@ func newConflicts(services Services) *cobra.Command {
 		if keep != "local" && keep != "cloud" {
 			return errors.New("--keep must be local or cloud")
 		}
-		if err := services.ResolveConflict(command.Context(), resolveOpts, args[0], syncengine.ConflictSide(keep)); err != nil {
+		if err := services.ResolveConflict(command.Context(), resolveOpts, args[0], syncengine.ConflictSide(keep), 0); err != nil {
 			return err
 		}
 		_, err := fmt.Fprintf(command.OutOrStdout(), "Resolved conflict %s using %s\n", args[0], keep)

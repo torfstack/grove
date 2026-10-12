@@ -140,7 +140,7 @@ func TestTwoWayUploadAndConcurrentRevisionRecoveryLive(t *testing.T) {
 	if err != nil || !bytes.Equal(cloudCandidate, []byte("competing remote edit")) {
 		t.Fatalf("competing revision was not captured exactly: %q err=%v", cloudCandidate, err)
 	}
-	if err = service.ResolveConflict(ctx, opts, conflict.ID, syncengine.SideCloud); err != nil {
+	if err = service.ResolveConflict(ctx, opts, conflict.ID, syncengine.SideCloud, 0); err != nil {
 		t.Fatalf("cannot resolve conflict with the competing cloud candidate: %v", err)
 	}
 	localResult, err := os.ReadFile(localPath)
