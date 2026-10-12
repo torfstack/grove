@@ -308,7 +308,12 @@ publication could be reported as if no output existed. Publication success is
 now tracked separately from close errors, with a regression that verifies the
 exported bytes and published flag. Formatting, lint, full offline tests, race
 tests, native build and Linux cross-build passed. Fresh CI, CodeQL, dependency
-review, and CodeRabbit all passed on `5ff663b`. CodeRabbit's latest review covered
-`98009ef` through `5ff663b` and reported no actionable comments; the temporary
-directory thread is resolved. The rare Lstat ownership-unknown cleanup case is
-recorded above.
+review, and CodeRabbit all passed on `5ff663b`. CodeRabbit's review covered
+`98009ef` through `5ff663b`, reported no actionable comments, and resolved the
+temporary directory thread. On the documentation-only head `035c985`, CI,
+CodeQL, and dependency review passed; CodeRabbit reported “Review paused” and did
+not review that commit. Resuming requires the `@coderabbitai review` GitHub
+command. The workspace approval reviewer rejected posting it because explicit
+authorization to send bot commands was not established. The PR remains open;
+the next step is to obtain that authorization and request a review of the latest
+head. The rare Lstat ownership-unknown cleanup case is recorded above.

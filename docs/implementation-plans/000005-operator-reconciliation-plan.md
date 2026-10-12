@@ -226,4 +226,9 @@ opened.
   misleading CLI message about whether the output may exist. CodeRabbit's latest
   review through `5ff663b` generated no actionable comments, and the temporary
   directory thread is resolved. Hosted CI, CodeQL, and dependency review also
-  passed on that commit. Any follow-up commit requires fresh hosted verification.
+  passed on that commit. The later documentation-only commit `035c985` passed
+  CI, CodeQL, and dependency review, while CodeRabbit reported “Review paused”.
+  Posting the documented `@coderabbitai review` command was rejected by the
+  workspace approval reviewer because explicit authorization to send bot
+  commands was not established. The PR remains open pending authorization to
+  request review of the latest head.
