@@ -68,7 +68,7 @@ func inspectRecoveryState(ctx context.Context, profile string, state State) (Rec
 	r.Operation = j.Operation.Kind
 	r.Phase = j.Phase
 	r.CompetitorCount = len(j.CompetingRevisionIDs)
-	r.RecordedCandidateCount = len(j.CandidateCaptures)
+	r.RecordedCandidateCount = len(j.CompetingRevisionIDs)
 	for _, capture := range j.CandidateCaptures {
 		if capture.Phase == "captured" {
 			status, inspectErr := inspectRecoveryStage(ctx, profile, capture.Candidate.StagePath, capture.Candidate.StageIdentity, capture.Candidate.SHA256, capture.Candidate.MD5, capture.Candidate.Size)
