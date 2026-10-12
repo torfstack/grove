@@ -113,8 +113,9 @@ manual thread-resolution actions were posted.
 Known recovery limitation: a crash after exclusive artifact creation but before
 its ownership record is durable preserves the artifact and stops recovery for
 manual inspection. CodeRabbit retained this nonblocking reliability concern,
-consistent with the accepted ownership-safety boundary. An operator reconciliation
-command remains a future proposal.
+consistent with the accepted ownership-safety boundary. Recovery controls in
+spec 000005 handle recorded upload transactions; reconciliation of unrecorded
+artifacts remains deferred.
 
 ## Approved local upload sync
 
@@ -256,21 +257,41 @@ abandonment suggestion remains declined for the data-safety reasons above.
 These two review threads remain open; no replies or manual resolutions were
 posted. The same-path policy thread is now automatically resolved by CodeRabbit.
 
-## Next slice: operator reconciliation
+## Operator reconciliation
 
 The user selected operator recovery after merging PR #7 and agreed a focused
-`recovery inspect`, `recovery retry`, and `recovery export` scope. Proposed
+`recovery inspect`, `recovery retry`, and `recovery export` scope. Approved
 [spec 000005](spec/000005-operator-reconciliation-design.md) was approved by the
 user on 2026-10-11. Retry processes only the pending transaction; export copies
 verified staged bytes without abandoning uncertain intent. Force-abandon and
 multiple-competitor selection remain deferred. Inconclusive requests can still
 block indefinitely; this slice does not promise safe reset.
 
-Code inspection identified contract-sensitive areas to audit during implementation:
-recovered outcome structure/byte verification, history reassessment, and journal
-retirement before stage cleanup. No product code changed or live tests ran in
-this design session. The branch `feat/operator-reconciliation` now contains the
-approved spec and its [paired plan](implementation-plans/000005-operator-reconciliation-plan.md).
-The plan awaits review and execution-method selection; native execution is
-recommended. Documentation diff checks passed. No implementation checks or live
-tests ran during planning.
+The user selected native execution of the
+[paired plan](implementation-plans/000005-operator-reconciliation-plan.md).
+Implementation is on `feat/operator-reconciliation`: offline structured diagnosis,
+recovery-only retry, verified private stage exports, and CLI controls with
+sanitized output. Retry verifies remote structure and independently downloaded
+bytes before recording outcomes, reassesses anchored history without discarding
+competitor obligations, and retains a durable retired journal through pre-send
+cleanup. Export uses rooted copies and no-replace publication under profile,
+directory and registry exclusion. It leaves the journal and source stage intact.
+
+Regression tests exposed and fixed create-journal validation rejecting an empty
+previous baseline and a verified result, plus safe error wrapping discarding
+joined resource-close failures. Coverage includes unknown outcomes, partial and
+changed stages, save interruptions, policy-independent conflict capture,
+publication failures, source/parent replacement, output collisions, and concurrent
+registration/profile exclusion.
+
+Local verification on 2026-10-12 passed `mise run fmt`, diff checks,
+`mise run lint` (0 issues), full offline tests, full race tests, native macOS build,
+and Linux amd64 cross-build. The initial sandboxed baseline failed because cache
+writes and local HTTP listeners were denied; the permitted retry passed.
+No live tests ran. Linux live runtime acceptance remains untested. Independent
+whole-branch review of `e860420` found five important issues; all five were fixed
+in `6d89055` and covered by regression tests. The focused recovery tests, full
+offline suite, full race suite, lint, native build and Linux cross-build passed
+after those fixes. No additional independent review was run. No PR has been
+opened or pushed for this slice, so hosted CI and CodeRabbit have not reviewed
+it.

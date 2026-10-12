@@ -1,6 +1,8 @@
 # 000005: Operator reconciliation for interrupted uploads
 
-Status: approved by the user on 2026-10-11; implementation plan awaiting review.
+Status: approved by the user on 2026-10-11; implemented on
+`feat/operator-reconciliation`; five independent review findings were fixed and
+verified. See the paired plan and STATUS for review limits and verification.
 
 ## Intent and agreed scope
 
@@ -193,4 +195,5 @@ designs. Users of an inconclusive transaction can export verified bytes and
 retry later; this slice does not claim that exporting permits safe profile reset.
 
 The paired [implementation plan](../implementation-plans/000005-operator-reconciliation-plan.md)
-links here and awaits review before implementation.
+links here. The user approved native execution; see STATUS for actual verification
+and review outcomes.

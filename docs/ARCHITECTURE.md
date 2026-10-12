@@ -147,6 +147,11 @@ Recovered outcomes validate structure and independently downloaded hashes around
 stable revision checks. Fresh anchored history can resolve a transient listing
 failure, but recorded competitor obligations are retained. Pre-send retirement
 persists a `retired` journal phase until identity/hash-checked cleanup finishes.
+Selected conflict uploads retain their original conflict evidence in the
+transaction. Baseline/candidate commit atomically retires the original conflict
+record; its stages remain journal-owned cleanup obligations until removed safely.
+Conflict capture rechecks the recorded head before committing, and cleanup
+restarts report any surviving conflict belonging to the original transaction.
 
 Offline export opens a recorded stage through the profile root, streams verified
 bytes into a private temporary file, and publishes by no-replace hard link into

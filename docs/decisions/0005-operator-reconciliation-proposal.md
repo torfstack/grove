@@ -1,8 +1,8 @@
 # 0005: Recovery-only operator controls
 
-Date: 2026-10-11. Status: accepted; written spec approved, implementation pending.
+Date: 2026-10-11. Status: accepted; implemented, five independent review findings fixed and verified.
 
-## Proposal
+## Decision
 
 Implement the scope in [spec 000005](../spec/000005-operator-reconciliation-design.md):
 offline inspection, an explicit recovery-only retry, and export of verified
@@ -21,5 +21,9 @@ indefinitely. Multiple-competitor selection remains a separate design.
 
 This improves diagnosis and access to preserved data, with safe retry of
 recoverable transactions. It does not provide a universal unblock/reset command.
-The user approved the written spec. Its paired implementation plan is written
-and awaits review and execution-method selection.
+The user approved the written spec and selected native execution of its paired
+plan. Selected conflict uploads keep original candidate evidence in the upload
+journal; baseline/candidate commit atomically retires the old conflict record,
+and owned stage cleanup remains restartable. This is current-run recovery,
+not an earlier-release migration. Unrecorded artifact reconciliation remains
+deferred. See STATUS for verification and review outcomes.
