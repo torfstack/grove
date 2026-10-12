@@ -1,6 +1,6 @@
 # 000007: Safe local deletion propagation
 
-Date: 2026-10-12. Status: proposed; awaiting user review.
+Date: 2026-10-12. Status: approved for implementation.
 
 ## Intent
 
@@ -176,5 +176,5 @@ decision record.
 
 ## Implementation plan
 
-If this spec is approved, pair it with
-`docs/implementation-plans/000007-deletion-propagation-plan.md`.
+The paired [implementation plan](../implementation-plans/000007-deletion-propagation-plan.md)
+is approved for native execution on `feat/deletion-propagation`.

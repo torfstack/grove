@@ -1,6 +1,6 @@
 # 0006: Local deletion propagation proposal
 
-Date: 2026-10-12. Status: proposed; detailed contract awaits spec review.
+Date: 2026-10-12. Status: accepted.
 
 ## Context
 
@@ -19,5 +19,6 @@ a parent, and commit baseline removal only after the remote result is confirmed.
 Journal the mutation for interruption recovery. Keep deletion conflicts explicit
 and do not let automatic content conflict policy silently choose a side.
 
-The detailed requirements and remaining design contract are in
-[spec 000007](../spec/000007-deletion-propagation-design.md), pending user review.
+The accepted requirements are in
+[spec 000007](../spec/000007-deletion-propagation-design.md). Implementation
+will follow its paired implementation plan on `feat/deletion-propagation`.

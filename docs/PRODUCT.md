@@ -36,8 +36,8 @@ into an absent or empty destination with one immutable profile binding. Repeatin
 an unchanged population performs no media transfers. Interrupted downloads resume
 at file boundaries; existing completed files are hash-checked and preserved.
 Local edits and unexpected files are errors. Changes to an established population
-follow the incremental behavior below. Deletion propagation is proposed in
-[spec 000007](spec/000007-deletion-propagation-design.md), pending written review.
+follow the incremental behavior below. Deletion propagation is specified in
+[spec 000007](spec/000007-deletion-propagation-design.md).
 Unsupported names, symlinks,
 native documents, shortcuts, duplicates, shared drives, and non-owned files fail
 preflight rather than being silently skipped.
@@ -67,7 +67,7 @@ the CLI and future daemon. The choices are ask (default), keep-local, and
 keep-cloud. Download-only remains the default. Drive does not enforce conditional
 writes, and retained revision pins consume its per-file quota; multiple concurrent
 competitors require manual recovery. Local renames remain deferred. Local deletion
-propagation is proposed in spec 000007.
+propagation is specified in spec 000007.
 Independent local and cloud additions at the same path remain pending under
 keep-local; this slice supports choosing cloud for those conflicts. Uncertain
 remote writes preserve their journal and may require operator reconciliation.

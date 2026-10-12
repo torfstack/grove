@@ -356,8 +356,11 @@ After PR #9 merged, the user selected local deletion propagation as the next
 feature and approved the design direction: on explicit two-way sync, trash a
 matching Drive item only when it still matches Grove's saved baseline; preserve
 remote changes and surface a conflict. The first slice covers files and folders.
-Draft [spec 000007](spec/000007-deletion-propagation-design.md) is on
-`feat/deletion-propagation` and awaits the user's written-spec review before an
-implementation plan is created. Drive's trash operation is reversible, but its
-API does not provide a conditional write; the spec records the residual race
-between the final preflight read and trash request.
+Approved [spec 000007](spec/000007-deletion-propagation-design.md) and its paired
+[implementation plan](implementation-plans/000007-deletion-propagation-plan.md)
+are on `feat/deletion-propagation`; the plan is awaiting review before execution.
+Drive's
+trash operation is reversible, but its API does not provide a conditional write;
+the spec records the residual race between the final preflight read and trash
+request. Local file watching remains planned with daemon orchestration; one-shot
+sync rescans local state on each invocation.

@@ -2,7 +2,7 @@
 
 Authentication, the Drive fixture lifecycle, and initial/incremental download sync
 are implemented. Explicit local uploads and revision-aware conflict resolution
-are implemented in the shared sync engine. Deletion propagation is proposed in
+are implemented in the shared sync engine. Deletion propagation is specified in
 [spec 000007](spec/000007-deletion-propagation-design.md); daemon orchestration
 remains to be designed.
 
@@ -83,7 +83,7 @@ HTTP integration tests and the future daemon without spawning the CLI.
 State and fixtures remain outside the downloaded tree. Spec 000003 extends the
 same engine with remote additions, replacements, and moves. Spec 000004 adds
 two-way uploads and durable conflict choices. Remote removals stop preflight, and
-this is not a transactionally consistent remote snapshot. Spec 000007 proposes
+this is not a transactionally consistent remote snapshot. Spec 000007 defines
 baseline-verified local deletion propagation through journaled Drive Trash
 operations. Baseline, incremental,
 and two-way upload/race-recovery live acceptance passed on macOS on 2026-10-10.
