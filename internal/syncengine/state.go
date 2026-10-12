@@ -32,6 +32,7 @@ func loadState(profile string, binding Binding) (State, error) {
 	if err = privatefs.ReadJSON(path, &s); err != nil {
 		return State{}, err
 	}
+	s.Conflicts = normalizeConflicts(s.Conflicts)
 	if (s.Version != 1 && s.Version != 2 && s.Version != 3) || s.Binding != binding {
 		return State{}, errors.New("unsupported state or changed profile binding")
 	}
@@ -103,6 +104,7 @@ func loadState(profile string, binding Binding) (State, error) {
 	return s, nil
 }
 func saveState(profile string, state State) error {
+	state.Conflicts = normalizeConflicts(state.Conflicts)
 	return privatefs.WriteJSON(filepath.Join(profile, "state.json"), state)
 }
 func within(parent, path string) bool {

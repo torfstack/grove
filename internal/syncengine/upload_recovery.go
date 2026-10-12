@@ -215,10 +215,7 @@ func (e *executor) finishRecoveredUpdate(ctx context.Context, j Journal, current
 	if !verified {
 		return blockedRecovery("history-incomplete")
 	}
-	if len(obligations) > 1 {
-		return blockedRecovery("multiple-competitors")
-	}
-	if len(obligations) == 1 {
+	if len(obligations) > 0 {
 		return e.captureRecoveredCompetitor(ctx, j)
 	}
 	// Recheck the head after the history read before recording the baseline.
@@ -236,19 +233,14 @@ func (e *executor) finishRecoveredUpdate(ctx context.Context, j Journal, current
 }
 
 func (e *executor) captureRecoveredCompetitor(ctx context.Context, j Journal) error {
-	if len(j.CompetingRevisionIDs) != 1 {
-		return blockedRecovery("multiple-competitors")
+	if len(j.CompetingRevisionIDs) == 0 {
+		return blockedRecovery("capture-pending")
 	}
 	revisions, err := e.mutation.ListRevisions(ctx, j.Operation.Entry.Remote.ID)
 	if err != nil {
 		return err
 	}
-	for _, revision := range revisions {
-		if revision.ID == j.CompetingRevisionIDs[0] {
-			return e.captureCompetingRevision(ctx, j, revision)
-		}
-	}
-	return blockedRecovery("history-incomplete")
+	return e.captureCompetingRevisions(ctx, j, revisions)
 }
 
 func (e *executor) finishRecoveredCreate(ctx context.Context, j Journal) error {
@@ -287,6 +279,11 @@ func conflictUsesStage(conflicts []Conflict, path string) bool {
 	for _, conflict := range conflicts {
 		if conflict.LocalStagePath == path || conflict.CloudStagePath == path {
 			return true
+		}
+		for _, candidate := range conflict.CloudCandidates {
+			if candidate.StagePath == path {
+				return true
+			}
 		}
 	}
 	return false

@@ -73,7 +73,7 @@ func TestConflictCommandsForwardProfileSettings(t *testing.T) {
 			listCalled = opts.ProfileDir == "p"
 			return nil, nil
 		},
-		ResolveConflict: func(_ context.Context, opts syncengine.Options, id string, side syncengine.ConflictSide) error {
+		ResolveConflict: func(_ context.Context, opts syncengine.Options, id string, side syncengine.ConflictSide, _ int) error {
 			resolveCalled = opts.TokenFile == "t" && id == "conflict-id" && side == syncengine.SideCloud
 			return nil
 		},

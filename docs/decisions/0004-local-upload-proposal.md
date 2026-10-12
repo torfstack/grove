@@ -39,8 +39,21 @@ Drive may purge a competing revision before Grove pins it. The known preflight
 revision is protected before mutation; Drive permits at most 200 pinned revisions
 per file. Because pins cannot be reclaimed after a revision becomes non-head,
 each successful upload consumes a slot. When the quota is full, fail closed
-before uploading. More than one possible competitor in a post-upload scan remains
-journaled and pinned but is not yet exposed as a user-resolvable conflict.
+before uploading. Every competitor in a complete post-upload scan is captured
+and published as a single pending conflict. Incomplete history or capture
+remains journaled and pinned; the conflict cannot be resolved until all known
+candidates are verified.
+
+## Multiple candidate resolution (accepted 2026-10-12)
+
+The operator can inspect safe candidate ordinals, known timestamps, and sizes
+with `conflicts show <id>`. Local is ordinal 0; cloud revisions use stable
+positive ordinals. Selecting a particular cloud candidate installs its verified
+stage and commits the selected bytes through the existing journaled upload path.
+Unresolved multi-candidate conflicts are never selected by `keep-local` or
+`keep-cloud` policy. Verified stages are retained through commit and then cleaned
+up by identity; Drive revision pins remain because non-head pins cannot be
+reclaimed.
 
 ## Live feasibility evidence
 

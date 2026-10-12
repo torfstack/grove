@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 )
 
 func validateCompleted(entries []Completed) error {
@@ -158,11 +159,59 @@ func validateUploadJournal(j Journal, baseline []Completed) error {
 		}
 		seen[id] = true
 	}
+	if len(j.CandidateCaptures) > 0 {
+		if op.Kind != OpUpload || len(j.CandidateCaptures) > len(j.CompetingRevisionIDs) {
+			return errors.New("invalid candidate capture collection")
+		}
+		capturedIDs, capturedStages := map[string]bool{}, map[string]bool{}
+		for i, capture := range j.CandidateCaptures {
+			candidate := capture.Candidate
+			if !seen[candidate.RevisionID] || capturedIDs[candidate.RevisionID] || !validHash(candidate.MD5, 16) || candidate.Size < 0 || !safeRelative(candidate.StagePath) || !strings.HasPrefix(filepath.Base(candidate.StagePath), ".grove-cloud-conflict-") || capturedStages[candidate.StagePath] {
+				return errors.New("invalid candidate capture identity")
+			}
+			if candidate.ModifiedTime != "" {
+				if _, err := time.Parse(time.RFC3339Nano, candidate.ModifiedTime); err != nil {
+					return errors.New("invalid candidate capture timestamp")
+				}
+			}
+			if i > 0 && !cloudCandidateLess(j.CandidateCaptures[i-1].Candidate, candidate) {
+				return errors.New("candidate captures are not in stable order")
+			}
+			switch capture.Phase {
+			case "pin-intent", "pinned":
+				if candidate.StageIdentity != nil || candidate.SHA256 != "" {
+					return errors.New("uncaptured candidate has stage ownership")
+				}
+			case "capture-intent":
+				if candidate.StageIdentity == nil || candidate.StageIdentity.Inode == 0 || candidate.SHA256 != "" {
+					return errors.New("candidate capture intent lacks stage identity")
+				}
+			case "captured":
+				if candidate.StageIdentity == nil || candidate.StageIdentity.Inode == 0 || !validHash(candidate.SHA256, 32) {
+					return errors.New("captured candidate lacks verified stage")
+				}
+			default:
+				return errors.New("invalid candidate capture phase")
+			}
+			capturedIDs[candidate.RevisionID] = true
+			capturedStages[candidate.StagePath] = true
+		}
+	}
 	if j.Phase == "capture-intent" && (!safeRelative(j.CloudStagePath) || !strings.HasPrefix(filepath.Base(j.CloudStagePath), ".grove-cloud-conflict-") || j.CloudStageIdentity == nil || j.CloudStageIdentity.Inode == 0 || j.CloudRevisionID == "" || !validHash(j.CloudMD5, 16) || j.CloudSize < 0 || len(j.After) != 1) {
 		return errors.New("invalid cloud conflict capture intent")
 	}
 	if j.Phase == "conflict-captured" && (j.CloudStagePath == "" || j.CloudStageIdentity == nil || !validHash(j.CloudSHA256, 32) || j.CloudRevisionID == "" || !validHash(j.CloudMD5, 16) || j.CloudSize < 0 || len(j.After) != 1) {
 		return errors.New("conflict revision was not preserved")
+	}
+	if j.Phase == "conflict-captured" && len(j.CandidateCaptures) > 0 {
+		if len(j.CandidateCaptures) != len(j.CompetingRevisionIDs) {
+			return errors.New("conflict candidate set is incomplete")
+		}
+		for _, capture := range j.CandidateCaptures {
+			if capture.Phase != "captured" {
+				return errors.New("conflict candidate set contains an incomplete stage")
+			}
+		}
 	}
 	if j.Phase != "committed" && j.Phase != "verified" && j.Phase != "uploaded" && j.Phase != "capture-intent" && j.Phase != "conflict-captured" && len(j.After) != 0 {
 		return errors.New("uncommitted upload has a result baseline")

@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/torfstack/grove/internal/drive"
@@ -264,18 +265,10 @@ func (e *executor) upload(ctx context.Context, op Operation) error {
 					return &RecoveryError{Message: "cannot preserve concurrent remote revision; upload recovery is pending", Cause: err}
 				}
 			}
-			if !historyVerified || len(competitors) != 1 {
-				return errors.New("concurrent remote revisions require manual recovery")
+			if !historyVerified {
+				return blockedRecovery("history-incomplete")
 			}
-			for _, revision := range revisions {
-				if revision.ID == competitors[0] {
-					if err = e.captureCompetingRevision(ctx, j, revision); err != nil {
-						return err
-					}
-					return nil
-				}
-			}
-			return errors.New("concurrent remote revision is missing; upload recovery is pending")
+			return e.captureCompetingRevisions(ctx, j, revisions)
 		}
 	}
 	if err := e.commitJournal(j); err != nil {
@@ -298,42 +291,144 @@ func (e *executor) preflightRevisionWasKept(ctx context.Context, fileID, revisio
 }
 
 func competingRevisionIDs(revisions []drive.Revision, boundary, preflight, head string) ([]string, bool) {
-	boundaryTime, err := time.Parse(time.RFC3339Nano, boundary)
-	if err != nil {
-		return nil, false
-	}
+	boundaryTime, boundaryErr := time.Parse(time.RFC3339Nano, boundary)
+	verified := boundaryErr == nil
 	var ids []string
 	for _, revision := range revisions {
 		modified, parseErr := time.Parse(time.RFC3339Nano, revision.ModifiedTime)
 		if parseErr != nil {
-			return ids, false
+			verified = false
 		}
 		if revision.ID == preflight || revision.ID == head {
 			continue
 		}
-		if !modified.Before(boundaryTime) {
+		if revision.ID == "" {
+			verified = false
+			continue
+		}
+		if parseErr != nil || boundaryErr != nil {
+			verified = false
+			ids = append(ids, revision.ID)
+		} else if !modified.Before(boundaryTime) {
 			ids = append(ids, revision.ID)
 		}
 	}
-	return ids, true
+	byID := make(map[string]drive.Revision, len(revisions))
+	for _, revision := range revisions {
+		byID[revision.ID] = revision
+	}
+	sort.Slice(ids, func(i, j int) bool {
+		return revisionLess(byID[ids[i]], byID[ids[j]])
+	})
+	return ids, verified
 }
 
-func (e *executor) captureCompetingRevision(ctx context.Context, j Journal, revision drive.Revision) error {
-	if revision.ID == "" || revision.ID == j.PreflightRevisionID || revision.ID == j.After[0].HeadRevisionID || !validHash(revision.MD5, 16) || !revision.HasSize || revision.Size < 0 {
-		return errors.New("competing remote revision metadata is incomplete; upload recovery is pending")
+func revisionLess(left, right drive.Revision) bool {
+	return cloudCandidateLess(
+		CloudCandidate{RevisionID: left.ID, ModifiedTime: left.ModifiedTime},
+		CloudCandidate{RevisionID: right.ID, ModifiedTime: right.ModifiedTime},
+	)
+}
+
+func (e *executor) captureCompetingRevisions(ctx context.Context, j Journal, revisions []drive.Revision) error {
+	byID := make(map[string]drive.Revision, len(revisions))
+	for _, revision := range revisions {
+		if revision.ID == "" || byID[revision.ID].ID != "" {
+			return blockedRecovery("history-incomplete")
+		}
+		byID[revision.ID] = revision
 	}
-	if err := e.mutation.SetRevisionKeepForever(ctx, j.Operation.Entry.Remote.ID, revision.ID, true); err != nil {
-		return &RecoveryError{Message: "cannot preserve concurrent remote revision; upload recovery is pending", Cause: err}
+	for _, id := range j.CompetingRevisionIDs {
+		revision, ok := byID[id]
+		if !ok {
+			return blockedRecovery("history-incomplete")
+		}
+		if err := e.captureCompetingRevision(ctx, &j, revision); err != nil {
+			return err
+		}
 	}
-	path := ".grove-cloud-conflict-" + nonce()
-	if path == ".grove-cloud-conflict-" {
-		return errors.New("cannot create cloud conflict stage identity")
+	if len(j.CandidateCaptures) != len(j.CompetingRevisionIDs) {
+		return blockedRecovery("capture-pending")
+	}
+	sort.Slice(j.CandidateCaptures, func(i, k int) bool {
+		return cloudCandidateLess(j.CandidateCaptures[i].Candidate, j.CandidateCaptures[k].Candidate)
+	})
+	first := j.CandidateCaptures[0].Candidate
+	j.CloudRevisionID, j.CloudMD5, j.CloudSize = first.RevisionID, first.MD5, first.Size
+	j.CloudStagePath, j.CloudStageIdentity, j.CloudSHA256 = first.StagePath, first.StageIdentity, first.SHA256
+	j.Phase = "conflict-captured"
+	if err := e.journal(j); err != nil {
+		return err
+	}
+	return e.finishCapturedConflict(ctx, j)
+}
+
+func (e *executor) captureCompetingRevision(ctx context.Context, j *Journal, revision drive.Revision) error {
+	if len(j.After) != 1 || revision.ID == "" || revision.ID == j.PreflightRevisionID || revision.ID == j.After[0].HeadRevisionID || !validHash(revision.MD5, 16) || !revision.HasSize || revision.Size < 0 {
+		return blockedRecovery("history-incomplete")
+	}
+	if revision.ModifiedTime != "" {
+		if _, err := time.Parse(time.RFC3339Nano, revision.ModifiedTime); err != nil {
+			return blockedRecovery("history-incomplete")
+		}
+	}
+	var capture *CandidateCapture
+	for i := range j.CandidateCaptures {
+		if j.CandidateCaptures[i].Candidate.RevisionID == revision.ID {
+			capture = &j.CandidateCaptures[i]
+			break
+		}
+	}
+	if capture == nil {
+		path := ".grove-cloud-conflict-" + nonce()
+		if path == ".grove-cloud-conflict-" {
+			return errors.New("cannot create cloud conflict stage identity")
+		}
+		entry := CandidateCapture{
+			Candidate: CloudCandidate{RevisionID: revision.ID, ModifiedTime: revision.ModifiedTime, MD5: revision.MD5, Size: revision.Size, StagePath: path},
+			Phase:     "pin-intent",
+		}
+		at := sort.Search(len(j.CandidateCaptures), func(i int) bool {
+			return cloudCandidateLess(entry.Candidate, j.CandidateCaptures[i].Candidate)
+		})
+		j.CandidateCaptures = append(j.CandidateCaptures, CandidateCapture{})
+		copy(j.CandidateCaptures[at+1:], j.CandidateCaptures[at:])
+		j.CandidateCaptures[at] = entry
+		capture = &j.CandidateCaptures[at]
+		if err := e.journal(*j); err != nil {
+			return err
+		}
+	} else if capture.Candidate.ModifiedTime != revision.ModifiedTime || capture.Candidate.MD5 != revision.MD5 || capture.Candidate.Size != revision.Size {
+		return blockedRecovery("history-incomplete")
+	}
+	if capture.Phase == "captured" {
+		return verifyPrivateStageContext(ctx, e.profileDir, capture.Candidate.StagePath, capture.Candidate.StageIdentity, capture.Candidate.SHA256, capture.Candidate.MD5, capture.Candidate.Size)
+	}
+	if capture.Phase == "capture-intent" {
+		if err := removeStageIfPresent(e.profileDir, capture.Candidate.StagePath, capture.Candidate.StageIdentity); err != nil {
+			return blockedRecovery("stage-unavailable")
+		}
+		capture.Candidate.StageIdentity = nil
+		capture.Candidate.SHA256 = ""
+		capture.Phase = "pinned"
+		if err := e.journal(*j); err != nil {
+			return err
+		}
+	}
+	if capture.Phase == "pin-intent" || capture.Phase == "pinned" {
+		if err := e.mutation.SetRevisionKeepForever(ctx, j.Operation.Entry.Remote.ID, revision.ID, true); err != nil {
+			return &RecoveryError{Message: "cannot preserve concurrent remote revision; upload recovery is pending", Cause: err}
+		}
+		capture.Phase = "pinned"
+		if err := e.journal(*j); err != nil {
+			return err
+		}
 	}
 	profileRoot, err := os.OpenRoot(e.profileDir)
 	if err != nil {
 		return errors.New("cannot open private conflict profile")
 	}
-	file, err := profileRoot.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	file, err := profileRoot.OpenFile(capture.Candidate.StagePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		_ = profileRoot.Close()
 		return errors.New("cannot create private cloud conflict stage")
@@ -350,13 +445,12 @@ func (e *executor) captureCompetingRevision(ctx context.Context, j Journal, revi
 		_ = profileRoot.Close()
 		return err
 	}
-	j.CloudStagePath, j.CloudStageIdentity = path, &identity
-	j.CloudRevisionID, j.CloudMD5, j.CloudSize = revision.ID, revision.MD5, revision.Size
-	j.Phase = "capture-intent"
-	if err = e.journal(j); err != nil {
+	capture.Candidate.StageIdentity = &identity
+	capture.Phase = "capture-intent"
+	if err = e.journal(*j); err != nil {
 		_ = file.Close()
 		_ = profileRoot.Close()
-		_ = removeStage(e.profileDir, path, &identity)
+		_ = removeStage(e.profileDir, capture.Candidate.StagePath, &identity)
 		return err
 	}
 	sha, md5sum := sha256.New(), md5.New()
@@ -374,20 +468,38 @@ func (e *executor) captureCompetingRevision(ctx context.Context, j Journal, revi
 		}
 		return blockedRecovery("capture-pending")
 	}
-	j.CloudSHA256, j.CloudMD5, j.CloudSize = cloudSHA, cloudMD5, count.count
-	j.Phase = "conflict-captured"
-	if err = e.journal(j); err != nil {
+	capture.Candidate.SHA256 = cloudSHA
+	capture.Phase = "captured"
+	if err = e.journal(*j); err != nil {
 		return err
 	}
-	return e.finishCapturedConflict(ctx, j)
+	return nil
 }
 
 func (e *executor) finishCapturedConflict(ctx context.Context, j Journal) error {
 	if j.Phase != "conflict-captured" || len(j.After) != 1 || j.CloudRevisionID == "" {
 		return errors.New("invalid captured conflict journal")
 	}
-	if err := verifyPrivateStage(e.profileDir, j.CloudStagePath, j.CloudStageIdentity, j.CloudSHA256, j.CloudMD5, j.CloudSize); err != nil {
-		return err
+	candidates := make([]CloudCandidate, 0, len(j.CandidateCaptures))
+	if len(j.CandidateCaptures) == 0 {
+		candidates = append(candidates, CloudCandidate{
+			RevisionID: j.CloudRevisionID, MD5: j.CloudMD5, Size: j.CloudSize,
+			SHA256: j.CloudSHA256, StagePath: j.CloudStagePath, StageIdentity: j.CloudStageIdentity,
+		})
+	} else {
+		if len(j.CandidateCaptures) != len(j.CompetingRevisionIDs) {
+			return blockedRecovery("capture-pending")
+		}
+		for _, capture := range j.CandidateCaptures {
+			if capture.Phase != "captured" {
+				return blockedRecovery("capture-pending")
+			}
+			candidate := capture.Candidate
+			if err := verifyPrivateStageContext(ctx, e.profileDir, candidate.StagePath, candidate.StageIdentity, candidate.SHA256, candidate.MD5, candidate.Size); err != nil {
+				return err
+			}
+			candidates = append(candidates, candidate)
+		}
 	}
 	current, err := e.api.Get(ctx, j.Operation.Entry.Remote.ID)
 	if err != nil {
@@ -400,14 +512,17 @@ func (e *executor) finishCapturedConflict(ctx context.Context, j Journal) error 
 		return err
 	}
 
+	sort.Slice(candidates, func(i, k int) bool { return cloudCandidateLess(candidates[i], candidates[k]) })
+	first := candidates[0]
 	conflict := Conflict{
+		CandidateSetVersion: 1, CloudCandidates: candidates,
 		Path: j.Operation.Entry.Path, Baseline: j.After[0],
 		LocalSHA256: j.StageSHA256, LocalSize: j.StageSize,
 		RemoteID: j.After[0].RemoteID, RemoteVersion: j.After[0].Version,
 		RemoteMD5: j.After[0].MD5, RemoteSize: j.After[0].Size, RemoteRevisionID: j.After[0].HeadRevisionID,
-		CloudRevisionID: j.CloudRevisionID, CloudMD5: j.CloudMD5, CloudSize: j.CloudSize,
+		CloudRevisionID: first.RevisionID, CloudMD5: first.MD5, CloudSize: first.Size,
 		LocalStagePath: j.StagePath, LocalStageIdentity: j.StageIdentity,
-		CloudStagePath: j.CloudStagePath, CloudStageIdentity: j.CloudStageIdentity, CloudSHA256: j.CloudSHA256,
+		CloudStagePath: first.StagePath, CloudStageIdentity: first.StageIdentity, CloudSHA256: first.SHA256,
 	}
 	conflict.ID = conflictID(conflict)
 	next := *e.state
@@ -449,8 +564,13 @@ func (e *executor) resolveConflictOperation(ctx context.Context, operation Opera
 	if operation.ResolutionSide != SideCloud {
 		return errors.New("invalid conflict resolution side")
 	}
-	if err := e.installCloudCandidate(ctx, *saved, operation.Entry.Remote); err != nil {
-		return err
+	selectedConflict := *saved
+	if selectedConflict.SelectedCandidate == 0 && len(conflictCandidates(selectedConflict)) == 1 {
+		selectedConflict.SelectedSide = SideCloud
+		selectedConflict.SelectedCandidate = 1
+	}
+	if err := e.installCloudCandidate(ctx, selectedConflict, operation.Entry.Remote); err != nil {
+		return fmt.Errorf("install selected cloud candidate: %w", err)
 	}
 	var baseline *Completed
 	for i := range e.state.Completed {
@@ -468,8 +588,11 @@ func (e *executor) resolveConflictOperation(ctx context.Context, operation Opera
 	}
 	for _, candidate := range local {
 		if candidate.Path == saved.Path && !matchesLocal(*baseline, candidate) {
-			selected := Operation{Kind: OpUpload, Entry: operation.Entry, Local: candidate, Before: []Completed{*baseline}}
-			return e.upload(ctx, selected)
+			selected := Operation{Kind: OpUpload, Entry: operation.Entry, Local: candidate, Before: []Completed{*baseline}, Conflict: saved, ResolutionSide: SideLocal}
+			if err := e.upload(ctx, selected); err != nil {
+				return fmt.Errorf("upload selected cloud candidate: %w", err)
+			}
+			return nil
 		}
 	}
 	return nil
@@ -484,7 +607,7 @@ func findConflict(conflicts []Conflict, id string) *Conflict {
 	return nil
 }
 
-func (e *executor) forgetConflict(_ context.Context, conflict Conflict) error {
+func (e *executor) forgetConflict(ctx context.Context, conflict Conflict) error {
 	next := *e.state
 	filtered := next.Conflicts[:0]
 	for _, current := range next.Conflicts {
@@ -499,10 +622,17 @@ func (e *executor) forgetConflict(_ context.Context, conflict Conflict) error {
 	for _, stage := range []struct {
 		path     string
 		identity *FileIdentity
-	}{{conflict.LocalStagePath, conflict.LocalStageIdentity}, {conflict.CloudStagePath, conflict.CloudStageIdentity}} {
+	}{{conflict.LocalStagePath, conflict.LocalStageIdentity}} {
 		if stage.path != "" && stage.identity != nil {
 			if err := removeStage(e.profileDir, stage.path, stage.identity); err != nil {
 				return err
+			}
+		}
+	}
+	for _, candidate := range conflictCandidates(conflict) {
+		if candidate.StagePath != "" && candidate.StageIdentity != nil && !conflictUsesStage(e.state.Conflicts, candidate.StagePath) {
+			if err := removeVerifiedStageIfPresent(ctx, e.profileDir, candidate.StagePath, candidate.StageIdentity, candidate.SHA256, candidate.MD5, candidate.Size); err != nil {
+				return fmt.Errorf("remove cloud candidate stage %q: %w", candidate.StagePath, err)
 			}
 		}
 	}
@@ -510,16 +640,17 @@ func (e *executor) forgetConflict(_ context.Context, conflict Conflict) error {
 }
 
 func (e *executor) installCloudCandidate(ctx context.Context, conflict Conflict, head drive.File) error {
-	cloudSize := conflict.CloudSize
-	if conflict.CloudRevisionID == "" {
-		cloudSize = conflict.RemoteSize
+	candidate, err := selectedCloudCandidate(conflict)
+	if err != nil {
+		return err
 	}
-	if err := verifyPrivateStage(e.profileDir, conflict.CloudStagePath, conflict.CloudStageIdentity, conflict.CloudSHA256, conflict.CloudMD5, cloudSize); err != nil {
+	cloudSize := candidate.Size
+	if err := verifyPrivateStage(e.profileDir, candidate.StagePath, candidate.StageIdentity, candidate.SHA256, candidate.MD5, cloudSize); err != nil {
 		return err
 	}
 	current, err := e.inspectFile(ctx, conflict.Path, Completed{Kind: "file", Size: conflict.LocalSize, SHA256: conflict.LocalSHA256})
 	if err != nil {
-		cloudPresent, cloudErr := e.inspectFile(ctx, conflict.Path, Completed{Kind: "file", Size: cloudSize, SHA256: conflict.CloudSHA256})
+		cloudPresent, cloudErr := e.inspectFile(ctx, conflict.Path, Completed{Kind: "file", Size: cloudSize, SHA256: candidate.SHA256})
 		if cloudErr != nil || !cloudPresent {
 			return errors.New("local conflict candidate changed")
 		}
@@ -534,7 +665,7 @@ func (e *executor) installCloudCandidate(ctx context.Context, conflict Conflict,
 	if err != nil {
 		return errors.New("cannot open cloud conflict stage")
 	}
-	source, err := profileRoot.Open(conflict.CloudStagePath)
+	source, err := profileRoot.Open(candidate.StagePath)
 	if err != nil {
 		_ = profileRoot.Close()
 		return errors.New("cannot open cloud conflict stage")
@@ -551,7 +682,7 @@ func (e *executor) installCloudCandidate(ctx context.Context, conflict Conflict,
 	closeTargetErr := target.Close()
 	closeSourceErr := source.Close()
 	closeRootErr := profileRoot.Close()
-	if copyErr != nil || syncErr != nil || closeTargetErr != nil || closeSourceErr != nil || closeRootErr != nil || hex.EncodeToString(sha.Sum(nil)) != conflict.CloudSHA256 {
+	if copyErr != nil || syncErr != nil || closeTargetErr != nil || closeSourceErr != nil || closeRootErr != nil || hex.EncodeToString(sha.Sum(nil)) != candidate.SHA256 {
 		_ = e.root.Remove(temp)
 		return errors.New("cannot verify cloud conflict candidate")
 	}
@@ -562,8 +693,8 @@ func (e *executor) installCloudCandidate(ctx context.Context, conflict Conflict,
 	if err = e.parentSync(conflict.Path); err != nil {
 		return err
 	}
-	baselineSHA, baselineSize := conflict.CloudSHA256, cloudSize
-	if conflict.CloudRevisionID != "" && conflict.CloudRevisionID != conflict.RemoteRevisionID {
+	baselineSHA, baselineSize := candidate.SHA256, cloudSize
+	if candidate.RevisionID != conflict.RemoteRevisionID {
 		baselineSHA, baselineSize = conflict.LocalSHA256, conflict.LocalSize
 	}
 	after := Completed{Path: conflict.Path, RemoteID: conflict.RemoteID, Version: conflict.RemoteVersion, HeadRevisionID: conflict.RemoteRevisionID, MD5: conflict.RemoteMD5, SHA256: baselineSHA, Kind: "file", Size: baselineSize}

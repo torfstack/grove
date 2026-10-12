@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-11.
+Updated: 2026-10-12.
 
 ## Release status
 
@@ -154,6 +154,17 @@ acceptance remains untested; Linux amd64 cross-build passed.
 Final local verification on 2026-10-10: `mise run fmt`, `git diff --check`,
 `mise run lint`, `mise run test`, `mise run test-race`, native build, and Linux
 amd64 cross-build passed. The full live-suite limitation above remains open.
+
+Live suite rerun on macOS on 2026-10-12 using the dedicated token and a fresh
+private run directory: incremental sync, current-head revision pinning, the
+conditional-write probe, and two-way upload/concurrent-revision recovery passed.
+Initial sync failed because Drive reported a changed metadata version while
+identity, parents, content hash/size, ownership, and trashed status still
+matched. The conditional-write probe confirmed Drive accepted a stale version
+condition with HTTP 200; it restored the competing content and cleaned its
+fixture. The failed initial-sync fixture was cleaned with the ownership-checked
+CLI. Token contents and generated Drive IDs were not printed. Initial-sync live
+verification remains unresolved; Linux live runtime remains untested.
 
 The preexisting status correction recording PR #6's merge was committed as
 `9ba3d41` on the design branch.
@@ -316,5 +327,25 @@ and the CodeRabbit status check passed. The user authorized a manual
 but its incremental system does not re-review already reviewed commits; the
 documentation-only commits were skipped as similar to previous changes. No new
 inline comments or review threads were posted, and the existing code findings
-remain addressed. PR #8 remains open and unmerged. The rare Lstat
+remain addressed. PR #8 merged into `main` at `24e2ebb`. The rare Lstat
 ownership-unknown cleanup case is recorded above.
+
+Multiple conflict candidates are being implemented on branch
+`feat/multiple-conflict-candidates` from the approved [spec 000006](spec/000006-multiple-conflict-candidates-design.md)
+and [implementation plan](implementation-plans/000006-multiple-conflict-candidates-plan.md).
+Tasks 1–3 are committed as `3352fd3`, `6f7289e`, and `cfcbf49`; their focused
+sync-engine suites passed. Task 4 is committed as `02e1611`; focused CLI and
+sync-engine conflict/recovery tests passed. Full local verification passed on
+macOS: `mise run fmt`, `mise run lint`, `mise run test`, `mise run test-race`,
+`mise exec -- go build ./...`, and `GOOS=linux GOARCH=amd64 mise exec -- go build ./...`.
+The live Drive suite was not enabled. PR #9 targets `main`. Its first CodeRabbit
+review found a recovery-order bug: a newly discovered earlier revision could be
+journaled after a later candidate and make state unloadable. The regression test
+reproduced the issue, and captures are now inserted in stable order before each
+journal save. The regression test reproduced the issue before the fix and now
+passes. Full local checks passed again after the fix. On head `0f2be53`, Linux
+checks, CodeQL, dependency review, and CodeRabbit passed. CodeRabbit's recent
+review reported no actionable comments; it skipped the three changed files as
+similar to the earlier review. The original recovery-order thread is outdated
+and marked resolved by GitHub after the fix. The live Drive suite remains
+disabled; Linux live acceptance is still for the Linux machine.

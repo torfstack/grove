@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/torfstack/grove/internal/drive"
 	"github.com/torfstack/grove/internal/privatefs"
 )
 
@@ -34,8 +35,26 @@ func (s Service) ListConflicts(_ context.Context, opts Options) ([]Conflict, err
 	return append([]Conflict(nil), state.Conflicts...), nil
 }
 
-func (s Service) ResolveConflict(ctx context.Context, opts Options, id string, side ConflictSide) error {
-	if id == "" || (side != SideLocal && side != SideCloud) {
+func (s Service) ConflictDetails(ctx context.Context, opts Options, id string) (ConflictDetail, error) {
+	conflicts, err := s.ListConflicts(ctx, opts)
+	if err != nil {
+		return ConflictDetail{}, err
+	}
+	for _, conflict := range conflicts {
+		if conflict.ID != id {
+			continue
+		}
+		detail := ConflictDetail{ID: conflict.ID, Path: conflict.Path, Candidates: []ConflictCandidateView{{Ordinal: 0, Side: SideLocal, Size: conflict.LocalSize, Selected: conflict.SelectedSide == SideLocal}}}
+		for i, candidate := range conflictCandidates(conflict) {
+			detail.Candidates = append(detail.Candidates, ConflictCandidateView{Ordinal: i + 1, Side: SideCloud, ModifiedTime: candidate.ModifiedTime, Size: candidate.Size, Selected: conflict.SelectedSide == SideCloud && conflict.SelectedCandidate == i+1})
+		}
+		return detail, nil
+	}
+	return ConflictDetail{}, errors.New("pending conflict not found")
+}
+
+func (s Service) ResolveConflict(ctx context.Context, opts Options, id string, side ConflictSide, candidateOrdinal int) error {
+	if id == "" || (side != SideLocal && side != SideCloud) || candidateOrdinal < 0 || (side == SideLocal && candidateOrdinal != 0) {
 		return errors.New("invalid conflict resolution")
 	}
 	canonical, state, lock, err := s.lockedState(opts)
@@ -51,17 +70,23 @@ func (s Service) ResolveConflict(ctx context.Context, opts Options, id string, s
 		_ = lock.Close()
 		return errors.New("local resolution is not supported for an untracked same-path addition")
 	}
+	candidates := conflictCandidates(*conflict)
+	if side == SideCloud && (candidateOrdinal == 0 && len(candidates) > 1 || candidateOrdinal > len(candidates)) {
+		_ = lock.Close()
+		return errors.New("a valid cloud candidate ordinal is required")
+	}
+	if side == SideCloud && candidateOrdinal == 0 {
+		candidateOrdinal = 1
+	}
 	if err = verifyPrivateStage(canonical.ProfileDir, conflict.LocalStagePath, conflict.LocalStageIdentity, conflict.LocalSHA256, "", conflict.LocalSize); err != nil {
 		_ = lock.Close()
 		return err
 	}
-	cloudSize := conflict.CloudSize
-	if conflict.CloudRevisionID == "" {
-		cloudSize = conflict.RemoteSize
-	}
-	if err = verifyPrivateStage(canonical.ProfileDir, conflict.CloudStagePath, conflict.CloudStageIdentity, conflict.CloudSHA256, conflict.CloudMD5, cloudSize); err != nil {
-		_ = lock.Close()
-		return err
+	for _, candidate := range candidates {
+		if err = verifyPrivateStage(canonical.ProfileDir, candidate.StagePath, candidate.StageIdentity, candidate.SHA256, candidate.MD5, candidate.Size); err != nil {
+			_ = lock.Close()
+			return err
+		}
 	}
 	root, err := os.OpenRoot(canonical.LocalDir)
 	if err != nil {
@@ -83,13 +108,49 @@ func (s Service) ResolveConflict(ctx context.Context, opts Options, id string, s
 		_ = lock.Close()
 		return err
 	}
+	apiClosed := false
+	defer func() {
+		if !apiClosed {
+			_ = closeAPI()
+		}
+	}()
 	snapshot, scanErr := Scan(ctx, api, canonical.RemoteRoot)
-	closeAPIErr := closeAPI()
-	if scanErr != nil || closeAPIErr != nil || !matchesRemoteConflict(snapshot, *conflict) {
+	if scanErr != nil || !matchesRemoteConflict(snapshot, *conflict) {
 		_ = lock.Close()
 		return errors.New("remote conflict candidate changed")
 	}
+	if side == SideCloud && len(candidates) > 1 {
+		mutationAPI, ok := api.(drive.SyncMutationAPI)
+		if !ok {
+			_ = lock.Close()
+			return errors.New("cloud candidate history cannot be verified")
+		}
+		revisions, revisionErr := mutationAPI.ListRevisions(ctx, conflict.RemoteID)
+		if revisionErr != nil {
+			_ = lock.Close()
+			return errors.New("cloud candidate history cannot be verified")
+		}
+		selected := candidates[candidateOrdinal-1]
+		found := false
+		for _, revision := range revisions {
+			if revision.ID == selected.RevisionID && revision.MD5 == selected.MD5 && revision.Size == selected.Size && revision.ModifiedTime == selected.ModifiedTime {
+				found = true
+				break
+			}
+		}
+		if !found {
+			_ = lock.Close()
+			return errors.New("selected cloud candidate changed")
+		}
+	}
+	closeAPIErr := closeAPI()
+	apiClosed = true
+	if closeAPIErr != nil {
+		_ = lock.Close()
+		return errors.New("cannot close remote candidate check")
+	}
 	conflict.SelectedSide = side
+	conflict.SelectedCandidate = candidateOrdinal
 	state.Conflicts = replaceConflict(state.Conflicts, *conflict)
 	if err = saveState(canonical.ProfileDir, state); err != nil {
 		_ = lock.Close()
@@ -137,7 +198,7 @@ func matchesRemoteConflict(snapshot Snapshot, conflict Conflict) bool {
 	for _, entry := range snapshot.Entries {
 		if entry.Path == conflict.Path {
 			remote := entry.Remote
-			return remote.ID == conflict.RemoteID && remote.MD5 == conflict.RemoteMD5 && remote.Size == conflict.RemoteSize && (conflict.RemoteRevisionID == "" || remote.HeadRevisionID == conflict.RemoteRevisionID)
+			return remote.ID == conflict.RemoteID && remote.MIMEType != drive.FolderMIME && !remote.Trashed && remote.OwnedByMe && remote.MD5 == conflict.RemoteMD5 && remote.Size == conflict.RemoteSize && (conflict.RemoteRevisionID == "" || remote.HeadRevisionID == conflict.RemoteRevisionID)
 		}
 	}
 	return false

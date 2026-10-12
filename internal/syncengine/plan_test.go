@@ -342,3 +342,20 @@ func TestBuildTwoWayPlanRetainsAskConflictAfterMetadataChange(t *testing.T) {
 		t.Fatalf("new content revision reused the pending identity: %+v, %v", plan, err)
 	}
 }
+
+func TestBuildTwoWayPlanDoesNotAutoResolveMultiCandidateConflict(t *testing.T) {
+	remote := file("a", "a")
+	remote.Version, remote.HeadRevisionID = "2", "rev-2"
+	remote.MD5, remote.Size = md5Text("cloud"), 5
+	base := completed()
+	pending := Conflict{Path: "a", Baseline: base, LocalSHA256: hashText("local"), LocalSize: 5,
+		RemoteID: remote.ID, RemoteVersion: remote.Version, RemoteRevisionID: remote.HeadRevisionID, RemoteMD5: remote.MD5, RemoteSize: remote.Size,
+		CandidateSetVersion: 1, CloudCandidates: []CloudCandidate{{RevisionID: "rev-1"}, {RevisionID: "rev-2"}}, SelectedSide: ""}
+	pending.ID = conflictID(pending)
+	plan, err := BuildTwoWayPlan(Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}}, []LocalEntry{{Path: "a", Kind: "file", SHA256: hashText("local"), Size: 5}}, State{
+		Completed: []Completed{base}, PopulationComplete: true, ConflictPolicy: ConflictKeepCloud, Conflicts: []Conflict{pending},
+	})
+	if err != nil || len(plan.Operations) != 1 || plan.Operations[0].Kind != OpConflict || plan.Operations[0].ResolutionSide != "" {
+		t.Fatalf("multi-candidate conflict was auto-resolved: plan=%+v err=%v", plan, err)
+	}
+}

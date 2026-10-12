@@ -129,10 +129,16 @@ rather than deleting them to bypass a conflict.
 
 On a populated profile, `sync --two-way` explicitly enables local additions and
 content uploads using read-write authorization. Conflict controls are available
-through `config set conflict-policy ask|keep-local|keep-cloud` and
-`conflicts list` / `conflicts resolve <id> --keep local|cloud`. Each command uses
-the same profile binding flags as sync. Uploads preserve revisions because Drive
-does not enforce conditional writes; permanent pins consume its per-file quota.
+through `config set conflict-policy ask|keep-local|keep-cloud`,
+`conflicts list`, `conflicts show <id>`, and
+`conflicts resolve <id> --keep local|cloud`. Use `conflicts show` to see the local
+candidate at ordinal 0 and cloud candidate ordinals, sizes, and known timestamps.
+Select a particular cloud revision with `conflicts resolve <id> --candidate 2`;
+local selection remains `--keep local`. Multi-candidate conflicts require
+explicit selection even when the profile has an automatic conflict policy. Each
+command uses the same profile binding flags as sync. Uploads preserve revisions
+because Drive does not enforce conditional writes; permanent pins consume its
+per-file quota.
 
 If an upload is interrupted, inspect the recorded transaction offline:
 
@@ -178,9 +184,11 @@ another output path. A crash can leave a private partial temporary export.
 An unchanged remote head or missing allocated create ID cannot prove that an
 uncertain request has settled. Such profiles may remain blocked indefinitely;
 export retrieves verified bytes but does not permit safely resetting the profile.
-Multiple recorded competitors remain preserved and blocked; selection is not
-implemented. Keep journals, stages and registry records rather than deleting
-them to force progress.
+Multiple recorded competitors remain preserved and blocked until every candidate
+is captured. Once the conflict is published, choose a cloud ordinal explicitly.
+Resolved revisions remain pinned because Drive does not allow reclaiming those
+pins after they become non-head. Keep journals, stages and registry records rather
+than deleting them to force progress.
 
 ## Live fixture test
 
