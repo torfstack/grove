@@ -331,5 +331,10 @@ The live Drive suite was not enabled. PR #9 targets `main`. Its first CodeRabbit
 review found a recovery-order bug: a newly discovered earlier revision could be
 journaled after a later candidate and make state unloadable. The regression test
 reproduced the issue, and captures are now inserted in stable order before each
-journal save. Full local checks passed again after the fix. Fresh hosted CI and
-CodeRabbit review on the updated head are pending.
+journal save. The regression test reproduced the issue before the fix and now
+passes. Full local checks passed again after the fix. On head `0f2be53`, Linux
+checks, CodeQL, dependency review, and CodeRabbit passed. CodeRabbit's recent
+review reported no actionable comments; it skipped the three changed files as
+similar to the earlier review. The original recovery-order thread is outdated
+and marked resolved by GitHub after the fix. The live Drive suite remains
+disabled; Linux live acceptance is still for the Linux machine.
