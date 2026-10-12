@@ -58,7 +58,7 @@ func newConflicts(services Services) *cobra.Command {
 			return err
 		}
 		for _, conflict := range conflicts {
-			if _, err = fmt.Fprintf(command.OutOrStdout(), "%s\t%s\t%s\n", conflict.ID, conflict.Path, conflict.RemoteVersion); err != nil {
+			if _, err = fmt.Fprintf(command.OutOrStdout(), "%s\t%s\t%s\t%d\n", conflict.ID, conflict.Path, conflict.RemoteVersion, len(conflict.CloudCandidates)); err != nil {
 				return err
 			}
 		}

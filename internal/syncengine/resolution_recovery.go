@@ -56,7 +56,7 @@ func withoutConflict(conflicts []Conflict, id string) []Conflict {
 }
 
 func (e *executor) cleanupResolvedConflict(ctx context.Context, c Conflict) error {
-	if !conflictUsesStage(e.state.Conflicts, c.LocalStagePath) {
+	if c.LocalStagePath != "" && !conflictUsesStage(e.state.Conflicts, c.LocalStagePath) {
 		if err := removeVerifiedStageIfPresent(ctx, e.profileDir, c.LocalStagePath, c.LocalStageIdentity, c.LocalSHA256, "", c.LocalSize); err != nil {
 			return err
 		}

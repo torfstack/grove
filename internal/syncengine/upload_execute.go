@@ -558,8 +558,13 @@ func (e *executor) resolveConflictOperation(ctx context.Context, operation Opera
 	if operation.ResolutionSide != SideCloud {
 		return errors.New("invalid conflict resolution side")
 	}
-	if err := e.installCloudCandidate(ctx, *saved, operation.Entry.Remote); err != nil {
-		return err
+	selectedConflict := *saved
+	if selectedConflict.SelectedCandidate == 0 && len(conflictCandidates(selectedConflict)) == 1 {
+		selectedConflict.SelectedSide = SideCloud
+		selectedConflict.SelectedCandidate = 1
+	}
+	if err := e.installCloudCandidate(ctx, selectedConflict, operation.Entry.Remote); err != nil {
+		return fmt.Errorf("install selected cloud candidate: %w", err)
 	}
 	var baseline *Completed
 	for i := range e.state.Completed {
@@ -578,7 +583,10 @@ func (e *executor) resolveConflictOperation(ctx context.Context, operation Opera
 	for _, candidate := range local {
 		if candidate.Path == saved.Path && !matchesLocal(*baseline, candidate) {
 			selected := Operation{Kind: OpUpload, Entry: operation.Entry, Local: candidate, Before: []Completed{*baseline}, Conflict: saved, ResolutionSide: SideLocal}
-			return e.upload(ctx, selected)
+			if err := e.upload(ctx, selected); err != nil {
+				return fmt.Errorf("upload selected cloud candidate: %w", err)
+			}
+			return nil
 		}
 	}
 	return nil
@@ -618,7 +626,7 @@ func (e *executor) forgetConflict(ctx context.Context, conflict Conflict) error 
 	for _, candidate := range conflictCandidates(conflict) {
 		if candidate.StagePath != "" && candidate.StageIdentity != nil && !conflictUsesStage(e.state.Conflicts, candidate.StagePath) {
 			if err := removeVerifiedStageIfPresent(ctx, e.profileDir, candidate.StagePath, candidate.StageIdentity, candidate.SHA256, candidate.MD5, candidate.Size); err != nil {
-				return err
+				return fmt.Errorf("remove cloud candidate stage %q: %w", candidate.StagePath, err)
 			}
 		}
 	}

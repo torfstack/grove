@@ -276,6 +276,58 @@ func TestResolveConflictRejectsMissingMultiCandidateOrdinal(t *testing.T) {
 	}
 }
 
+func TestResolveConflictUploadsSelectedMultiCandidate(t *testing.T) {
+	opts, registry := options(t)
+	for _, dir := range []string{opts.ProfileDir, opts.LocalDir} {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(opts.LocalDir, "a"), []byte("local"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	canonical, err := canonicalOptions(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	localPath, localIdentity := createConflictTestStage(t, canonical.ProfileDir, ".grove-upload-local", []byte("local"))
+	oldPath, oldIdentity := createConflictTestStage(t, canonical.ProfileDir, ".grove-cloud-conflict-old", []byte("old cloud"))
+	headPath, headIdentity := createConflictTestStage(t, canonical.ProfileDir, ".grove-cloud-conflict-head", []byte("head cloud"))
+	base := baselineFile("a", "remote-a", []byte("base"))
+	remote := file("remote-a", "a")
+	remote.Version, remote.HeadRevisionID, remote.ModifiedTime = "2", "rev-head", "2026-01-02T00:00:00Z"
+	remote.Size, remote.MD5 = int64(len("head cloud")), md5Text("head cloud")
+	conflict := Conflict{Path: "a", Baseline: base, LocalSHA256: hashText("local"), LocalSize: 5, RemoteID: remote.ID, RemoteVersion: remote.Version, RemoteRevisionID: remote.HeadRevisionID, RemoteMD5: remote.MD5, RemoteSize: remote.Size, LocalStagePath: localPath, LocalStageIdentity: &localIdentity, CandidateSetVersion: 1,
+		CloudCandidates: []CloudCandidate{{RevisionID: "rev-old", ModifiedTime: "2026-01-01T00:00:00Z", MD5: md5Text("old cloud"), Size: 9, SHA256: hashText("old cloud"), StagePath: oldPath, StageIdentity: &oldIdentity}, {RevisionID: "rev-head", ModifiedTime: remote.ModifiedTime, MD5: remote.MD5, Size: remote.Size, SHA256: hashText("head cloud"), StagePath: headPath, StageIdentity: &headIdentity}}}
+	conflict.ID = conflictID(conflict)
+	state := State{Version: 3, Binding: Binding{RemoteRoot: opts.RemoteRoot, LocalDir: canonical.LocalDir, TokenFile: canonical.TokenFile}, Completed: []Completed{base}, Conflicts: []Conflict{conflict}, PopulationComplete: true}
+	if err = saveState(canonical.ProfileDir, state); err != nil {
+		t.Fatal(err)
+	}
+	api := &uploadAPI{file: remote, data: []byte("head cloud"), revisions: []drive.Revision{{ID: "rev-old", MD5: md5Text("old cloud"), ModifiedTime: "2026-01-01T00:00:00Z", Size: 9, HasSize: true}, {ID: "rev-head", MD5: remote.MD5, ModifiedTime: remote.ModifiedTime, Size: remote.Size, HasSize: true}}, pinned: map[string]bool{}}
+	service := Service{RegistryDir: registry, OpenAPI: func(context.Context, string, string) (drive.API, func() error, error) {
+		return api, func() error { return nil }, nil
+	}}
+	if err = service.ResolveConflict(context.Background(), opts, conflict.ID, SideCloud, 1); err != nil {
+		t.Fatal(err)
+	}
+	if got, readErr := os.ReadFile(filepath.Join(opts.LocalDir, "a")); readErr != nil || string(got) != "old cloud" {
+		t.Fatalf("selected bytes not installed: %q err=%v", got, readErr)
+	}
+	if string(api.data) != "old cloud" || api.updates != 1 {
+		t.Fatalf("selected bytes not uploaded as head: %q updates=%d", api.data, api.updates)
+	}
+	loaded, err := loadState(canonical.ProfileDir, state.Binding)
+	if err != nil || len(loaded.Conflicts) != 0 {
+		t.Fatalf("conflict not cleared after commit: %+v err=%v", loaded.Conflicts, err)
+	}
+	for _, stage := range []string{localPath, oldPath, headPath} {
+		if _, err := os.Lstat(filepath.Join(canonical.ProfileDir, stage)); !os.IsNotExist(err) {
+			t.Fatalf("resolved stage %q was retained: %v", stage, err)
+		}
+	}
+}
+
 func createConflictTestStage(t *testing.T, profile, name string, contents []byte) (string, FileIdentity) {
 	t.Helper()
 	file, err := os.OpenFile(filepath.Join(profile, name), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)

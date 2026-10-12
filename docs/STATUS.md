@@ -323,7 +323,9 @@ Multiple conflict candidates are being implemented on branch
 `feat/multiple-conflict-candidates` from the approved [spec 000006](spec/000006-multiple-conflict-candidates-design.md)
 and [implementation plan](implementation-plans/000006-multiple-conflict-candidates-plan.md).
 Tasks 1–3 are committed as `3352fd3`, `6f7289e`, and `cfcbf49`; their focused
-sync-engine suites passed. Task 4 is in progress. Current focused CLI and
-sync-engine conflict/recovery tests pass. Full project checks, Linux builds,
-hosted CI, and CodeRabbit review remain pending. The requested pull request base
-is `main`.
+sync-engine suites passed. Task 4 is committed as `02e1611`; focused CLI and
+sync-engine conflict/recovery tests passed. Full local verification passed on
+macOS: `mise run fmt`, `mise run lint`, `mise run test`, `mise run test-race`,
+`mise exec -- go build ./...`, and `GOOS=linux GOARCH=amd64 mise exec -- go build ./...`.
+The live Drive suite was not enabled. Hosted CI and CodeRabbit review remain
+pending. The requested pull request base is `main`.
