@@ -123,31 +123,37 @@ type Operation struct {
 	Before          []Completed
 }
 type Journal struct {
-	TempIdentity              *FileIdentity `json:"temp_identity,omitempty"`
-	Operation                 Operation     `json:"operation"`
-	Phase                     string        `json:"phase"`
-	TempPath                  string        `json:"temp_path,omitempty"`
-	BackupPath                string        `json:"backup_path,omitempty"`
-	VerifiedSHA256            string        `json:"verified_sha256,omitempty"`
-	StagePath                 string        `json:"stage_path,omitempty"`
-	StageIdentity             *FileIdentity `json:"stage_identity,omitempty"`
-	StageSHA256               string        `json:"stage_sha256,omitempty"`
-	StageMD5                  string        `json:"stage_md5,omitempty"`
-	StageSize                 int64         `json:"stage_size,omitempty"`
-	AllocatedID               string        `json:"allocated_id,omitempty"`
-	OperationMarker           string        `json:"operation_marker,omitempty"`
-	PreflightRevisionID       string        `json:"preflight_revision_id,omitempty"`
-	PreflightPinWasKept       *bool         `json:"preflight_pin_was_kept,omitempty"`
-	PinnedRevisionID          string        `json:"pinned_revision_id,omitempty"`
-	CompetingRevisionIDs      []string      `json:"competing_revision_ids,omitempty"`
-	RevisionHistoryUnverified bool          `json:"revision_history_unverified,omitempty"`
-	CloudStagePath            string        `json:"cloud_stage_path,omitempty"`
-	CloudStageIdentity        *FileIdentity `json:"cloud_stage_identity,omitempty"`
-	CloudSHA256               string        `json:"cloud_sha256,omitempty"`
-	CloudRevisionID           string        `json:"cloud_revision_id,omitempty"`
-	CloudMD5                  string        `json:"cloud_md5,omitempty"`
-	CloudSize                 int64         `json:"cloud_size,omitempty"`
-	After                     []Completed   `json:"after"`
+	CandidateCaptures         []CandidateCapture `json:"candidate_captures,omitempty"`
+	TempIdentity              *FileIdentity      `json:"temp_identity,omitempty"`
+	Operation                 Operation          `json:"operation"`
+	Phase                     string             `json:"phase"`
+	TempPath                  string             `json:"temp_path,omitempty"`
+	BackupPath                string             `json:"backup_path,omitempty"`
+	VerifiedSHA256            string             `json:"verified_sha256,omitempty"`
+	StagePath                 string             `json:"stage_path,omitempty"`
+	StageIdentity             *FileIdentity      `json:"stage_identity,omitempty"`
+	StageSHA256               string             `json:"stage_sha256,omitempty"`
+	StageMD5                  string             `json:"stage_md5,omitempty"`
+	StageSize                 int64              `json:"stage_size,omitempty"`
+	AllocatedID               string             `json:"allocated_id,omitempty"`
+	OperationMarker           string             `json:"operation_marker,omitempty"`
+	PreflightRevisionID       string             `json:"preflight_revision_id,omitempty"`
+	PreflightPinWasKept       *bool              `json:"preflight_pin_was_kept,omitempty"`
+	PinnedRevisionID          string             `json:"pinned_revision_id,omitempty"`
+	CompetingRevisionIDs      []string           `json:"competing_revision_ids,omitempty"`
+	RevisionHistoryUnverified bool               `json:"revision_history_unverified,omitempty"`
+	CloudStagePath            string             `json:"cloud_stage_path,omitempty"`
+	CloudStageIdentity        *FileIdentity      `json:"cloud_stage_identity,omitempty"`
+	CloudSHA256               string             `json:"cloud_sha256,omitempty"`
+	CloudRevisionID           string             `json:"cloud_revision_id,omitempty"`
+	CloudMD5                  string             `json:"cloud_md5,omitempty"`
+	CloudSize                 int64              `json:"cloud_size,omitempty"`
+	After                     []Completed        `json:"after"`
+}
+
+type CandidateCapture struct {
+	Candidate CloudCandidate `json:"candidate"`
+	Phase     string         `json:"phase"`
 }
 type Plan struct{ Operations []Operation }
 type Options struct {
