@@ -38,26 +38,38 @@ const (
 	SideCloud ConflictSide = "cloud"
 )
 
+type CloudCandidate struct {
+	RevisionID    string        `json:"revision_id"`
+	ModifiedTime  string        `json:"modified_time,omitempty"`
+	MD5           string        `json:"md5"`
+	Size          int64         `json:"size"`
+	SHA256        string        `json:"sha256"`
+	StagePath     string        `json:"stage_path"`
+	StageIdentity *FileIdentity `json:"stage_identity"`
+}
+
 type Conflict struct {
-	ID                 string        `json:"id"`
-	Path               string        `json:"path"`
-	Baseline           Completed     `json:"baseline"`
-	LocalSHA256        string        `json:"local_sha256"`
-	LocalSize          int64         `json:"local_size"`
-	RemoteID           string        `json:"remote_id"`
-	RemoteVersion      string        `json:"remote_version"`
-	RemoteMD5          string        `json:"remote_md5"`
-	RemoteSize         int64         `json:"remote_size"`
-	RemoteRevisionID   string        `json:"remote_revision_id,omitempty"`
-	CloudRevisionID    string        `json:"cloud_revision_id,omitempty"`
-	CloudMD5           string        `json:"cloud_md5,omitempty"`
-	CloudSize          int64         `json:"cloud_size,omitempty"`
-	LocalStagePath     string        `json:"local_stage_path,omitempty"`
-	LocalStageIdentity *FileIdentity `json:"local_stage_identity,omitempty"`
-	CloudStagePath     string        `json:"cloud_stage_path,omitempty"`
-	CloudStageIdentity *FileIdentity `json:"cloud_stage_identity,omitempty"`
-	CloudSHA256        string        `json:"cloud_sha256,omitempty"`
-	SelectedSide       ConflictSide  `json:"selected_side,omitempty"`
+	CandidateSetVersion int              `json:"candidate_set_version,omitempty"`
+	CloudCandidates     []CloudCandidate `json:"cloud_candidates,omitempty"`
+	ID                  string           `json:"id"`
+	Path                string           `json:"path"`
+	Baseline            Completed        `json:"baseline"`
+	LocalSHA256         string           `json:"local_sha256"`
+	LocalSize           int64            `json:"local_size"`
+	RemoteID            string           `json:"remote_id"`
+	RemoteVersion       string           `json:"remote_version"`
+	RemoteMD5           string           `json:"remote_md5"`
+	RemoteSize          int64            `json:"remote_size"`
+	RemoteRevisionID    string           `json:"remote_revision_id,omitempty"`
+	CloudRevisionID     string           `json:"cloud_revision_id,omitempty"`
+	CloudMD5            string           `json:"cloud_md5,omitempty"`
+	CloudSize           int64            `json:"cloud_size,omitempty"`
+	LocalStagePath      string           `json:"local_stage_path,omitempty"`
+	LocalStageIdentity  *FileIdentity    `json:"local_stage_identity,omitempty"`
+	CloudStagePath      string           `json:"cloud_stage_path,omitempty"`
+	CloudStageIdentity  *FileIdentity    `json:"cloud_stage_identity,omitempty"`
+	CloudSHA256         string           `json:"cloud_sha256,omitempty"`
+	SelectedSide        ConflictSide     `json:"selected_side,omitempty"`
 }
 type FileIdentity struct {
 	Device uint64 `json:"device"`
