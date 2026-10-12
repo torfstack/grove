@@ -261,7 +261,7 @@ func (e *executor) upload(ctx context.Context, op Operation) error {
 			}
 			for _, revisionID := range competitors {
 				if err = e.mutation.SetRevisionKeepForever(ctx, result.ID, revisionID, true); err != nil {
-					return errors.New("cannot preserve concurrent remote revision; upload recovery is pending")
+					return &RecoveryError{Message: "cannot preserve concurrent remote revision; upload recovery is pending", Cause: err}
 				}
 			}
 			if !historyVerified || len(competitors) != 1 {
@@ -281,17 +281,7 @@ func (e *executor) upload(ctx context.Context, op Operation) error {
 	if err := e.commitJournal(j); err != nil {
 		return err
 	}
-	if op.Local.Kind == "file" {
-		if err := removeStage(e.profileDir, j.StagePath, j.StageIdentity); err != nil {
-			return err
-		}
-	}
-	if op.Conflict != nil {
-		if err := e.forgetConflict(ctx, *op.Conflict); err != nil {
-			return err
-		}
-	}
-	return e.clearJournal()
+	return e.cleanupRecoveredUpload(ctx, *e.state.Transaction)
 }
 
 func (e *executor) preflightRevisionWasKept(ctx context.Context, fileID, revisionID string) (bool, error) {
@@ -314,12 +304,12 @@ func competingRevisionIDs(revisions []drive.Revision, boundary, preflight, head 
 	}
 	var ids []string
 	for _, revision := range revisions {
-		if revision.ID == preflight || revision.ID == head {
-			continue
-		}
 		modified, parseErr := time.Parse(time.RFC3339Nano, revision.ModifiedTime)
 		if parseErr != nil {
 			return ids, false
+		}
+		if revision.ID == preflight || revision.ID == head {
+			continue
 		}
 		if !modified.Before(boundaryTime) {
 			ids = append(ids, revision.ID)
@@ -333,7 +323,7 @@ func (e *executor) captureCompetingRevision(ctx context.Context, j Journal, revi
 		return errors.New("competing remote revision metadata is incomplete; upload recovery is pending")
 	}
 	if err := e.mutation.SetRevisionKeepForever(ctx, j.Operation.Entry.Remote.ID, revision.ID, true); err != nil {
-		return errors.New("cannot preserve concurrent remote revision; upload recovery is pending")
+		return &RecoveryError{Message: "cannot preserve concurrent remote revision; upload recovery is pending", Cause: err}
 	}
 	path := ".grove-cloud-conflict-" + nonce()
 	if path == ".grove-cloud-conflict-" {
@@ -378,7 +368,11 @@ func (e *executor) captureCompetingRevision(ctx context.Context, j Journal, revi
 	rootCloseErr := profileRoot.Close()
 	cloudSHA, cloudMD5 := hex.EncodeToString(sha.Sum(nil)), hex.EncodeToString(md5sum.Sum(nil))
 	if err != nil || syncErr != nil || closeErr != nil || rootSyncErr != nil || rootCloseErr != nil || count.count != revision.Size || cloudMD5 != revision.MD5 {
-		return errors.New("cannot verify competing cloud revision; upload recovery is pending")
+		cause := errors.Join(err, syncErr, closeErr, rootSyncErr, rootCloseErr)
+		if cause != nil {
+			return &RecoveryError{Message: "cannot verify competing cloud revision; upload recovery is pending", Cause: cause}
+		}
+		return blockedRecovery("capture-pending")
 	}
 	j.CloudSHA256, j.CloudMD5, j.CloudSize = cloudSHA, cloudMD5, count.count
 	j.Phase = "conflict-captured"
@@ -395,6 +389,17 @@ func (e *executor) finishCapturedConflict(ctx context.Context, j Journal) error 
 	if err := verifyPrivateStage(e.profileDir, j.CloudStagePath, j.CloudStageIdentity, j.CloudSHA256, j.CloudMD5, j.CloudSize); err != nil {
 		return err
 	}
+	current, err := e.api.Get(ctx, j.Operation.Entry.Remote.ID)
+	if err != nil {
+		return err
+	}
+	if !recoveredStructure(j, current) || current.HeadRevisionID != j.After[0].HeadRevisionID || current.ModifiedTime != j.After[0].ModifiedTime || current.Size != j.After[0].Size || current.MD5 != j.After[0].MD5 {
+		return blockedRecovery("remote-changed")
+	}
+	if err = ctx.Err(); err != nil {
+		return err
+	}
+
 	conflict := Conflict{
 		Path: j.Operation.Entry.Path, Baseline: j.After[0],
 		LocalSHA256: j.StageSHA256, LocalSize: j.StageSize,
@@ -406,6 +411,9 @@ func (e *executor) finishCapturedConflict(ctx context.Context, j Journal) error 
 	}
 	conflict.ID = conflictID(conflict)
 	next := *e.state
+	if j.Operation.Conflict != nil {
+		next.Conflicts = withoutConflict(next.Conflicts, j.Operation.Conflict.ID)
+	}
 	if findConflict(next.Conflicts, conflict.ID) == nil {
 		next.Conflicts = append(next.Conflicts, conflict)
 	}

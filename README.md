@@ -5,8 +5,9 @@ platform; Windows and macOS are planned.
 
 The planned `grove` CLI performs individual operations such as authentication,
 sync, and status. A later `groved` daemon schedules the same shared sync engine.
-Authentication, disposable fixture tooling, and incremental download sync are implemented.
-Status reporting, uploads, deletion propagation, and the daemon are planned.
+Authentication, disposable fixture tooling, incremental downloads, explicit
+two-way uploads, conflict controls, and upload recovery commands are implemented.
+General status reporting, deletion propagation, and the daemon are planned.
 
 Development tools are pinned in [mise.toml](mise.toml). Install them with
 `mise install`.
@@ -97,8 +98,8 @@ files, shortcuts, duplicate sibling names, third-party-owned content, shared
 drives, symlinks, and incompatible names. After initial population, the same command downloads remote additions and updates
 and follows safe file/folder renames and moves. Local edits, missing tracked files,
 unexpected local entries, remote removals, type changes, occupied move targets,
-and cyclic rearrangements stop preflight and preserve content. There are no
-uploads, deletion propagation, or automatic conflict resolution. Interrupted
+and cyclic rearrangements stop preflight and preserve content. The default path
+does not upload or propagate deletions. Interrupted
 transfers restart from zero; completed progress is retained.
 
 The private `<profile-dir>/state.json` stores remote identities/versions, local
@@ -123,6 +124,63 @@ registered in `$XDG_STATE_HOME/grove/destinations` (default
 `~/.local/state/grove/destinations`). Registrations retain profile ownership;
 there is no reset command yet. Keep the profile and registry records together
 rather than deleting them to bypass a conflict.
+
+## Upload recovery
+
+On a populated profile, `sync --two-way` explicitly enables local additions and
+content uploads using read-write authorization. Conflict controls are available
+through `config set conflict-policy ask|keep-local|keep-cloud` and
+`conflicts list` / `conflicts resolve <id> --keep local|cloud`. Each command uses
+the same profile binding flags as sync. Uploads preserve revisions because Drive
+does not enforce conditional writes; permanent pins consume its per-file quota.
+
+If an upload is interrupted, inspect the recorded transaction offline:
+
+```sh
+./bin/grove recovery inspect \
+  --profile-dir "$GROVE_PROFILE_DIR" --remote-root "$GROVE_REMOTE_ROOT" \
+  --local-dir "$GROVE_LOCAL_DIR" --token-file "$GROVE_TOKEN_FILE"
+```
+
+The report shows the recorded operation, phase, verified stage availability,
+competitor count, and next actions. It does not contact Drive or establish the
+current remote outcome. Retry just that transaction with read-write access:
+
+```sh
+./bin/grove recovery retry \
+  --profile-dir "$GROVE_PROFILE_DIR" --remote-root "$GROVE_REMOTE_ROOT" \
+  --local-dir "$GROVE_LOCAL_DIR" --token-file "$GROVE_TOKEN_FILE"
+```
+
+Retry can finish recording proven success, preserve a competing revision as a
+pending conflict, or finish owned cleanup. It does not start other sync work,
+send file content, create objects, or apply the profile's conflict policy. A
+`conflict-pending` outcome requires explicit conflict resolution afterward.
+Download/move/replace recovery remains with the normal `sync` command.
+
+To retrieve an available verified snapshot without changing the transaction:
+
+```sh
+./bin/grove recovery export --candidate local --output "$GROVE_EXPORT_FILE" \
+  --profile-dir "$GROVE_PROFILE_DIR" --remote-root "$GROVE_REMOTE_ROOT" \
+  --local-dir "$GROVE_LOCAL_DIR" --token-file "$GROVE_TOKEN_FILE"
+```
+
+Set these placeholders locally to the existing binding and a new output file.
+The output parent must already exist, outside profiles, the destination registry,
+and registered sync destinations. Export is an offline copy with mode 0600;
+existing output files are never replaced. `--candidate cloud` requires a fully
+verified cloud capture. Partial captures and folder creates have no exportable
+bytes. Export of ordinary conflict records is outside this command's scope.
+After a publication error, an output file may exist; inspect it before choosing
+another output path. A crash can leave a private partial temporary export.
+
+An unchanged remote head or missing allocated create ID cannot prove that an
+uncertain request has settled. Such profiles may remain blocked indefinitely;
+export retrieves verified bytes but does not permit safely resetting the profile.
+Multiple recorded competitors remain preserved and blocked; selection is not
+implemented. Keep journals, stages and registry records rather than deleting
+them to force progress.
 
 ## Live fixture test
 

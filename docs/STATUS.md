@@ -113,8 +113,9 @@ manual thread-resolution actions were posted.
 Known recovery limitation: a crash after exclusive artifact creation but before
 its ownership record is durable preserves the artifact and stops recovery for
 manual inspection. CodeRabbit retained this nonblocking reliability concern,
-consistent with the accepted ownership-safety boundary. An operator reconciliation
-command remains a future proposal.
+consistent with the accepted ownership-safety boundary. Recovery controls in
+spec 000005 handle recorded upload transactions; reconciliation of unrecorded
+artifacts remains deferred.
 
 ## Approved local upload sync
 
@@ -157,7 +158,7 @@ amd64 cross-build passed. The full live-suite limitation above remains open.
 The preexisting status correction recording PR #6's merge was committed as
 `9ba3d41` on the design branch.
 
-[PR #7](https://github.com/torfstack/grove/pull/7) is open against main. Linux CI,
+[PR #7](https://github.com/torfstack/grove/pull/7) is merged into main at `f58620d`. Linux CI,
 dependency review, and CodeQL passed on `2bd237d`. CodeRabbit reviewed that commit
 and posted seven findings. Six are addressed in the current follow-up: correct
 HTTP status reporting, upload-specific version-only recovery, pending unsupported
@@ -255,3 +256,65 @@ regression alone does not establish a content conflict. The uncertain-write
 abandonment suggestion remains declined for the data-safety reasons above.
 These two review threads remain open; no replies or manual resolutions were
 posted. The same-path policy thread is now automatically resolved by CodeRabbit.
+
+## Operator reconciliation
+
+The user selected operator recovery after merging PR #7 and agreed a focused
+`recovery inspect`, `recovery retry`, and `recovery export` scope. Approved
+[spec 000005](spec/000005-operator-reconciliation-design.md) was approved by the
+user on 2026-10-11. Retry processes only the pending transaction; export copies
+verified staged bytes without abandoning uncertain intent. Force-abandon and
+multiple-competitor selection remain deferred. Inconclusive requests can still
+block indefinitely; this slice does not promise safe reset.
+
+The user selected native execution of the
+[paired plan](implementation-plans/000005-operator-reconciliation-plan.md).
+Implementation is on `feat/operator-reconciliation`: offline structured diagnosis,
+recovery-only retry, verified private stage exports, and CLI controls with
+sanitized output. Retry verifies remote structure and independently downloaded
+bytes before recording outcomes, reassesses anchored history without discarding
+competitor obligations, and retains a durable retired journal through pre-send
+cleanup. Export uses rooted copies and no-replace publication under profile,
+directory and registry exclusion. It leaves the journal and source stage intact.
+
+Regression tests exposed and fixed create-journal validation rejecting an empty
+previous baseline and a verified result, plus safe error wrapping discarding
+joined resource-close failures. Coverage includes unknown outcomes, partial and
+changed stages, save interruptions, policy-independent conflict capture,
+publication failures, source/parent replacement, output collisions, and concurrent
+registration/profile exclusion.
+
+Local verification on 2026-10-12 passed `mise run fmt`, diff checks,
+`mise run lint` (0 issues), full offline tests, full race tests, native macOS build,
+and Linux amd64 cross-build. The initial sandboxed baseline failed because cache
+writes and local HTTP listeners were denied; the permitted retry passed.
+No live tests ran. Linux live runtime acceptance remains untested. Independent
+whole-branch review of `e860420` found five important issues; all five were fixed
+in `6d89055` and covered by regression tests. The focused recovery tests, full
+offline suite, full race suite, lint, native build and Linux cross-build passed
+after those fixes. No additional independent review was run. The branch is
+pushed to `origin` and PR #8 is open against `main`. CI passed on `c5dd8c6`.
+CodeRabbit's completed review identified a possible export temporary-path
+substitution immediately before publication. A regression test reproduced
+publication of substituted bytes. Export now stages in a private directory and
+links from its open directory handle. A follow-up review found that failures
+opening the staging root could leave its empty directory; identity-checked
+cleanup is now registered before opening it, and unsupported platforms stop
+before staging. All required local checks passed after these fixes. If the
+directory identity itself cannot be read, cleanup avoids removing an unverified
+path; this rare error can leave an empty private directory.
+CodeRabbit then found that a directory-handle close failure after successful
+publication could be reported as if no output existed. Publication success is
+now tracked separately from close errors, with a regression that verifies the
+exported bytes and published flag. Formatting, lint, full offline tests, race
+tests, native build and Linux cross-build passed. Fresh CI, CodeQL, dependency
+review, and CodeRabbit all passed on `5ff663b`. CodeRabbit's review covered
+`98009ef` through `5ff663b`, reported no actionable comments, and resolved the
+temporary directory thread. On head `d118fdc`, CI, CodeQL, dependency review,
+and the CodeRabbit status check passed. The user authorized a manual
+`@coderabbitai review` request. CodeRabbit reported that the review finished,
+but its incremental system does not re-review already reviewed commits; the
+documentation-only commits were skipped as similar to previous changes. No new
+inline comments or review threads were posted, and the existing code findings
+remain addressed. PR #8 remains open and unmerged. The rare Lstat
+ownership-unknown cleanup case is recorded above.

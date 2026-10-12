@@ -136,3 +136,28 @@ releases only a pin Grove introduced; missing ownership metadata preserves it.
 Drive does not permit unpinning non-head keepForever revisions, so successful
 uploads consume the per-file 200-revision pin quota. Multiple possible competitors
 remain journaled and pinned for manual recovery.
+
+## Operator reconciliation
+
+The recovery service uses the same validated upload journal and executor as
+normal sync, without invoking the planner or whole-tree scan. Offline inspection
+returns structured reasons and stage availability; retry holds profile,
+destination and token exclusion and processes only the original transaction.
+Recovered outcomes validate structure and independently downloaded hashes around
+stable revision checks. Fresh anchored history can resolve a transient listing
+failure, but recorded competitor obligations are retained. Pre-send retirement
+persists a `retired` journal phase until identity/hash-checked cleanup finishes.
+Selected conflict uploads retain their original conflict evidence in the
+transaction. Baseline/candidate commit atomically retires the original conflict
+record; its stages remain journal-owned cleanup obligations until removed safely.
+Conflict capture rechecks the recorded head before committing, and cleanup
+restarts report any surviving conflict belonging to the original transaction.
+
+Offline export opens a recorded stage through the profile root, streams verified
+bytes into a private temporary file, and publishes by no-replace hard link into
+an existing output parent. Directory leases and the destination registry guard
+coordinate exclusion during publication. Export checks source and parent
+identities, retains the original stage and state, and never authenticates.
+CLI formatting uses only sanitized reports and safe error categories. See
+[spec 000005](spec/000005-operator-reconciliation-design.md) for the contract and
+indefinite-blocking limits.

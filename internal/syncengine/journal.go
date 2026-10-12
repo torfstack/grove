@@ -35,6 +35,9 @@ func (e *executor) commitJournal(j Journal) error {
 	if err := applyBaseline(&next, j.Operation.Before, j.After); err != nil {
 		return err
 	}
+	if j.Operation.Conflict != nil {
+		next.Conflicts = withoutConflict(next.Conflicts, j.Operation.Conflict.ID)
+	}
 	j.Phase = "committed"
 	next.Transaction = &j
 	return e.persist(next)
