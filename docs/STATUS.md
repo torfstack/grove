@@ -302,13 +302,13 @@ opening the staging root could leave its empty directory; identity-checked
 cleanup is now registered before opening it, and unsupported platforms stop
 before staging. All required local checks passed after these fixes. If the
 directory identity itself cannot be read, cleanup avoids removing an unverified
-path; this rare error can leave an empty private directory. Fresh hosted checks
+path; this rare error can leave an empty private directory.
 CodeRabbit then found that a directory-handle close failure after successful
 publication could be reported as if no output existed. Publication success is
 now tracked separately from close errors, with a regression that verifies the
 exported bytes and published flag. Formatting, lint, full offline tests, race
 tests, native build and Linux cross-build passed. Fresh CI, CodeQL, dependency
-review, and CodeRabbit all passed on `98009ef`. CodeRabbit's latest review covered
-`1e22d67` through `98009ef` and reported no actionable comments; the temporary
+review, and CodeRabbit all passed on `5ff663b`. CodeRabbit's latest review covered
+`98009ef` through `5ff663b` and reported no actionable comments; the temporary
 directory thread is resolved. The rare Lstat ownership-unknown cleanup case is
-recorded above. New hosted review is pending after this status update commit.
+recorded above.
