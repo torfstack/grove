@@ -386,12 +386,18 @@ unrelated tombstones, permits their explicit resolution during partial restore,
 and resumes through download-only sync. PR #10 is open. Its first CodeRabbit
 review found that unrelated local edits could strand cloud restoration and that
 conflict filtering could mutate a planned sibling through a shared slice. Both
-are being fixed with regression coverage before the next review. The suggestion
+findings are fixed with regression coverage in commit `f377e79`. The suggestion
 to retire an uncertain Trash journal when a read shows the item active is
 declined: an in-flight request can still settle after that read, so clearing the
-journal would permit an unsafe blind retry. The original mutation error will be
-available for diagnostics while the returned message remains sanitized. Linux
-live runtime acceptance remains untested; cross-build is compilation only.
+journal would permit an unsafe blind retry. The original mutation error is
+available for diagnostics while the returned message remains sanitized. On
+`f377e79`, local formatting, lint, full tests, race tests, native build, Linux
+amd64 cross-build, Linux checks, CodeQL, and dependency review passed. CodeRabbit
+was still marked “Review in progress” at 09:14 UTC, about five minutes after it
+started; no completed review for that head was available. Next, inspect the
+CodeRabbit summary, inline comments, and threads for the latest PR head, assess
+any new findings, and address valid ones. Linux live runtime acceptance remains
+untested; cross-build is compilation only.
 Drive Trash is reversible, but its API has no conditional write; the spec records
 the residual race between final preflight and the request. Local file watching
 remains planned with daemon orchestration; one-shot sync rescans local state on
