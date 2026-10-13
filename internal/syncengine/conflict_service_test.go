@@ -289,6 +289,57 @@ func TestInterruptedCloudRestoreRetainsUnrelatedDeletionConflict(t *testing.T) {
 	}
 }
 
+func TestCloudDeletionResolutionRejectsUnrelatedLocalChangesBeforeSaving(t *testing.T) {
+	for _, change := range []string{"edit", "add", "remove"} {
+		t.Run(change, func(t *testing.T) {
+			service, opts, remote := httpService(t)
+			if _, err := service.Run(context.Background(), opts); err != nil {
+				t.Fatal(err)
+			}
+			remote.put("b", "b", "root", "changed remote content")
+			if err := os.Remove(filepath.Join(opts.LocalDir, "b")); err != nil {
+				t.Fatal(err)
+			}
+			opts.TwoWay = true
+			if _, err := service.Run(context.Background(), opts); err != nil {
+				t.Fatal(err)
+			}
+			conflicts, err := service.ListConflicts(context.Background(), opts)
+			if err != nil || len(conflicts) != 1 || !conflicts[0].Deletion {
+				t.Fatalf("expected deletion tombstone: %+v %v", conflicts, err)
+			}
+			switch change {
+			case "edit":
+				if err = os.WriteFile(filepath.Join(opts.LocalDir, "old", "a"), []byte("unrelated edit"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			case "add":
+				if err = os.WriteFile(filepath.Join(opts.LocalDir, "untracked"), []byte("new"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			case "remove":
+				if err = os.Remove(filepath.Join(opts.LocalDir, "old", "a")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err = service.ResolveConflict(context.Background(), opts, conflicts[0].ID, SideCloud, 0); err == nil {
+				t.Fatal("cloud restoration accepted unrelated local changes")
+			}
+			canonical, err := canonicalOptions(opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			state, err := loadState(canonical.ProfileDir, Binding{RemoteRoot: canonical.RemoteRoot, LocalDir: canonical.LocalDir, TokenFile: canonical.TokenFile})
+			if err != nil || !state.PopulationComplete || len(state.Conflicts) != 1 || state.Conflicts[0].ID != conflicts[0].ID || state.Conflicts[0].SelectedSide != "" {
+				t.Fatalf("rejected resolution changed durable profile: %+v %v", state, err)
+			}
+			if remote.mutations != 0 {
+				t.Fatal("rejected resolution mutated Drive")
+			}
+		})
+	}
+}
+
 func TestCloudDeletionResolutionRestoresThroughRemoteAncestorMove(t *testing.T) {
 	service, opts, remote := httpService(t)
 	if _, err := service.Run(context.Background(), opts); err != nil {

@@ -119,8 +119,9 @@ finishes; other pending conflicts can still be inspected and explicitly resolved
 The private `<profile-dir>/state.json` stores remote identities/versions, local
 SHA-256 hashes, and recovery intent. Every run rehashes local files; timestamps
 are not the baseline. Existing version-1 profiles recover pending initial work
-before atomically upgrading to version 2. Older binaries cannot read the upgraded
-profile; keep its state rather than deleting it to downgrade.
+before atomically upgrading to version 2. Explicit two-way sync records the
+additional revision and conflict metadata in version 3. Older binaries cannot
+read upgraded profiles; keep their state rather than deleting it to downgrade.
 
 Replacement retains old bytes at a journal-owned backup path until the new
 baseline is durable. A target can briefly be absent between backup and publication;

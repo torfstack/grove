@@ -383,10 +383,15 @@ coexistence, post-Trash fingerprint verification, and partial cloud restoration
 issues. Regression tests reproduced the blockers and all findings are addressed.
 Cloud restoration keeps profiles incomplete until downloads finish, preserves
 unrelated tombstones, permits their explicit resolution during partial restore,
-and resumes through download-only sync. The reviewer reports no remaining
-Critical or Important findings in the reviewed fixes. Hosted CI and CodeRabbit
-review remain pending until the PR is opened. Linux live runtime acceptance
-remains untested; cross-build is compilation only.
+and resumes through download-only sync. PR #10 is open. Its first CodeRabbit
+review found that unrelated local edits could strand cloud restoration and that
+conflict filtering could mutate a planned sibling through a shared slice. Both
+are being fixed with regression coverage before the next review. The suggestion
+to retire an uncertain Trash journal when a read shows the item active is
+declined: an in-flight request can still settle after that read, so clearing the
+journal would permit an unsafe blind retry. The original mutation error will be
+available for diagnostics while the returned message remains sanitized. Linux
+live runtime acceptance remains untested; cross-build is compilation only.
 Drive Trash is reversible, but its API has no conditional write; the spec records
 the residual race between final preflight and the request. Local file watching
 remains planned with daemon orchestration; one-shot sync rescans local state on

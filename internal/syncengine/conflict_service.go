@@ -183,12 +183,33 @@ func (s Service) ResolveConflict(ctx context.Context, opts Options, id string, s
 	conflict.SelectedCandidate = candidateOrdinal
 	state.Conflicts = replaceConflict(state.Conflicts, *conflict)
 	if conflict.Deletion && side == SideCloud {
-		if err = applyBaseline(&state, conflict.DeletionSubtree, nil); err != nil {
+		candidate := state
+		if err = applyBaseline(&candidate, conflict.DeletionSubtree, nil); err != nil {
 			_ = lock.Close()
 			return err
 		}
-		state.Conflicts = withoutConflict(state.Conflicts, conflict.ID)
-		state.PopulationComplete = false
+		candidate.Conflicts = withoutConflict(candidate.Conflicts, conflict.ID)
+		candidate.PopulationComplete = false
+		ignored := map[string]bool{}
+		if candidate.Pending != nil && candidate.Pending.TempPath != "" {
+			ignored[filepath.Clean(candidate.Pending.TempPath)] = true
+		}
+		root, err = os.OpenRoot(canonical.LocalDir)
+		if err != nil {
+			_ = lock.Close()
+			return errors.New("cannot open sync destination")
+		}
+		local, scanErr = scanLocal(ctx, root, ignored)
+		closeRootErr = root.Close()
+		if scanErr != nil || closeRootErr != nil {
+			_ = lock.Close()
+			return errors.New("cannot inspect local restoration destination")
+		}
+		if _, err = BuildRestorationPlan(snapshot, local, candidate); err != nil {
+			_ = lock.Close()
+			return errors.New("unrelated local changes prevent cloud restoration")
+		}
+		state = candidate
 	}
 	if err = saveState(canonical.ProfileDir, state); err != nil {
 		_ = lock.Close()

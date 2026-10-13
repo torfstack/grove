@@ -575,7 +575,8 @@ func sameDeletionRemoteSubtree(expected, current []Completed) bool {
 func deletionConflictForPath(conflicts []Conflict, path string) *Conflict {
 	for i := range conflicts {
 		if conflicts[i].Deletion && conflicts[i].Path == path {
-			return &conflicts[i]
+			conflict := conflicts[i]
+			return &conflict
 		}
 	}
 	return nil

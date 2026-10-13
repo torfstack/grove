@@ -10,6 +10,11 @@ import (
 	"github.com/torfstack/grove/internal/drive"
 )
 
+type uncertainTrashError struct{ cause error }
+
+func (e uncertainTrashError) Error() string { return "remote trash outcome is uncertain" }
+func (e uncertainTrashError) Unwrap() error { return e.cause }
+
 func (e *executor) trash(ctx context.Context, op Operation) error {
 	if e.mutation == nil {
 		return errors.New("two-way sync requires a mutation-capable Drive API")
@@ -59,7 +64,7 @@ func (e *executor) trash(ctx context.Context, op Operation) error {
 		if errors.Is(err, drive.ErrMutationRejected) {
 			return e.retireUnsentTrash(err)
 		}
-		return errors.New("remote trash outcome is uncertain")
+		return uncertainTrashError{cause: err}
 	}
 	return e.recoverTrash(ctx)
 }

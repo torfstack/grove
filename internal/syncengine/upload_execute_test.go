@@ -315,6 +315,30 @@ func TestRecoverUncertainWritePreservesIntentUntilResultIsKnown(t *testing.T) {
 	}
 }
 
+func TestRecordingDeletionConflictDoesNotOverwritePlannedSibling(t *testing.T) {
+	x := Conflict{ID: "old-x", Path: "x", Deletion: true}
+	y := Conflict{ID: "selected-y", Path: "y", Deletion: true, SelectedSide: SideLocal}
+	state := State{Conflicts: []Conflict{x, y}}
+	plannedY := deletionConflictForPath(state.Conflicts, "y")
+	newX := Conflict{ID: "new-x", Path: "x", Deletion: true}
+	saveErr := errors.New("save failed")
+	ex := executor{state: &state, save: func() error { return saveErr }}
+	err := ex.recordConflict(context.Background(), Operation{Conflict: &newX})
+	if !errors.Is(err, saveErr) {
+		t.Fatalf("save error was lost: %v", err)
+	}
+	if plannedY.ID != "selected-y" || len(state.Conflicts) != 2 || state.Conflicts[0].ID != "old-x" || state.Conflicts[1].ID != "selected-y" {
+		t.Fatalf("failed conflict save corrupted existing/planned conflicts: selected=%+v state=%+v", plannedY, state)
+	}
+	ex.save = func() error { return nil }
+	if err = ex.recordConflict(context.Background(), Operation{Conflict: &newX}); err != nil {
+		t.Fatal(err)
+	}
+	if plannedY.ID != "selected-y" || len(state.Conflicts) != 2 || state.Conflicts[0].ID != "selected-y" || state.Conflicts[1].ID != "new-x" {
+		t.Fatalf("recording sibling conflict corrupted planned selection: selected=%+v state=%+v", plannedY, state)
+	}
+}
+
 func TestUploadCapturesPostPreflightRevisionAsConflict(t *testing.T) {
 	localDir, profileDir := t.TempDir(), t.TempDir()
 	localBytes := []byte("local edit")
@@ -380,7 +404,7 @@ func TestTrashCommitsOnlyAfterRemoteTrashIsConfirmed(t *testing.T) {
 			baseline := baselineFile("a", "a", []byte("old"))
 			baseline.ModifiedTime, baseline.HeadRevisionID = remote.ModifiedTime, remote.HeadRevisionID
 			remote.Size, remote.MD5 = baseline.Size, baseline.MD5
-			apiErr := errors.New("response lost")
+			apiErr := errors.New("response lost with private detail")
 			api := &uploadAPI{file: remote, data: []byte("old"), trashErr: apiErr, trashAfterError: confirm}
 			state := State{Version: 3, Completed: []Completed{baseline}}
 			save := func() error { return saveState(profile, state) }
@@ -391,7 +415,7 @@ func TestTrashCommitsOnlyAfterRemoteTrashIsConfirmed(t *testing.T) {
 			op := Operation{Kind: OpTrash, Entry: entry, Before: []Completed{baseline}, RemoteSubtree: []Completed{completedEntry(entry, "")}}
 			ex := executor{root: root, profileDir: profile, remoteRoot: "root", api: api, mutation: api, state: &state, save: save}
 			err = ex.execute(context.Background(), op)
-			if err == nil || state.Transaction == nil || len(state.Completed) != 1 || api.trashCalls != 1 {
+			if err == nil || !errors.Is(err, apiErr) || err.Error() != "remote trash outcome is uncertain" || state.Transaction == nil || len(state.Completed) != 1 || api.trashCalls != 1 {
 				t.Fatalf("uncertain trash was discarded/retried: %v %+v", err, state)
 			}
 			if confirm {

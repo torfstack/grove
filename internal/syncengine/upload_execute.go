@@ -28,7 +28,7 @@ func (e *executor) recordConflict(ctx context.Context, op Operation) error {
 			}
 		}
 		next := *e.state
-		filtered := next.Conflicts[:0]
+		filtered := make([]Conflict, 0, len(next.Conflicts)+1)
 		for _, existing := range next.Conflicts {
 			if existing.Deletion && existing.Path == conflict.Path {
 				continue
