@@ -55,7 +55,7 @@ func loadState(profile string, binding Binding) (State, error) {
 		ids[c.RemoteID] = true
 	}
 	if len(s.Conflicts) > 0 {
-		if (s.Version != 2 && s.Version != 3) || !uploadAllowsConflicts(s.Transaction, s.Conflicts) || s.Pending != nil {
+		if (s.Version != 2 && s.Version != 3) || !journalAllowsConflicts(s.Transaction, s.Conflicts) || !pendingAllowsConflicts(s.Pending, s.Conflicts) {
 			return State{}, errors.New("invalid pending conflict state")
 		}
 		if err = validateConflicts(s.Conflicts, s.Completed, s.Version >= 3); err != nil {

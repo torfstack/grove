@@ -49,33 +49,38 @@ type CloudCandidate struct {
 }
 
 type Conflict struct {
-	CandidateSetVersion int              `json:"candidate_set_version,omitempty"`
-	CloudCandidates     []CloudCandidate `json:"cloud_candidates,omitempty"`
-	ID                  string           `json:"id"`
-	Path                string           `json:"path"`
-	Baseline            Completed        `json:"baseline"`
-	LocalSHA256         string           `json:"local_sha256"`
-	LocalSize           int64            `json:"local_size"`
-	RemoteID            string           `json:"remote_id"`
-	RemoteVersion       string           `json:"remote_version"`
-	RemoteMD5           string           `json:"remote_md5"`
-	RemoteSize          int64            `json:"remote_size"`
-	RemoteRevisionID    string           `json:"remote_revision_id,omitempty"`
-	CloudRevisionID     string           `json:"cloud_revision_id,omitempty"`
-	CloudMD5            string           `json:"cloud_md5,omitempty"`
-	CloudSize           int64            `json:"cloud_size,omitempty"`
-	LocalStagePath      string           `json:"local_stage_path,omitempty"`
-	LocalStageIdentity  *FileIdentity    `json:"local_stage_identity,omitempty"`
-	CloudStagePath      string           `json:"cloud_stage_path,omitempty"`
-	CloudStageIdentity  *FileIdentity    `json:"cloud_stage_identity,omitempty"`
-	CloudSHA256         string           `json:"cloud_sha256,omitempty"`
-	SelectedSide        ConflictSide     `json:"selected_side,omitempty"`
-	SelectedCandidate   int              `json:"selected_candidate,omitempty"`
+	CandidateSetVersion   int              `json:"candidate_set_version,omitempty"`
+	CloudCandidates       []CloudCandidate `json:"cloud_candidates,omitempty"`
+	Deletion              bool             `json:"deletion,omitempty"`
+	DeletionSubtree       []Completed      `json:"deletion_subtree,omitempty"`
+	DeletionRemoteSubtree []Completed      `json:"deletion_remote_subtree,omitempty"`
+	ID                    string           `json:"id"`
+	Path                  string           `json:"path"`
+	Baseline              Completed        `json:"baseline"`
+	LocalSHA256           string           `json:"local_sha256"`
+	LocalSize             int64            `json:"local_size"`
+	RemoteID              string           `json:"remote_id"`
+	RemoteVersion         string           `json:"remote_version"`
+	RemoteModifiedTime    string           `json:"remote_modified_time,omitempty"`
+	RemoteMD5             string           `json:"remote_md5"`
+	RemoteSize            int64            `json:"remote_size"`
+	RemoteRevisionID      string           `json:"remote_revision_id,omitempty"`
+	CloudRevisionID       string           `json:"cloud_revision_id,omitempty"`
+	CloudMD5              string           `json:"cloud_md5,omitempty"`
+	CloudSize             int64            `json:"cloud_size,omitempty"`
+	LocalStagePath        string           `json:"local_stage_path,omitempty"`
+	LocalStageIdentity    *FileIdentity    `json:"local_stage_identity,omitempty"`
+	CloudStagePath        string           `json:"cloud_stage_path,omitempty"`
+	CloudStageIdentity    *FileIdentity    `json:"cloud_stage_identity,omitempty"`
+	CloudSHA256           string           `json:"cloud_sha256,omitempty"`
+	SelectedSide          ConflictSide     `json:"selected_side,omitempty"`
+	SelectedCandidate     int              `json:"selected_candidate,omitempty"`
 }
 
 type ConflictCandidateView struct {
 	Ordinal      int          `json:"ordinal"`
 	Side         ConflictSide `json:"side"`
+	Description  string       `json:"description,omitempty"`
 	ModifiedTime string       `json:"modified_time,omitempty"`
 	Size         int64        `json:"size"`
 	Selected     bool         `json:"selected"`
@@ -126,6 +131,7 @@ const (
 	OpUpload   OperationKind = "upload"
 	OpCreate   OperationKind = "create"
 	OpConflict OperationKind = "conflict"
+	OpTrash    OperationKind = "trash"
 )
 
 type Operation struct {
@@ -136,6 +142,7 @@ type Operation struct {
 	Conflict        *Conflict
 	ResolutionSide  ConflictSide
 	Before          []Completed
+	RemoteSubtree   []Completed
 }
 type Journal struct {
 	CandidateCaptures         []CandidateCapture `json:"candidate_captures,omitempty"`
@@ -174,5 +181,6 @@ type Plan struct{ Operations []Operation }
 type Options struct {
 	ProfileDir, RemoteRoot, LocalDir, TokenFile string
 	TwoWay                                      bool
+	deletionResolutionID                        string
 }
-type Result struct{ Downloaded, Uploaded, CreatedDirectories, Skipped, Updated, Moved int }
+type Result struct{ Downloaded, Uploaded, CreatedDirectories, Skipped, Updated, Moved, Trashed int }

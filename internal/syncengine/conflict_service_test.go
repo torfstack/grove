@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -79,6 +80,349 @@ func TestRemoteConflictCandidateIgnoresVersionOnlyChange(t *testing.T) {
 	remote.HeadRevisionID = "rev-3"
 	if matchesRemoteConflict(Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}}, conflict) {
 		t.Fatal("changed remote content revision was accepted")
+	}
+}
+
+func TestDeletionConflictExplicitResolution(t *testing.T) {
+	for _, side := range []ConflictSide{SideCloud, SideLocal} {
+		t.Run(string(side), func(t *testing.T) {
+			service, opts, remote := httpService(t)
+			if _, err := service.Run(context.Background(), opts); err != nil {
+				t.Fatal(err)
+			}
+			remote.put("new-child", "new-child", "folder", "new remote content")
+			if err := os.RemoveAll(filepath.Join(opts.LocalDir, "old")); err != nil {
+				t.Fatal(err)
+			}
+			opts.TwoWay = true
+			if _, err := service.Run(context.Background(), opts); err != nil {
+				t.Fatal(err)
+			}
+			conflicts, err := service.ListConflicts(context.Background(), opts)
+			if err != nil || len(conflicts) != 1 || !conflicts[0].Deletion || len(conflicts[0].DeletionRemoteSubtree) != 3 {
+				t.Fatalf("missing durable subtree deletion conflict: %+v err=%v", conflicts, err)
+			}
+			detail, err := service.ConflictDetails(context.Background(), opts, conflicts[0].ID)
+			if err != nil || len(detail.Candidates) != 2 || detail.Candidates[0].Description != "deletion" || detail.Candidates[1].Description != "remote tree" {
+				t.Fatalf("wrong deletion conflict detail: %+v err=%v", detail, err)
+			}
+			if err = service.ResolveConflict(context.Background(), opts, conflicts[0].ID, side, 0); err != nil {
+				t.Fatal(err)
+			}
+			remaining, err := service.ListConflicts(context.Background(), opts)
+			if err != nil || len(remaining) != 0 {
+				t.Fatalf("resolved deletion remained pending: %+v err=%v", remaining, err)
+			}
+			if side == SideCloud {
+				for path, want := range map[string]string{"old/a": "old", "old/new-child": "new remote content"} {
+					data, readErr := os.ReadFile(filepath.Join(opts.LocalDir, path))
+					if readErr != nil || string(data) != want {
+						t.Fatalf("remote subtree was not restored at %s: %q %v", path, data, readErr)
+					}
+				}
+				if remote.files["folder"].Trashed || remote.mutations != 0 {
+					t.Fatal("cloud resolution mutated Drive")
+				}
+			} else if !remote.files["folder"].ExplicitlyTrashed || !remote.files["a"].Trashed || !remote.files["new-child"].Trashed || remote.mutations != 1 {
+				t.Fatalf("local resolution did not trash the validated subtree once: %+v", remote.files)
+			}
+		})
+	}
+}
+
+func TestDeletionConflictResolutionRejectsChangedRemoteSubtree(t *testing.T) {
+	service, opts, remote := httpService(t)
+	if _, err := service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	remote.put("new-child", "new-child", "folder", "first remote content")
+	if err := os.RemoveAll(filepath.Join(opts.LocalDir, "old")); err != nil {
+		t.Fatal(err)
+	}
+	opts.TwoWay = true
+	if _, err := service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	conflicts, err := service.ListConflicts(context.Background(), opts)
+	if err != nil || len(conflicts) != 1 {
+		t.Fatalf("expected one deletion conflict: %+v %v", conflicts, err)
+	}
+	remote.put("new-child", "new-child", "folder", "changed remote content")
+	if err = service.ResolveConflict(context.Background(), opts, conflicts[0].ID, SideCloud, 0); err == nil {
+		t.Fatal("changed remote subtree was accepted for resolution")
+	}
+	remaining, err := service.ListConflicts(context.Background(), opts)
+	if err != nil || len(remaining) != 1 || remaining[0].ID != conflicts[0].ID || remote.mutations != 0 || remote.files["folder"].Trashed {
+		t.Fatalf("stale resolution changed conflict or remote data: conflicts=%+v remote=%+v err=%v", remaining, remote.files, err)
+	}
+}
+
+func TestInterruptedCloudDeletionRestoreRequiresDownloadOnlyResume(t *testing.T) {
+	service, opts, remote := httpService(t)
+	if _, err := service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	remote.put("new-child", "new-child", "folder", "new remote content")
+	if err := os.RemoveAll(filepath.Join(opts.LocalDir, "old")); err != nil {
+		t.Fatal(err)
+	}
+	opts.TwoWay = true
+	if _, err := service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	conflicts, err := service.ListConflicts(context.Background(), opts)
+	if err != nil || len(conflicts) != 1 {
+		t.Fatalf("expected deletion conflict: %+v %v", conflicts, err)
+	}
+	remote.failDownloadID = "new-child"
+	if err = service.ResolveConflict(context.Background(), opts, conflicts[0].ID, SideCloud, 0); err == nil {
+		t.Fatal("injected partial restore failure was ignored")
+	}
+	if _, err = service.Run(context.Background(), opts); err == nil {
+		t.Fatal("two-way sync accepted an incomplete cloud restoration")
+	}
+	remote.failDownloadID = ""
+	opts.TwoWay = false
+	if _, err = service.Run(context.Background(), opts); err != nil {
+		t.Fatalf("download-only recovery did not finish restoration: %v", err)
+	}
+	for path, want := range map[string]string{"old/a": "old", "old/new-child": "new remote content"} {
+		data, readErr := os.ReadFile(filepath.Join(opts.LocalDir, path))
+		if readErr != nil || string(data) != want {
+			t.Fatalf("incomplete restore at %s: %q %v", path, data, readErr)
+		}
+	}
+	stateData, err := os.ReadFile(filepath.Join(opts.ProfileDir, "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var state State
+	if err = json.Unmarshal(stateData, &state); err != nil || !state.PopulationComplete {
+		t.Fatalf("restored profile was not marked complete: %v %+v", err, state)
+	}
+}
+
+func TestInterruptedCloudRestoreRetainsUnrelatedDeletionConflict(t *testing.T) {
+	service, opts, remote := httpService(t)
+	if _, err := service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	remote.put("new-child", "new-child", "folder", "new remote content")
+	remote.put("b", "b", "root", "changed remote content")
+	if err := os.RemoveAll(filepath.Join(opts.LocalDir, "old")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(opts.LocalDir, "b")); err != nil {
+		t.Fatal(err)
+	}
+	opts.TwoWay = true
+	if _, err := service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	conflicts, err := service.ListConflicts(context.Background(), opts)
+	if err != nil || len(conflicts) != 2 {
+		t.Fatalf("expected two tombstones: %v %v", len(conflicts), err)
+	}
+	id := ""
+	for _, c := range conflicts {
+		if c.Path == "old" {
+			id = c.ID
+		}
+	}
+	remote.failDownloadID = "new-child"
+	if err = service.ResolveConflict(context.Background(), opts, id, SideCloud, 0); err == nil {
+		t.Fatal("injected restore failure ignored")
+	}
+	canonical, err := canonicalOptions(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding := Binding{RemoteRoot: canonical.RemoteRoot, LocalDir: canonical.LocalDir, TokenFile: canonical.TokenFile}
+	state, err := loadState(canonical.ProfileDir, binding)
+	if err != nil || state.Pending == nil || len(state.Conflicts) != 1 || state.Conflicts[0].Path != "b" {
+		t.Fatalf("restore journal lost unrelated tombstone: %v", err)
+	}
+	api, closeAPI, err := service.OpenAPI(context.Background(), opts.TokenFile, "read-only")
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, scanErr := Scan(context.Background(), api, opts.RemoteRoot)
+	if closeErr := closeAPI(); closeErr != nil {
+		t.Fatal(closeErr)
+	}
+	if scanErr != nil {
+		t.Fatal(scanErr)
+	}
+	between := state
+	between.Pending = nil
+	var local []LocalEntry
+	for _, c := range state.Completed {
+		if c.Path != "b" {
+			local = append(local, LocalEntry{Path: c.Path, Kind: c.Kind, SHA256: c.SHA256, Size: c.Size})
+		}
+	}
+	plan, err := BuildRestorationPlan(snapshot, local, between)
+	if err != nil {
+		t.Fatalf("between-operation restoration plan failed: %v", err)
+	}
+	found := false
+	for _, op := range plan.Operations {
+		if op.Entry.Path == "b" || op.Kind == OpTrash {
+			t.Fatal("restoration planned unrelated conflict")
+		}
+		found = found || op.Kind == OpDownload && op.Entry.Path == "old/new-child"
+	}
+	if !found {
+		t.Fatal("between-operation restore lost remaining download")
+	}
+	remote.failDownloadID = ""
+	opts.TwoWay = false
+	if _, err = service.Run(context.Background(), opts); err != nil {
+		t.Fatalf("restoration with unrelated tombstone failed: %v", err)
+	}
+	remaining, err := service.ListConflicts(context.Background(), opts)
+	if err != nil || len(remaining) != 1 || remaining[0].Path != "b" || remote.files["b"].Trashed || remote.mutations != 0 {
+		t.Fatalf("restoration resolved unrelated tombstone: %v %v", len(remaining), err)
+	}
+	if data, err := os.ReadFile(filepath.Join(opts.LocalDir, "old", "new-child")); err != nil || string(data) != "new remote content" {
+		t.Fatalf("restored child missing: %v", err)
+	}
+}
+
+func TestCloudDeletionResolutionRejectsUnrelatedLocalChangesBeforeSaving(t *testing.T) {
+	for _, change := range []string{"edit", "add", "remove"} {
+		t.Run(change, func(t *testing.T) {
+			service, opts, remote := httpService(t)
+			if _, err := service.Run(context.Background(), opts); err != nil {
+				t.Fatal(err)
+			}
+			remote.put("b", "b", "root", "changed remote content")
+			if err := os.Remove(filepath.Join(opts.LocalDir, "b")); err != nil {
+				t.Fatal(err)
+			}
+			opts.TwoWay = true
+			if _, err := service.Run(context.Background(), opts); err != nil {
+				t.Fatal(err)
+			}
+			conflicts, err := service.ListConflicts(context.Background(), opts)
+			if err != nil || len(conflicts) != 1 || !conflicts[0].Deletion {
+				t.Fatalf("expected deletion tombstone: %+v %v", conflicts, err)
+			}
+			switch change {
+			case "edit":
+				if err = os.WriteFile(filepath.Join(opts.LocalDir, "old", "a"), []byte("unrelated edit"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			case "add":
+				if err = os.WriteFile(filepath.Join(opts.LocalDir, "untracked"), []byte("new"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			case "remove":
+				if err = os.Remove(filepath.Join(opts.LocalDir, "old", "a")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err = service.ResolveConflict(context.Background(), opts, conflicts[0].ID, SideCloud, 0); err == nil {
+				t.Fatal("cloud restoration accepted unrelated local changes")
+			}
+			canonical, err := canonicalOptions(opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			state, err := loadState(canonical.ProfileDir, Binding{RemoteRoot: canonical.RemoteRoot, LocalDir: canonical.LocalDir, TokenFile: canonical.TokenFile})
+			if err != nil || !state.PopulationComplete || len(state.Conflicts) != 1 || state.Conflicts[0].ID != conflicts[0].ID || state.Conflicts[0].SelectedSide != "" {
+				t.Fatalf("rejected resolution changed durable profile: %+v %v", state, err)
+			}
+			if remote.mutations != 0 {
+				t.Fatal("rejected resolution mutated Drive")
+			}
+		})
+	}
+}
+
+func TestCloudDeletionResolutionRestoresThroughRemoteAncestorMove(t *testing.T) {
+	service, opts, remote := httpService(t)
+	if _, err := service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(opts.LocalDir, "old", "a")); err != nil {
+		t.Fatal(err)
+	}
+	folder := remote.files["folder"]
+	folder.Name = "new"
+	remote.files["folder"] = folder
+	opts.TwoWay = true
+	if _, err := service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	conflicts, err := service.ListConflicts(context.Background(), opts)
+	if err != nil || len(conflicts) != 1 || !conflicts[0].Deletion {
+		t.Fatalf("ancestor move lost deletion conflict: %v %v", len(conflicts), err)
+	}
+	if err = service.ResolveConflict(context.Background(), opts, conflicts[0].ID, SideCloud, 0); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := os.ReadFile(filepath.Join(opts.LocalDir, "new", "a")); err != nil || string(data) != "old" {
+		t.Fatalf("cloud file not restored through ancestor move: %v", err)
+	}
+	if _, err = os.Stat(filepath.Join(opts.LocalDir, "old")); !os.IsNotExist(err) {
+		t.Fatal("old ancestor path remained")
+	}
+}
+
+func TestCloudRestoreWithSiblingTombstoneUnderMovedAncestor(t *testing.T) {
+	for _, secondSide := range []ConflictSide{SideCloud, SideLocal} {
+		t.Run(string(secondSide), func(t *testing.T) {
+			service, opts, remote := httpService(t)
+			remote.put("sibling", "sibling", "folder", "sibling content")
+			if _, err := service.Run(context.Background(), opts); err != nil {
+				t.Fatal(err)
+			}
+			for _, name := range []string{"a", "sibling"} {
+				if err := os.Remove(filepath.Join(opts.LocalDir, "old", name)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			folder := remote.files["folder"]
+			folder.Name = "new"
+			remote.files["folder"] = folder
+			opts.TwoWay = true
+			if _, err := service.Run(context.Background(), opts); err != nil {
+				t.Fatal(err)
+			}
+			conflicts, err := service.ListConflicts(context.Background(), opts)
+			if err != nil || len(conflicts) != 2 {
+				t.Fatalf("expected sibling conflicts: %v %v", len(conflicts), err)
+			}
+			firstID, secondID := "", ""
+			for _, c := range conflicts {
+				if c.Path == "old/a" {
+					firstID = c.ID
+				} else {
+					secondID = c.ID
+				}
+			}
+			if err = service.ResolveConflict(context.Background(), opts, firstID, SideCloud, 0); err == nil {
+				t.Fatal("unresolved sibling should defer ancestor restoration")
+			}
+			remaining, err := service.ListConflicts(context.Background(), opts)
+			if err != nil || len(remaining) != 1 || remaining[0].ID != secondID {
+				t.Fatalf("partial restore blocked remaining conflict inspection: %v", err)
+			}
+			if err = service.ResolveConflict(context.Background(), opts, secondID, secondSide, 0); err != nil {
+				t.Fatalf("remaining sibling could not resolve: %v", err)
+			}
+			if data, err := os.ReadFile(filepath.Join(opts.LocalDir, "new", "a")); err != nil || string(data) != "old" {
+				t.Fatalf("first sibling not restored: %v", err)
+			}
+			if secondSide == SideCloud {
+				if data, err := os.ReadFile(filepath.Join(opts.LocalDir, "new", "sibling")); err != nil || string(data) != "sibling content" {
+					t.Fatalf("second sibling not restored: %v", err)
+				}
+			} else if !remote.files["sibling"].ExplicitlyTrashed || remote.mutations != 1 {
+				t.Fatal("selected sibling was not trashed exactly once")
+			}
+		})
 	}
 }
 

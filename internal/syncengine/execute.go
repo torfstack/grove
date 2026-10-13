@@ -56,6 +56,9 @@ func (e *executor) execute(ctx context.Context, op Operation) error {
 	if op.Kind == OpMove {
 		return e.move(ctx, op)
 	}
+	if op.Kind == OpTrash {
+		return e.trash(ctx, op)
+	}
 	if op.Kind == OpReplace {
 		return e.replace(ctx, op)
 	}

@@ -6,11 +6,52 @@ import (
 	"reflect"
 )
 
-func uploadAllowsConflicts(j *Journal, conflicts []Conflict) bool {
+func pendingAllowsConflicts(p *Pending, conflicts []Conflict) bool {
+	if p == nil {
+		return true
+	}
+	for _, c := range conflicts {
+		for _, path := range conflictPaths(c) {
+			if c.RemoteID == p.Entry.Remote.ID || containsPath(path, p.Entry.Path) || containsPath(p.Entry.Path, path) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func journalAllowsConflicts(j *Journal, conflicts []Conflict) bool {
 	if j == nil {
 		return true
 	}
-	if j.Operation.Kind != OpUpload && j.Operation.Kind != OpCreate {
+	if j.Operation.Kind == OpMove || j.Operation.Kind == OpReplace {
+		if j.Operation.Conflict != nil {
+			return false
+		}
+		paths := []string{j.Operation.Entry.Path}
+		for _, entry := range j.Operation.Before {
+			paths = append(paths, entry.Path)
+		}
+		for _, entry := range j.After {
+			paths = append(paths, entry.Path)
+		}
+		for _, conflict := range conflicts {
+			for _, conflictPath := range conflictPaths(conflict) {
+				for _, path := range paths {
+					if containsPath(path, conflictPath) || containsPath(conflictPath, path) {
+						return false
+					}
+				}
+			}
+			for _, entry := range j.Operation.Before {
+				if entry.RemoteID == conflict.RemoteID {
+					return false
+				}
+			}
+		}
+		return true
+	}
+	if j.Operation.Kind != OpUpload && j.Operation.Kind != OpCreate && j.Operation.Kind != OpTrash {
 		return false
 	}
 	if j.Phase == "committed" {
@@ -18,7 +59,12 @@ func uploadAllowsConflicts(j *Journal, conflicts []Conflict) bool {
 	}
 	found := j.Operation.Conflict == nil
 	for _, c := range conflicts {
-		if c.Path == j.Operation.Entry.Path || c.RemoteID == j.Operation.Entry.Remote.ID {
+		overlaps := c.Path == j.Operation.Entry.Path || c.RemoteID == j.Operation.Entry.Remote.ID
+		if j.Operation.Kind == OpTrash && len(j.Operation.Before) > 0 {
+			root := j.Operation.Before[0].Path
+			overlaps = overlaps || containsPath(root, c.Path) || containsPath(c.Path, root) || containsPath(j.Operation.Entry.Path, c.Path)
+		}
+		if overlaps {
 			if j.Operation.Conflict == nil || !reflect.DeepEqual(*j.Operation.Conflict, c) {
 				return false
 			}
@@ -26,6 +72,19 @@ func uploadAllowsConflicts(j *Journal, conflicts []Conflict) bool {
 		}
 	}
 	return found
+}
+
+func conflictPaths(c Conflict) []string {
+	paths := []string{c.Path}
+	if c.Deletion {
+		for _, entry := range c.DeletionRemoteSubtree {
+			if entry.RemoteID == c.RemoteID {
+				paths = append(paths, entry.Path)
+				break
+			}
+		}
+	}
+	return paths
 }
 
 func validateResolutionJournal(j Journal) error {

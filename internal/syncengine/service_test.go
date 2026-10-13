@@ -18,21 +18,27 @@ import (
 )
 
 type remoteHTTP struct {
-	files      map[string]drive.File
-	data       map[string]string
-	downloads  int
-	incomplete bool
+	files                   map[string]drive.File
+	data                    map[string]string
+	downloads               int
+	mutations               int
+	incomplete              bool
+	failDownloadID          string
+	failTrashVerificationID string
 }
 
 func (r *remoteHTTP) wire(f drive.File) map[string]any {
-	return map[string]any{"id": f.ID, "name": f.Name, "mimeType": f.MIMEType, "version": f.Version, "parents": f.Parents, "size": strconv.FormatInt(f.Size, 10), "md5Checksum": f.MD5, "ownedByMe": f.OwnedByMe, "capabilities": map[string]bool{"canDownload": f.CanDownload}}
+	return map[string]any{"id": f.ID, "name": f.Name, "mimeType": f.MIMEType, "version": f.Version, "modifiedTime": f.ModifiedTime, "headRevisionId": f.HeadRevisionID, "parents": f.Parents, "size": strconv.FormatInt(f.Size, 10), "md5Checksum": f.MD5, "ownedByMe": f.OwnedByMe, "trashed": f.Trashed, "explicitlyTrashed": f.ExplicitlyTrashed, "capabilities": map[string]bool{"canDownload": f.CanDownload}}
 }
 func (r *remoteHTTP) serve(w http.ResponseWriter, q *http.Request) {
+	if q.Method == http.MethodPatch || q.Method == http.MethodPost || q.Method == http.MethodDelete {
+		r.mutations++
+	}
 	id := strings.TrimPrefix(q.URL.Path, "/drive/v3/files/")
 	if q.URL.Path == "/drive/v3/files" {
 		items := []map[string]any{}
 		for _, f := range r.files {
-			if len(f.Parents) == 1 && strings.Contains(q.URL.Query().Get("q"), "'"+f.Parents[0]+"' in parents") {
+			if !f.Trashed && len(f.Parents) == 1 && strings.Contains(q.URL.Query().Get("q"), "'"+f.Parents[0]+"' in parents") {
 				items = append(items, r.wire(f))
 			}
 		}
@@ -44,8 +50,41 @@ func (r *remoteHTTP) serve(w http.ResponseWriter, q *http.Request) {
 		http.NotFound(w, q)
 		return
 	}
+	if q.Method == http.MethodGet && f.Trashed && id == r.failTrashVerificationID {
+		http.Error(w, "injected verification read failure", http.StatusServiceUnavailable)
+		return
+	}
+	if q.Method == http.MethodPatch {
+		var update struct {
+			Trashed bool `json:"trashed"`
+		}
+		if err := json.NewDecoder(q.Body).Decode(&update); err != nil || !update.Trashed {
+			http.Error(w, "invalid trash request", http.StatusBadRequest)
+			return
+		}
+		f.Trashed = true
+		f.ExplicitlyTrashed = true
+		r.files[id] = f
+		trashedParents := map[string]bool{id: true}
+		for changed := true; changed; {
+			changed = false
+			for childID, child := range r.files {
+				if child.Trashed || len(child.Parents) != 1 || !trashedParents[child.Parents[0]] {
+					continue
+				}
+				child.Trashed = true
+				r.files[childID] = child
+				trashedParents[childID] = true
+				changed = true
+			}
+		}
+	}
 	if q.URL.Query().Get("alt") == "media" {
 		r.downloads++
+		if id == r.failDownloadID {
+			http.Error(w, "injected download failure", http.StatusInternalServerError)
+			return
+		}
 		_, _ = w.Write([]byte(r.data[id]))
 		return
 	}
@@ -65,7 +104,7 @@ func httpService(t *testing.T) (Service, Options, *remoteHTTP) {
 	opts, registry := options(t)
 	r := &remoteHTTP{files: map[string]drive.File{}, data: map[string]string{}}
 	r.files["root"] = drive.File{ID: "root", Name: "root", MIMEType: drive.FolderMIME, OwnedByMe: true}
-	r.files["folder"] = drive.File{ID: "folder", Name: "old", MIMEType: drive.FolderMIME, OwnedByMe: true, Parents: []string{"root"}}
+	r.files["folder"] = drive.File{ID: "folder", Name: "old", MIMEType: drive.FolderMIME, Version: "1", ModifiedTime: "2026-01-01T00:00:00Z", OwnedByMe: true, Parents: []string{"root"}}
 	r.put("a", "a", "folder", "old")
 	r.put("b", "b", "root", "same")
 	server := httptest.NewServer(http.HandlerFunc(r.serve))
@@ -197,6 +236,114 @@ func TestServicePreflightPreservesDestination(t *testing.T) {
 				t.Fatal("addition created on failed preflight")
 			}
 		})
+	}
+}
+
+func TestTwoWayIncompleteRemoteScanDoesNotStartDeletion(t *testing.T) {
+	service, opts, remote := httpService(t)
+	if _, err := service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(opts.LocalDir, "old", "a")); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(filepath.Join(opts.ProfileDir, "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote.incomplete = true
+	opts.TwoWay = true
+	if _, err := service.Run(context.Background(), opts); err == nil {
+		t.Fatal("two-way sync accepted an incomplete remote scan")
+	}
+	after, err := os.ReadFile(filepath.Join(opts.ProfileDir, "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) || remote.mutations != 0 {
+		t.Fatalf("incomplete scan changed profile or attempted remote mutation: mutations=%d", remote.mutations)
+	}
+	if _, err := os.Stat(filepath.Join(opts.LocalDir, "old", "a")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("preflight recreated the deleted local file")
+	}
+}
+
+func TestTwoWayLocalDeletionMovesRemoteItemToTrash(t *testing.T) {
+	service, opts, remote := httpService(t)
+	if _, err := service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(opts.LocalDir, "old", "a")); err != nil {
+		t.Fatal(err)
+	}
+	opts.TwoWay = true
+	result, err := service.Run(context.Background(), opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Trashed != 1 || !remote.files["a"].Trashed || !remote.files["a"].ExplicitlyTrashed {
+		t.Fatalf("local deletion was not moved to Drive trash: result=%+v file=%+v", result, remote.files["a"])
+	}
+	stateData, err := os.ReadFile(filepath.Join(opts.ProfileDir, "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var state State
+	if err = json.Unmarshal(stateData, &state); err != nil || hasCompletedPath(state.Completed, "old/a") {
+		t.Fatalf("trashed item remains in the active baseline: %+v err=%v", state.Completed, err)
+	}
+}
+
+func TestTwoWayLocalFolderDeletionTrashesOneSubtreeRoot(t *testing.T) {
+	service, opts, remote := httpService(t)
+	if _, err := service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(opts.LocalDir, "old")); err != nil {
+		t.Fatal(err)
+	}
+	opts.TwoWay = true
+	result, err := service.Run(context.Background(), opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Trashed != 2 || !remote.files["folder"].ExplicitlyTrashed || !remote.files["a"].Trashed || remote.files["a"].ExplicitlyTrashed {
+		t.Fatalf("folder trash did not preserve inherited trash semantics: result=%+v folder=%+v child=%+v", result, remote.files["folder"], remote.files["a"])
+	}
+	if remote.mutations != 1 {
+		t.Fatalf("folder subtree used %d remote mutations, want one", remote.mutations)
+	}
+	stateData, err := os.ReadFile(filepath.Join(opts.ProfileDir, "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var state State
+	if err = json.Unmarshal(stateData, &state); err != nil || hasCompletedPath(state.Completed, "old") || hasCompletedPath(state.Completed, "old/a") {
+		t.Fatalf("trashed subtree remains in active baseline: %+v err=%v", state.Completed, err)
+	}
+}
+
+func TestTrashReadFailureRecoversWithoutRepeatingMutation(t *testing.T) {
+	service, opts, remote := httpService(t)
+	if _, err := service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(opts.LocalDir, "old")); err != nil {
+		t.Fatal(err)
+	}
+	remote.failTrashVerificationID = "a"
+	opts.TwoWay = true
+	if _, err := service.Run(context.Background(), opts); err == nil {
+		t.Fatal("verification failure ignored")
+	}
+	if remote.mutations != 1 {
+		t.Fatalf("trash mutation count: %d", remote.mutations)
+	}
+	remote.failTrashVerificationID = ""
+	opts.TwoWay = false
+	result, err := service.Run(context.Background(), opts)
+	if err != nil || result.Trashed != 2 || remote.mutations != 1 {
+		t.Fatalf("trash recovery repeated mutation or lost count: %+v %v mutations=%d", result, err, remote.mutations)
 	}
 }
 func TestIncrementalWriterExclusion(t *testing.T) {

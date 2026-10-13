@@ -157,6 +157,75 @@ func BuildPlan(remote Snapshot, local []LocalEntry, state State) (Plan, error) {
 	return plan, nil
 }
 
+func BuildDeletionResolutionPlan(remote Snapshot, local []LocalEntry, state State, id string) (Plan, error) {
+	c := findConflict(state.Conflicts, id)
+	if c == nil || !c.Deletion || c.SelectedSide != SideLocal {
+		return Plan{}, errors.New("selected deletion conflict is missing")
+	}
+	for _, entry := range local {
+		if containsPath(c.Path, entry.Path) {
+			return Plan{}, errors.New("local deletion conflict path reappeared")
+		}
+	}
+	if !matchesDeletionRemoteConflict(remote, *c) {
+		return Plan{}, errors.New("remote deletion conflict candidate changed")
+	}
+	for _, entry := range remote.Entries {
+		if entry.Remote.ID == c.RemoteID {
+			return Plan{Operations: []Operation{{Kind: OpTrash, Entry: entry, Before: c.DeletionSubtree, RemoteSubtree: c.DeletionRemoteSubtree, Conflict: c, ResolutionSide: SideLocal}}}, nil
+		}
+	}
+	return Plan{}, errors.New("remote deletion conflict identity is missing")
+}
+
+func BuildRestorationPlan(remote Snapshot, local []LocalEntry, state State) (Plan, error) {
+	synthetic := append([]LocalEntry(nil), local...)
+	for _, conflict := range state.Conflicts {
+		filtered := make([]LocalEntry, 0, len(synthetic))
+		for _, entry := range synthetic {
+			if conflict.Deletion && containsPath(conflict.Path, entry.Path) {
+				return Plan{}, errors.New("local deletion conflict path reappeared during restoration")
+			}
+			if !conflict.Deletion && entry.Path == conflict.Path {
+				if entry.Kind != "file" || entry.SHA256 != conflict.LocalSHA256 || entry.Size != conflict.LocalSize {
+					return Plan{}, errors.New("local conflict candidate changed during restoration")
+				}
+				continue
+			}
+			filtered = append(filtered, entry)
+		}
+		synthetic = filtered
+		baselines := []Completed{conflict.Baseline}
+		if conflict.Deletion {
+			baselines = conflict.DeletionSubtree
+		}
+		for _, entry := range baselines {
+			if entry.RemoteID != "" {
+				synthetic = append(synthetic, LocalEntry{Path: entry.Path, Kind: entry.Kind, SHA256: entry.SHA256, Size: entry.Size})
+			}
+		}
+	}
+	plan, err := BuildPlan(remote, synthetic, state)
+	if err != nil {
+		return Plan{}, err
+	}
+	for _, conflict := range state.Conflicts {
+		paths := []string{conflict.Path}
+		for _, entry := range remote.Entries {
+			if entry.Remote.ID == conflict.RemoteID {
+				paths = append(paths, entry.Path)
+				break
+			}
+		}
+		baselines := []Completed{conflict.Baseline}
+		if conflict.Deletion {
+			baselines = conflict.DeletionSubtree
+		}
+		plan.Operations = withoutSubtreeOperations(plan.Operations, baselines, paths...)
+	}
+	return plan, nil
+}
+
 func BuildTwoWayPlan(remote Snapshot, local []LocalEntry, state State) (Plan, error) {
 	if state.ConflictPolicy != "" {
 		if err := validateConflictPolicy(state.ConflictPolicy); err != nil {
@@ -178,12 +247,12 @@ func BuildTwoWayPlan(remote Snapshot, local []LocalEntry, state State) (Plan, er
 	}
 	for _, completed := range state.Completed {
 		entry, exists := localByPath[completed.Path]
-		if !exists || completed.Kind != entry.Kind {
+		if exists && completed.Kind != entry.Kind {
 			return Plan{}, errors.New("tracked local structure changed")
 		}
 		baselineLocal = append(baselineLocal, LocalEntry{Path: completed.Path, Kind: completed.Kind, SHA256: completed.SHA256, Size: completed.Size})
 	}
-	cloudPlan, err := BuildPlan(remote, baselineLocal, state)
+	cloudPlan, err := BuildPlan(deletionPlanningSnapshot(remote, localByPath, state.Completed), baselineLocal, state)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -192,6 +261,39 @@ func BuildTwoWayPlan(remote Snapshot, local []LocalEntry, state State) (Plan, er
 		remoteByID[entry.Remote.ID] = entry
 	}
 	plan := Plan{Operations: append([]Operation(nil), cloudPlan.Operations...)}
+	deletionRoots := missingDeletionRoots(localByPath, state.Completed)
+	for _, root := range deletionRoots {
+		subtree := baselineSubtree(state.Completed, root.Path)
+		entry, exists := remoteByID[root.RemoteID]
+		if !exists {
+			return Plan{}, errors.New("remote removal is unsupported")
+		}
+		liveSubtree := remoteDeletionSubtree(remote.Entries, entry.Path)
+		unchanged := remoteSubtreeMatches(remote.Entries, remoteByID, subtree, root, state)
+		plan.Operations = withoutSubtreeOperations(plan.Operations, subtree, root.Path, entry.Path)
+		if pending := deletionConflictForPath(state.Conflicts, root.Path); pending != nil {
+			if sameDeletionRemoteSubtree(pending.DeletionRemoteSubtree, liveSubtree) {
+				switch pending.SelectedSide {
+				case SideLocal:
+					plan.Operations = append(plan.Operations, Operation{Kind: OpTrash, Entry: entry, Before: subtree, RemoteSubtree: liveSubtree, Conflict: pending, ResolutionSide: SideLocal})
+				case SideCloud:
+					plan.Operations = append(plan.Operations, Operation{Kind: OpConflict, Entry: entry, Conflict: pending, ResolutionSide: SideCloud, Before: subtree})
+				default:
+					plan.Operations = append(plan.Operations, Operation{Kind: OpConflict, Entry: entry, Conflict: pending, Before: subtree})
+				}
+			} else {
+				conflict := deletionConflict(root, entry, subtree, liveSubtree)
+				plan.Operations = append(plan.Operations, Operation{Kind: OpConflict, Entry: entry, Conflict: &conflict, Before: subtree})
+			}
+			continue
+		}
+		if unchanged {
+			plan.Operations = append(plan.Operations, Operation{Kind: OpTrash, Entry: entry, Before: subtree, RemoteSubtree: liveSubtree})
+			continue
+		}
+		conflict := deletionConflict(root, entry, subtree, liveSubtree)
+		plan.Operations = append(plan.Operations, Operation{Kind: OpConflict, Entry: entry, Conflict: &conflict, Before: subtree})
+	}
 	folders := map[string]bool{".": true}
 	for _, entry := range remote.Entries {
 		if entryKind(entry) == "folder" {
@@ -204,6 +306,9 @@ func BuildTwoWayPlan(remote Snapshot, local []LocalEntry, state State) (Plan, er
 		}
 	}
 	for _, completed := range state.Completed {
+		if _, exists := localByPath[completed.Path]; !exists {
+			continue
+		}
 		if completed.Kind != "file" {
 			continue
 		}
@@ -293,6 +398,199 @@ func BuildTwoWayPlan(remote Snapshot, local []LocalEntry, state State) (Plan, er
 		plan.Operations = append(plan.Operations, Operation{Kind: OpCreate, Local: entry})
 	}
 	return plan, nil
+}
+
+func missingDeletionRoots(local map[string]LocalEntry, completed []Completed) []Completed {
+	entries := append([]Completed(nil), completed...)
+	sort.Slice(entries, func(i, j int) bool {
+		if len(entries[i].Path) == len(entries[j].Path) {
+			return entries[i].Path < entries[j].Path
+		}
+		return len(entries[i].Path) < len(entries[j].Path)
+	})
+	roots := make([]Completed, 0)
+	for _, entry := range entries {
+		if _, present := local[entry.Path]; present {
+			continue
+		}
+		covered := false
+		for _, root := range roots {
+			if root.Kind == "folder" && containsPath(root.Path, entry.Path) {
+				covered = true
+				break
+			}
+		}
+		if !covered {
+			roots = append(roots, entry)
+		}
+	}
+	return roots
+}
+
+func deletionPlanningSnapshot(remote Snapshot, local map[string]LocalEntry, completed []Completed) Snapshot {
+	byID := make(map[string]Completed, len(completed))
+	for _, base := range completed {
+		if _, present := local[base.Path]; !present {
+			byID[base.RemoteID] = base
+		}
+	}
+	typeRoots := map[string]Completed{}
+	for _, entry := range remote.Entries {
+		if base, found := byID[entry.Remote.ID]; found && base.Kind != entryKind(entry) {
+			typeRoots[entry.Path] = base
+		}
+	}
+	out := Snapshot{}
+	for _, entry := range remote.Entries {
+		covered := false
+		for root := range typeRoots {
+			if entry.Path != root && containsPath(root, entry.Path) {
+				covered = true
+				break
+			}
+		}
+		if covered {
+			continue
+		}
+		if base, found := typeRoots[entry.Path]; found {
+			entry.Remote.MIMEType = "application/octet-stream"
+			if base.Kind == "folder" {
+				entry.Remote.MIMEType = drive.FolderMIME
+			}
+			entry.Remote.Version, entry.Remote.MD5, entry.Remote.Size = base.Version, base.MD5, base.Size
+		}
+		out.Entries = append(out.Entries, entry)
+	}
+	return out
+}
+
+func baselineSubtree(completed []Completed, root string) []Completed {
+	entries := make([]Completed, 0)
+	for _, entry := range completed {
+		if containsPath(root, entry.Path) {
+			entries = append(entries, entry)
+		}
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Path < entries[j].Path })
+	return entries
+}
+
+func remoteSubtreeMatches(remote []Entry, byID map[string]Entry, subtree []Completed, root Completed, state State) bool {
+	if len(subtree) == 0 {
+		return false
+	}
+	known := make(map[string]bool, len(subtree))
+	for _, baseline := range subtree {
+		entry, ok := byID[baseline.RemoteID]
+		if !ok || !sameTrashBaseline(entry, baseline, state) {
+			return false
+		}
+		known[baseline.RemoteID] = true
+	}
+	for _, entry := range remote {
+		if containsPath(root.Path, entry.Path) && !known[entry.Remote.ID] {
+			return false
+		}
+	}
+	return true
+}
+
+func sameTrashBaseline(entry Entry, baseline Completed, state State) bool {
+	if entry.Path != baseline.Path || entry.Remote.ID != baseline.RemoteID || entryKind(entry) != baseline.Kind || entry.Remote.Trashed || entry.Remote.ExplicitlyTrashed || !entry.Remote.OwnedByMe || entry.Remote.Name != filepath.Base(baseline.Path) || len(entry.Remote.Parents) != 1 {
+		return false
+	}
+	parentPath := filepath.Dir(baseline.Path)
+	if parentPath == "." {
+		if state.Binding.RemoteRoot != "" && entry.Remote.Parents[0] != state.Binding.RemoteRoot {
+			return false
+		}
+	} else {
+		parentFound := false
+		for _, candidate := range state.Completed {
+			if candidate.Path == parentPath && candidate.Kind == "folder" {
+				parentFound = true
+				if entry.Remote.Parents[0] != candidate.RemoteID {
+					return false
+				}
+				break
+			}
+		}
+		if !parentFound {
+			return false
+		}
+	}
+	if baseline.Kind == "folder" {
+		return baseline.Version != "" && baseline.ModifiedTime != "" && entry.Remote.Version == baseline.Version && entry.Remote.ModifiedTime == baseline.ModifiedTime
+	}
+	return sameUploadBaseline(entry, baseline)
+}
+
+func withoutSubtreeOperations(operations []Operation, subtree []Completed, paths ...string) []Operation {
+	ids := make(map[string]bool, len(subtree))
+	for _, entry := range subtree {
+		ids[entry.RemoteID] = true
+	}
+	filtered := operations[:0]
+	for _, operation := range operations {
+		covered := ids[operation.Entry.Remote.ID]
+		for _, before := range operation.Before {
+			covered = covered || ids[before.RemoteID]
+		}
+		for _, path := range paths {
+			covered = covered || containsPath(path, operation.Entry.Path)
+		}
+		if covered {
+			continue
+		}
+		filtered = append(filtered, operation)
+	}
+	return filtered
+}
+
+func remoteDeletionSubtree(remote []Entry, root string) []Completed {
+	entries := make([]Completed, 0)
+	for _, entry := range remote {
+		if containsPath(root, entry.Path) {
+			entries = append(entries, completedEntry(entry, ""))
+		}
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Path < entries[j].Path })
+	return entries
+}
+
+func sameDeletionRemoteSubtree(expected, current []Completed) bool {
+	if len(expected) == 0 || len(expected) != len(current) {
+		return false
+	}
+	for i := range expected {
+		left, right := expected[i], current[i]
+		left.SHA256, right.SHA256 = "", ""
+		if left != right {
+			return false
+		}
+	}
+	return true
+}
+
+func deletionConflictForPath(conflicts []Conflict, path string) *Conflict {
+	for i := range conflicts {
+		if conflicts[i].Deletion && conflicts[i].Path == path {
+			conflict := conflicts[i]
+			return &conflict
+		}
+	}
+	return nil
+}
+
+func deletionConflict(root Completed, entry Entry, subtree, liveSubtree []Completed) Conflict {
+	conflict := Conflict{
+		Deletion: true, DeletionSubtree: append([]Completed(nil), subtree...), DeletionRemoteSubtree: append([]Completed(nil), liveSubtree...),
+		Path: root.Path, Baseline: root, RemoteID: entry.Remote.ID,
+		RemoteVersion: entry.Remote.Version, RemoteModifiedTime: entry.Remote.ModifiedTime, RemoteMD5: entry.Remote.MD5,
+		RemoteSize: entry.Remote.Size, RemoteRevisionID: entry.Remote.HeadRevisionID,
+	}
+	conflict.ID = conflictID(conflict)
+	return conflict
 }
 
 func sameUploadBaseline(entry Entry, completed Completed) bool {

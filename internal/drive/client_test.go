@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -141,6 +142,14 @@ func TestTrash(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+func TestTrashRejectedResponseIsKnownNotToHaveSucceeded(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusForbidden) }))
+	defer s.Close()
+	err := NewClient(s.Client(), ClientOptions{BaseURL: s.URL}).Trash(context.Background(), "id")
+	if !errors.Is(err, ErrMutationRejected) {
+		t.Fatalf("rejected trash response was not classified: %v", err)
+	}
+}
 func TestNoCreateRetry(t *testing.T) {
 	n := 0
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -178,15 +187,29 @@ func TestCrossOriginRedirect(t *testing.T) {
 }
 func TestMetadataFields(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.URL.Query().Get("fields"), "headRevisionId") || !strings.Contains(r.URL.Query().Get("fields"), "modifiedTime") {
+		if !strings.Contains(r.URL.Query().Get("fields"), "headRevisionId") || !strings.Contains(r.URL.Query().Get("fields"), "modifiedTime") || !strings.Contains(r.URL.Query().Get("fields"), "explicitlyTrashed") {
 			t.Error("revision metadata was not requested")
 		}
-		_, _ = io.WriteString(w, `{"id":"f","size":"7","version":"9","modifiedTime":"2026-10-10T10:00:00.000Z","headRevisionId":"revision-9","ownedByMe":true,"capabilities":{"canDownload":true}}`)
+		_, _ = io.WriteString(w, `{"id":"f","size":"7","version":"9","modifiedTime":"2026-10-10T10:00:00.000Z","headRevisionId":"revision-9","ownedByMe":true,"trashed":true,"explicitlyTrashed":false,"capabilities":{"canDownload":true}}`)
 	}))
 	defer s.Close()
 	f, err := NewClient(s.Client(), ClientOptions{BaseURL: s.URL}).Get(context.Background(), "f")
-	if err != nil || f.Size != 7 || f.Version != "9" || f.ModifiedTime != "2026-10-10T10:00:00.000Z" || f.HeadRevisionID != "revision-9" || !f.OwnedByMe {
+	if err != nil || f.Size != 7 || f.Version != "9" || f.ModifiedTime != "2026-10-10T10:00:00.000Z" || f.HeadRevisionID != "revision-9" || !f.OwnedByMe || !f.Trashed || f.ExplicitlyTrashed {
 		t.Fatal("metadata lost", err)
+	}
+}
+
+func TestListDecodesExplicitTrashSeparately(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.URL.Query().Get("fields"), "explicitlyTrashed") {
+			t.Error("explicit trash metadata was not requested")
+		}
+		_, _ = io.WriteString(w, `{"files":[{"id":"f","name":"f","mimeType":"text/plain","version":"2","size":"1","md5Checksum":"9dd4e461268c8034f5c8564e155c67a6","trashed":true,"explicitlyTrashed":false}]}`)
+	}))
+	defer s.Close()
+	page, err := NewClient(s.Client(), ClientOptions{BaseURL: s.URL}).List(context.Background(), "q", "")
+	if err != nil || len(page.Files) != 1 || !page.Files[0].Trashed || page.Files[0].ExplicitlyTrashed {
+		t.Fatalf("inherited trash flags decoded incorrectly: %+v %v", page, err)
 	}
 }
 func TestErrorsRedacted(t *testing.T) {

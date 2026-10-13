@@ -41,6 +41,119 @@ func TestStateRejectsMalformedBaseline(t *testing.T) {
 		}
 	}
 }
+
+func TestStateAcceptsAndValidatesDeletionTombstones(t *testing.T) {
+	dir := t.TempDir()
+	root := Completed{Path: "folder", RemoteID: "folder-id", Version: "1", ModifiedTime: "2026-01-01T00:00:00Z", Kind: "folder"}
+	child := baselineFile("folder/file", "file-id", []byte("saved"))
+	child.Version, child.ModifiedTime, child.HeadRevisionID = "1", "2026-01-01T00:00:00Z", "revision-1"
+	childLive := child
+	childLive.SHA256 = ""
+	liveRoot := root
+	liveRoot.Version, liveRoot.ModifiedTime = "2", "2026-01-02T00:00:00Z"
+	conflict := Conflict{
+		Deletion: true, DeletionSubtree: []Completed{root, child}, DeletionRemoteSubtree: []Completed{liveRoot, childLive}, Path: root.Path,
+		Baseline: root, RemoteID: root.RemoteID, RemoteVersion: "2", RemoteModifiedTime: liveRoot.ModifiedTime,
+	}
+	conflict.ID = conflictID(conflict)
+	state := State{Version: 3, Completed: []Completed{root, child}, Conflicts: []Conflict{conflict}, PopulationComplete: true}
+	if err := saveState(dir, state); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := loadState(dir, Binding{})
+	if err != nil || len(loaded.Conflicts) != 1 || !loaded.Conflicts[0].Deletion || len(loaded.Conflicts[0].DeletionSubtree) != 2 || len(loaded.Conflicts[0].DeletionRemoteSubtree) != 2 {
+		t.Fatalf("valid folder deletion tombstone did not round-trip: %+v err=%v", loaded, err)
+	}
+	for name, mutate := range map[string]func(*Conflict){
+		"missing root":       func(c *Conflict) { c.DeletionSubtree = []Completed{child} },
+		"duplicate identity": func(c *Conflict) { c.DeletionSubtree = []Completed{root, root} },
+		"content stage":      func(c *Conflict) { c.LocalStagePath = ".grove-upload-private" },
+		"wrong baseline":     func(c *Conflict) { c.DeletionSubtree[1].SHA256 = "changed" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			bad := state
+			copyConflict := conflict
+			copyConflict.DeletionSubtree = append([]Completed(nil), conflict.DeletionSubtree...)
+			copyConflict.DeletionRemoteSubtree = append([]Completed(nil), conflict.DeletionRemoteSubtree...)
+			mutate(&copyConflict)
+			copyConflict.ID = conflictID(copyConflict)
+			bad.Conflicts = []Conflict{copyConflict}
+			if err := saveState(dir, bad); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := loadState(dir, Binding{}); err == nil {
+				t.Fatal("malformed deletion tombstone was accepted")
+			}
+		})
+	}
+}
+
+func TestStateLoadsNestedTrashJournalAndSelectedTombstone(t *testing.T) {
+	for _, selected := range []bool{false, true} {
+		t.Run(map[bool]string{false: "nested", true: "selected tombstone"}[selected], func(t *testing.T) {
+			base := baselineFile("parent/file", "file-id", []byte("saved"))
+			base.ModifiedTime, base.HeadRevisionID = "2026-01-01T00:00:00Z", "rev-1"
+			parent := Completed{Path: "parent", RemoteID: "parent-id", Kind: "folder", Version: "1", ModifiedTime: base.ModifiedTime}
+			remote := file(base.RemoteID, "file")
+			remote.Parents, remote.MD5, remote.Size = []string{parent.RemoteID}, base.MD5, base.Size
+			entry := Entry{Path: base.Path, Remote: remote}
+			before, live := []Completed{base}, []Completed{completedEntry(entry, "")}
+			op := Operation{Kind: OpTrash, Entry: entry, Before: before, RemoteSubtree: live}
+			state := State{Version: 3, PopulationComplete: true, Completed: []Completed{parent, base}, Transaction: &Journal{Operation: op, Phase: "trash-intent"}}
+			if selected {
+				conflict := deletionConflict(base, entry, before, live)
+				conflict.SelectedSide = SideLocal
+				state.Conflicts = []Conflict{conflict}
+				state.Transaction.Operation.Conflict = &conflict
+				state.Transaction.Operation.ResolutionSide = SideLocal
+			}
+			dir := t.TempDir()
+			if err := saveState(dir, state); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := loadState(dir, Binding{}); err != nil {
+				t.Fatalf("recoverable trash journal rejected: %v", err)
+			}
+		})
+	}
+}
+
+func TestStateLoadsDisjointMoveAndReplaceAlongsideDeletionConflict(t *testing.T) {
+	for _, kind := range []OperationKind{OpMove, OpReplace} {
+		t.Run(string(kind), func(t *testing.T) {
+			var ex *executor
+			var op Operation
+			var profile string
+			if kind == OpMove {
+				ex, op, profile = moving(t)
+			} else {
+				ex, op, profile = replacement(t)
+			}
+			base := baselineFile("other", "other-id", []byte("saved"))
+			remote := file(base.RemoteID, "other")
+			base.ModifiedTime, base.HeadRevisionID = remote.ModifiedTime, remote.HeadRevisionID
+			remote.MD5, remote.Size = base.MD5, base.Size
+			entry := Entry{Path: base.Path, Remote: remote}
+			conflict := deletionConflict(base, entry, []Completed{base}, []Completed{completedEntry(entry, "")})
+			ex.state.Version = 3
+			ex.state.Completed = append(ex.state.Completed, base)
+			ex.state.Conflicts = []Conflict{conflict}
+			j := Journal{Operation: op, Phase: "intent"}
+			if kind == OpMove {
+				j.After = remapBaseline(op.Before, "old", "new")
+			} else {
+				j.TempPath = ".grove-download-restore"
+				j.BackupPath = ".grove-backup-restore"
+			}
+			if err := ex.journal(j); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := loadState(profile, Binding{}); err != nil {
+				t.Fatalf("disjoint recovery journal rejected: %v", err)
+			}
+		})
+	}
+}
 func TestStateV1Migration(t *testing.T) {
 	dir := t.TempDir()
 	s := State{Version: 1, Completed: []Completed{baselineFile("a", "a", nil)}, PopulationComplete: true}
