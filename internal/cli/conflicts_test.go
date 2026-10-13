@@ -31,12 +31,27 @@ func TestConflictShowAndCandidateResolve(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "0\tlocal") || !strings.Contains(out.String(), "1\tcloud\t2026-01-01T00:00:00Z\t5") || strings.Contains(out.String(), "revision_id") || strings.Contains(out.String(), "sha256") || strings.Contains(out.String(), "stage_path") {
+	if !strings.Contains(out.String(), "0\tlocal") || !strings.Contains(out.String(), "1\tcloud\t\t2026-01-01T00:00:00Z\t5") || strings.Contains(out.String(), "revision_id") || strings.Contains(out.String(), "sha256") || strings.Contains(out.String(), "stage_path") {
 		t.Fatalf("unsafe or incomplete show output: %q", out.String())
 	}
 	root.SetArgs([]string{"conflicts", "resolve", "safe-id", "--candidate", "2", "--profile-dir", "p", "--remote-root", "r", "--local-dir", "l", "--token-file", "t"})
 	if err := root.Execute(); err != nil || gotSide != syncengine.SideCloud || gotCandidate != 2 {
 		t.Fatalf("candidate resolve side=%q ordinal=%d err=%v", gotSide, gotCandidate, err)
+	}
+}
+
+func TestDeletionConflictShowDescribesTombstone(t *testing.T) {
+	root := NewRoot(Services{ConflictDetails: func(context.Context, syncengine.Options, string) (syncengine.ConflictDetail, error) {
+		return syncengine.ConflictDetail{ID: "safe-id", Path: "folder", Candidates: []syncengine.ConflictCandidateView{{Ordinal: 0, Side: syncengine.SideLocal, Description: "deletion"}, {Ordinal: 1, Side: syncengine.SideCloud, Description: "remote tree"}}}, nil
+	}})
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetArgs([]string{"conflicts", "show", "safe-id", "--profile-dir", "p", "--remote-root", "r", "--local-dir", "l", "--token-file", "t"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "-\tlocal\tdeletion") || !strings.Contains(out.String(), "-\tcloud\tremote tree") || strings.Contains(out.String(), "stage_path") || strings.Contains(out.String(), "sha256") {
+		t.Fatalf("tombstone detail output is incomplete or unsafe: %q", out.String())
 	}
 }
 

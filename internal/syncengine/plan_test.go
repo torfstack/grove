@@ -343,6 +343,172 @@ func TestBuildTwoWayPlanRetainsAskConflictAfterMetadataChange(t *testing.T) {
 	}
 }
 
+func TestBuildTwoWayPlanTrashMissingTrackedFile(t *testing.T) {
+	base := completed()
+	plan, err := BuildTwoWayPlan(
+		Snapshot{Entries: []Entry{{Path: "a", Remote: file("a", "a")}}},
+		nil,
+		State{Completed: []Completed{base}, PopulationComplete: true},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Operations) != 1 || plan.Operations[0].Kind != OperationKind("trash") || plan.Operations[0].Entry.Remote.ID != "a" {
+		t.Fatalf("missing tracked file did not plan its Drive item for trash: %+v", plan.Operations)
+	}
+	if len(plan.Operations[0].Before) != 1 || plan.Operations[0].Before[0] != base {
+		t.Fatalf("trash operation lost the saved baseline: %+v", plan.Operations[0])
+	}
+}
+
+func TestBuildTwoWayPlanTrashesMissingEmptyFolder(t *testing.T) {
+	base := Completed{Path: "empty", RemoteID: "empty-id", Version: "7", ModifiedTime: "2026-01-01T00:00:00Z", Kind: "folder"}
+	remote := drive.File{ID: base.RemoteID, Name: "empty", MIMEType: drive.FolderMIME, Version: base.Version, ModifiedTime: base.ModifiedTime, OwnedByMe: true, Parents: []string{"root"}}
+	plan, err := BuildTwoWayPlan(Snapshot{Entries: []Entry{{Path: base.Path, Remote: remote}}}, nil, State{Completed: []Completed{base}, PopulationComplete: true, Binding: Binding{RemoteRoot: "root"}})
+	if err != nil || len(plan.Operations) != 1 || plan.Operations[0].Kind != OpTrash || len(plan.Operations[0].Before) != 1 {
+		t.Fatalf("missing empty folder did not produce one trash operation: %+v %v", plan, err)
+	}
+}
+
+func TestBuildTwoWayPlanCollapsesMissingFolderSubtree(t *testing.T) {
+	folder := Completed{Path: "a", RemoteID: "folder-a", Version: "1", ModifiedTime: "2026-01-01T00:00:00Z", Kind: "folder"}
+	childFolder := Completed{Path: "a/b", RemoteID: "folder-b", Version: "1", ModifiedTime: "2026-01-01T00:00:00Z", Kind: "folder"}
+	childFile := completed()
+	childFile.Path, childFile.RemoteID = "a/b/file", "file"
+	leaf := file("file", "file")
+	leaf.Parents = []string{"folder-b"}
+	remote := Snapshot{Entries: []Entry{
+		{Path: "a", Remote: drive.File{ID: "folder-a", Name: "a", MIMEType: drive.FolderMIME, Version: "1", ModifiedTime: "2026-01-01T00:00:00Z", OwnedByMe: true, Parents: []string{"root"}}},
+		{Path: "a/b", Remote: drive.File{ID: "folder-b", Name: "b", MIMEType: drive.FolderMIME, Version: "1", ModifiedTime: "2026-01-01T00:00:00Z", OwnedByMe: true, Parents: []string{"folder-a"}}},
+		{Path: "a/b/file", Remote: leaf},
+	}}
+	plan, err := BuildTwoWayPlan(remote, nil, State{Completed: []Completed{childFile, childFolder, folder}, PopulationComplete: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Operations) != 1 || plan.Operations[0].Kind != OperationKind("trash") || plan.Operations[0].Entry.Remote.ID != "folder-a" {
+		t.Fatalf("missing folder subtree was not collapsed to one trash: %+v", plan.Operations)
+	}
+	want := []string{"a", "a/b", "a/b/file"}
+	if len(plan.Operations[0].Before) != len(want) {
+		t.Fatalf("trash operation has incomplete subtree baseline: %+v", plan.Operations[0].Before)
+	}
+	for i, path := range want {
+		if plan.Operations[0].Before[i].Path != path {
+			t.Fatalf("subtree baseline order = %+v, want %v", plan.Operations[0].Before, want)
+		}
+	}
+}
+
+func TestBuildTwoWayPlanSurfacesChangedRemoteAsDeletionConflict(t *testing.T) {
+	base := completed()
+	remote := file("a", "a")
+	remote.Version, remote.HeadRevisionID = "2", "rev-2"
+	remote.MD5 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	for _, policy := range []ConflictPolicy{ConflictAsk, ConflictKeepLocal, ConflictKeepCloud} {
+		plan, err := BuildTwoWayPlan(
+			Snapshot{Entries: []Entry{{Path: "a", Remote: remote}}},
+			nil,
+			State{Completed: []Completed{base}, PopulationComplete: true, ConflictPolicy: policy},
+		)
+		if err != nil {
+			t.Fatalf("policy %q: %v", policy, err)
+		}
+		if len(plan.Operations) != 1 || plan.Operations[0].Kind != OpConflict || plan.Operations[0].ResolutionSide != "" || plan.Operations[0].Conflict == nil || !plan.Operations[0].Conflict.Deletion {
+			t.Fatalf("policy %q selected or lost a deletion conflict: %+v", policy, plan.Operations)
+		}
+	}
+}
+
+func TestBuildTwoWayPlanDoesNotAutoTrashAnExistingDeletionConflict(t *testing.T) {
+	base := completed()
+	changed := file("a", "a")
+	changed.Version, changed.HeadRevisionID = "2", "rev-2"
+	changed.MD5 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	first, err := BuildTwoWayPlan(Snapshot{Entries: []Entry{{Path: "a", Remote: changed}}}, nil, State{Completed: []Completed{base}, PopulationComplete: true})
+	if err != nil || len(first.Operations) != 1 || first.Operations[0].Conflict == nil {
+		t.Fatalf("failed to create initial tombstone: %+v %v", first, err)
+	}
+	pending := *first.Operations[0].Conflict
+	unchanged := file("a", "a")
+	plan, err := BuildTwoWayPlan(Snapshot{Entries: []Entry{{Path: "a", Remote: unchanged}}}, nil, State{Completed: []Completed{base}, Conflicts: []Conflict{pending}, PopulationComplete: true, ConflictPolicy: ConflictKeepLocal})
+	if err != nil || len(plan.Operations) != 1 || plan.Operations[0].Kind != OpConflict || plan.Operations[0].ResolutionSide != "" || plan.Operations[0].Conflict == nil || !plan.Operations[0].Conflict.Deletion {
+		t.Fatalf("existing tombstone was auto-resolved after remote changed back: %+v %v", plan, err)
+	}
+}
+
+func TestBuildTwoWayPlanPreservesSubtreeConflictForNewRemoteDescendant(t *testing.T) {
+	folder := Completed{Path: "a", RemoteID: "folder-a", Version: "1", Kind: "folder"}
+	remote := Snapshot{Entries: []Entry{
+		{Path: "a", Remote: drive.File{ID: "folder-a", Name: "a", MIMEType: drive.FolderMIME, Version: "1", OwnedByMe: true, Parents: []string{"root"}}},
+		{Path: "a/new", Remote: file("new", "new")},
+	}}
+	plan, err := BuildTwoWayPlan(remote, nil, State{Completed: []Completed{folder}, PopulationComplete: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Operations) != 1 || plan.Operations[0].Kind != OpConflict || plan.Operations[0].Conflict == nil || !plan.Operations[0].Conflict.Deletion {
+		t.Fatalf("remote descendant was not preserved behind a deletion conflict: %+v", plan.Operations)
+	}
+}
+
+func TestBuildTwoWayPlanConflictsWhenDeletedRemoteItemMoved(t *testing.T) {
+	base := completed()
+	moved := file("a", "b")
+	moved.HeadRevisionID = "rev-2"
+	plan, err := BuildTwoWayPlan(Snapshot{Entries: []Entry{{Path: "b", Remote: moved}}}, nil, State{Completed: []Completed{base}, PopulationComplete: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Operations) != 1 || plan.Operations[0].Kind != OpConflict || plan.Operations[0].Conflict == nil || !plan.Operations[0].Conflict.Deletion || plan.Operations[0].Conflict.Path != "a" || plan.Operations[0].Entry.Path != "b" {
+		t.Fatalf("moved remote item did not remain behind a deletion conflict: %+v", plan.Operations)
+	}
+}
+
+func TestBuildTwoWayPlanConflictsWhenFolderMetadataChanged(t *testing.T) {
+	folder := Completed{Path: "a", RemoteID: "folder-a", Version: "1", ModifiedTime: "2026-01-01T00:00:00Z", Kind: "folder"}
+	remoteFolder := drive.File{ID: "folder-a", Name: "a", MIMEType: drive.FolderMIME, Version: "2", ModifiedTime: "2026-01-02T00:00:00Z", OwnedByMe: true, Parents: []string{"root"}}
+	plan, err := BuildTwoWayPlan(Snapshot{Entries: []Entry{{Path: "a", Remote: remoteFolder}}}, nil, State{Completed: []Completed{folder}, PopulationComplete: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Operations) != 1 || plan.Operations[0].Kind != OpConflict || plan.Operations[0].Conflict == nil || !plan.Operations[0].Conflict.Deletion {
+		t.Fatalf("changed folder metadata did not become a deletion conflict: %+v", plan.Operations)
+	}
+}
+
+func TestBuildTwoWayPlanRecordsDeletedFileTypeChangeAsTombstone(t *testing.T) {
+	base := completed()
+	entry := Entry{Path: "a", Remote: drive.File{ID: base.RemoteID, Name: "a", MIMEType: drive.FolderMIME, Version: "2", ModifiedTime: base.ModifiedTime, OwnedByMe: true, Parents: []string{"root"}}}
+	state := State{Version: 3, Completed: []Completed{base}, PopulationComplete: true}
+	plan, err := BuildTwoWayPlan(Snapshot{Entries: []Entry{entry}}, nil, state)
+	if err != nil || len(plan.Operations) != 1 || plan.Operations[0].Kind != OpConflict || plan.Operations[0].Conflict == nil {
+		t.Fatalf("changed type did not become a deletion conflict: %+v %v", plan, err)
+	}
+	c := *plan.Operations[0].Conflict
+	if err = validateConflicts([]Conflict{c}, state.Completed, true); err != nil {
+		t.Fatalf("changed-type tombstone cannot persist: %v", err)
+	}
+}
+
+func TestBuildTwoWayPlanKeepsRemoteRemovalUnsupported(t *testing.T) {
+	_, err := BuildTwoWayPlan(Snapshot{}, nil, State{Completed: []Completed{completed()}, PopulationComplete: true})
+	if err == nil {
+		t.Fatal("complete remote listing without tracked ID was treated as local deletion")
+	}
+}
+
+func TestBuildPlanStillRejectsMissingTrackedLocalFile(t *testing.T) {
+	_, err := BuildPlan(
+		Snapshot{Entries: []Entry{{Path: "a", Remote: file("a", "a")}}},
+		nil,
+		State{Completed: []Completed{completed()}, PopulationComplete: true},
+	)
+	if err == nil {
+		t.Fatal("download-only planner accepted a missing tracked file")
+	}
+}
+
 func TestBuildTwoWayPlanDoesNotAutoResolveMultiCandidateConflict(t *testing.T) {
 	remote := file("a", "a")
 	remote.Version, remote.HeadRevisionID = "2", "rev-2"

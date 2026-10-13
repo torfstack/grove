@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -14,14 +15,17 @@ import (
 
 func conflictID(c Conflict) string {
 	identity := struct {
-		Path           string   `json:"path"`
-		RemoteID       string   `json:"remote_id"`
-		BaselineSHA    string   `json:"baseline_sha256"`
-		LocalSHA       string   `json:"local_sha256"`
-		RemoteMD5      string   `json:"remote_md5"`
-		RemoteSize     int64    `json:"remote_size"`
-		CloudRevision  string   `json:"cloud_revision_id,omitempty"`
-		CloudRevisions []string `json:"cloud_revision_ids,omitempty"`
+		Path           string      `json:"path"`
+		RemoteID       string      `json:"remote_id"`
+		BaselineSHA    string      `json:"baseline_sha256"`
+		LocalSHA       string      `json:"local_sha256"`
+		RemoteMD5      string      `json:"remote_md5"`
+		RemoteSize     int64       `json:"remote_size"`
+		CloudRevision  string      `json:"cloud_revision_id,omitempty"`
+		CloudRevisions []string    `json:"cloud_revision_ids,omitempty"`
+		Deletion       bool        `json:"deletion,omitempty"`
+		Deleted        []Completed `json:"deleted,omitempty"`
+		RemoteTree     []Completed `json:"remote_tree,omitempty"`
 	}{
 		Path: c.Path, RemoteID: c.RemoteID, BaselineSHA: c.Baseline.SHA256,
 		LocalSHA: c.LocalSHA256, RemoteMD5: c.RemoteMD5, RemoteSize: c.RemoteSize,
@@ -32,6 +36,13 @@ func conflictID(c Conflict) string {
 		for i, candidate := range c.CloudCandidates {
 			identity.CloudRevisions[i] = candidate.RevisionID
 		}
+	}
+	if c.Deletion {
+		identity.Deletion = true
+		identity.Deleted = append([]Completed(nil), c.DeletionSubtree...)
+		sort.Slice(identity.Deleted, func(i, j int) bool { return identity.Deleted[i].Path < identity.Deleted[j].Path })
+		identity.RemoteTree = append([]Completed(nil), c.DeletionRemoteSubtree...)
+		sort.Slice(identity.RemoteTree, func(i, j int) bool { return identity.RemoteTree[i].Path < identity.RemoteTree[j].Path })
 	}
 	data, _ := json.Marshal(identity)
 	sum := sha256.Sum256(data)
@@ -126,6 +137,25 @@ func validateConflicts(conflicts []Conflict, completed []Completed, requireStage
 		if !safeRelative(c.Path) || c.ID == "" || c.ID != conflictID(c) || seenIDs[c.ID] || seenPaths[c.Path] {
 			return errors.New("invalid pending conflict identity")
 		}
+		if c.Deletion {
+			if err := validateDeletionConflict(c, byID, requireStages); err != nil {
+				return err
+			}
+			if c.SelectedSide != "" && c.SelectedSide != SideLocal && c.SelectedSide != SideCloud {
+				return errors.New("invalid pending conflict selection")
+			}
+			if c.SelectedCandidate != 0 {
+				return errors.New("deletion conflict cannot select a cloud revision ordinal")
+			}
+			seenIDs[c.ID] = true
+			for _, entry := range c.DeletionSubtree {
+				if seenPaths[entry.Path] {
+					return errors.New("overlapping pending conflict paths")
+				}
+				seenPaths[entry.Path] = true
+			}
+			continue
+		}
 		if c.Baseline.RemoteID != "" {
 			if !tracked || c.Baseline != baseline || c.Path != baseline.Path || baseline.Kind != "file" {
 				return errors.New("pending conflict does not match baseline")
@@ -189,6 +219,62 @@ func validateConflicts(conflicts []Conflict, completed []Completed, requireStage
 		}
 		seenIDs[c.ID] = true
 		seenPaths[c.Path] = true
+	}
+	return nil
+}
+
+func validateDeletionConflict(c Conflict, completed map[string]Completed, requireStages bool) error {
+	if !requireStages || c.Baseline.RemoteID == "" || c.RemoteID != c.Baseline.RemoteID || c.Path != c.Baseline.Path || !reflect.DeepEqual(completed[c.RemoteID], c.Baseline) || len(c.DeletionSubtree) == 0 {
+		return errors.New("invalid deletion conflict baseline")
+	}
+	if c.LocalSHA256 != "" || c.LocalSize != 0 || c.LocalStagePath != "" || c.LocalStageIdentity != nil || c.CloudStagePath != "" || c.CloudStageIdentity != nil || c.CloudSHA256 != "" || c.CloudRevisionID != "" || c.CloudMD5 != "" || c.CloudSize != 0 || c.CandidateSetVersion != 0 || len(c.CloudCandidates) != 0 || c.RemoteVersion == "" {
+		return errors.New("deletion conflict contains content candidates")
+	}
+	seenIDs, seenPaths := map[string]bool{}, map[string]bool{}
+	rootSeen := false
+	for i, entry := range c.DeletionSubtree {
+		if !safeRelative(entry.Path) || !containsPath(c.Path, entry.Path) || entry.RemoteID == "" || seenIDs[entry.RemoteID] || seenPaths[entry.Path] || !reflect.DeepEqual(completed[entry.RemoteID], entry) {
+			return errors.New("invalid deletion conflict subtree")
+		}
+		if i > 0 && c.DeletionSubtree[i-1].Path >= entry.Path {
+			return errors.New("deletion conflict subtree is not ordered")
+		}
+		if entry.Path == c.Path && reflect.DeepEqual(entry, c.Baseline) {
+			rootSeen = true
+		}
+		seenIDs[entry.RemoteID], seenPaths[entry.Path] = true, true
+	}
+	if !rootSeen {
+		return errors.New("deletion conflict subtree lacks its root")
+	}
+	remoteIDs, remotePaths := map[string]bool{}, map[string]bool{}
+	remoteRoot := Completed{}
+	for i, entry := range c.DeletionRemoteSubtree {
+		if !safeRelative(entry.Path) || entry.RemoteID == "" || entry.Version == "" || remoteIDs[entry.RemoteID] || remotePaths[entry.Path] || (entry.Kind != "file" && entry.Kind != "folder") {
+			return errors.New("invalid deletion conflict live subtree")
+		}
+		if i > 0 && c.DeletionRemoteSubtree[i-1].Path >= entry.Path {
+			return errors.New("deletion conflict live subtree is not ordered")
+		}
+		if entry.Kind == "file" {
+			if entry.ModifiedTime == "" || entry.HeadRevisionID == "" || !validHash(entry.MD5, 16) || entry.Size < 0 {
+				return errors.New("invalid deletion conflict live file fingerprint")
+			}
+		} else if entry.ModifiedTime == "" || entry.MD5 != "" || entry.HeadRevisionID != "" || entry.Size != 0 {
+			return errors.New("invalid deletion conflict live folder fingerprint")
+		}
+		if entry.RemoteID == c.RemoteID {
+			remoteRoot = entry
+		}
+		remoteIDs[entry.RemoteID], remotePaths[entry.Path] = true, true
+	}
+	if remoteRoot.RemoteID == "" || remoteRoot.Version != c.RemoteVersion || remoteRoot.ModifiedTime != c.RemoteModifiedTime || remoteRoot.MD5 != c.RemoteMD5 || remoteRoot.Size != c.RemoteSize || remoteRoot.HeadRevisionID != c.RemoteRevisionID {
+		return errors.New("deletion conflict live subtree lacks its remote root")
+	}
+	for _, entry := range c.DeletionRemoteSubtree {
+		if !containsPath(remoteRoot.Path, entry.Path) {
+			return errors.New("deletion conflict live subtree contains unrelated path")
+		}
 	}
 	return nil
 }

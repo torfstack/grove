@@ -25,13 +25,80 @@ func validateCompleted(entries []Completed) error {
 }
 func validateJournal(j Journal, baseline []Completed) error {
 	op := j.Operation
-	if op.Kind != OpReplace && op.Kind != OpMove && op.Kind != OpUpload && op.Kind != OpCreate {
+	if op.Kind != OpReplace && op.Kind != OpMove && op.Kind != OpUpload && op.Kind != OpCreate && op.Kind != OpTrash {
 		return errors.New("invalid journal operation")
 	}
 	switch op.Kind {
 	case OpUpload, OpCreate:
 		if err := validateUploadJournal(j, baseline); err != nil {
 			return err
+		}
+	}
+	if op.Kind == OpTrash {
+		if !safeRelative(op.Entry.Path) || len(op.Before) == 0 || len(op.RemoteSubtree) == 0 || len(j.After) != 0 || j.TempPath != "" || j.BackupPath != "" || j.VerifiedSHA256 != "" || j.StagePath != "" || j.StageIdentity != nil {
+			return errors.New("invalid trash journal")
+		}
+		rootFound := false
+		for _, entry := range op.Before {
+			if !containsPath(op.Before[0].Path, entry.Path) {
+				return errors.New("trash journal contains unrelated baseline")
+			}
+			if entry.Path == op.Before[0].Path && entry.RemoteID == op.Entry.Remote.ID && (entry.Kind == entryKind(op.Entry) || op.Conflict != nil && op.Conflict.Deletion) {
+				rootFound = true
+			}
+		}
+		if !rootFound {
+			return errors.New("trash journal root does not match baseline")
+		}
+		remoteRoot := Completed{}
+		remoteIDs, remotePaths := map[string]bool{}, map[string]bool{}
+		for i, entry := range op.RemoteSubtree {
+			if !safeRelative(entry.Path) || entry.RemoteID == "" || (entry.Kind != "file" && entry.Kind != "folder") || entry.Version == "" || remoteIDs[entry.RemoteID] || remotePaths[entry.Path] || (i > 0 && op.RemoteSubtree[i-1].Path >= entry.Path) {
+				return errors.New("invalid live trash subtree")
+			}
+			if entry.Kind == "file" {
+				if entry.ModifiedTime == "" || entry.HeadRevisionID == "" || !validHash(entry.MD5, 16) || entry.Size < 0 {
+					return errors.New("invalid live trash file fingerprint")
+				}
+			} else if entry.ModifiedTime == "" || entry.MD5 != "" || entry.HeadRevisionID != "" || entry.Size != 0 {
+				return errors.New("invalid live trash folder fingerprint")
+			}
+			remoteIDs[entry.RemoteID], remotePaths[entry.Path] = true, true
+			if entry.RemoteID == op.Entry.Remote.ID {
+				remoteRoot = entry
+			}
+		}
+		if remoteRoot.RemoteID == "" || remoteRoot.Path != op.Entry.Path || remoteRoot.Version != op.Entry.Remote.Version || remoteRoot.ModifiedTime != op.Entry.Remote.ModifiedTime || remoteRoot.MD5 != op.Entry.Remote.MD5 || remoteRoot.Size != op.Entry.Remote.Size || remoteRoot.HeadRevisionID != op.Entry.Remote.HeadRevisionID {
+			return errors.New("trash journal remote root fingerprint mismatch")
+		}
+		for _, entry := range op.RemoteSubtree {
+			if !containsPath(remoteRoot.Path, entry.Path) {
+				return errors.New("invalid live trash subtree membership")
+			}
+			parent := filepath.Dir(entry.Path)
+			if entry.RemoteID != remoteRoot.RemoteID && parent != remoteRoot.Path && parent != "." && !remotePaths[parent] {
+				return errors.New("live trash subtree has an untracked parent")
+			}
+		}
+		if op.Before[0].Kind == "folder" {
+			beforeIDs := map[string]Completed{}
+			for _, entry := range op.Before {
+				beforeIDs[entry.RemoteID] = entry
+			}
+			for _, entry := range baseline {
+				if containsPath(op.Before[0].Path, entry.Path) && !reflect.DeepEqual(beforeIDs[entry.RemoteID], entry) {
+					return errors.New("trash journal omits tracked subtree baseline")
+				}
+			}
+		}
+		if op.Conflict != nil {
+			c := op.Conflict
+			if !c.Deletion || c.SelectedSide != SideLocal || op.ResolutionSide != SideLocal || !reflect.DeepEqual(c.DeletionSubtree, op.Before) || !sameDeletionRemoteSubtree(c.DeletionRemoteSubtree, op.RemoteSubtree) || c.RemoteID != op.Entry.Remote.ID {
+				return errors.New("invalid trash conflict selection")
+			}
+			if err := validateConflicts([]Conflict{*c}, op.Before, true); err != nil {
+				return err
+			}
 		}
 	}
 	if !safeRelative(op.Entry.Path) || (op.Kind != OpCreate && len(op.Before) == 0) {
@@ -74,6 +141,13 @@ func validateJournal(j Journal, baseline []Completed) error {
 			}
 		} else if !validHash(j.VerifiedSHA256, 32) || len(j.After) != 1 || !reflect.DeepEqual(j.After[0], completedEntry(op.Entry, j.VerifiedSHA256)) {
 			return errors.New("invalid verified replacement result")
+		}
+	case OpTrash:
+		if j.Phase != "intent" && j.Phase != "trash-intent" && j.Phase != "committed" {
+			return errors.New("invalid trash phase")
+		}
+		if j.TempPath != "" || j.BackupPath != "" || j.VerifiedSHA256 != "" || j.StagePath != "" || j.StageIdentity != nil {
+			return errors.New("invalid trash journal artifacts")
 		}
 	default:
 		if j.Phase != "intent" && j.Phase != "committed" {

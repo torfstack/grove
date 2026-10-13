@@ -58,7 +58,11 @@ func newConflicts(services Services) *cobra.Command {
 			return err
 		}
 		for _, conflict := range conflicts {
-			if _, err = fmt.Fprintf(command.OutOrStdout(), "%s\t%s\t%s\t%d\n", conflict.ID, conflict.Path, conflict.RemoteVersion, len(conflict.CloudCandidates)); err != nil {
+			kind := "content"
+			if conflict.Deletion {
+				kind = "deletion"
+			}
+			if _, err = fmt.Fprintf(command.OutOrStdout(), "%s\t%s\t%s\t%s\t%d\n", conflict.ID, conflict.Path, kind, conflict.RemoteVersion, len(conflict.CloudCandidates)); err != nil {
 				return err
 			}
 		}
@@ -82,11 +86,15 @@ func newConflicts(services Services) *cobra.Command {
 			return err
 		}
 		for _, item := range detail.Candidates {
+			ordinal := fmt.Sprint(item.Ordinal)
+			if item.Description != "" {
+				ordinal = "-"
+			}
 			selected := ""
 			if item.Selected {
 				selected = "\tselected"
 			}
-			if _, err = fmt.Fprintf(command.OutOrStdout(), "%d\t%s\t%s\t%d%s\n", item.Ordinal, item.Side, item.ModifiedTime, item.Size, selected); err != nil {
+			if _, err = fmt.Fprintf(command.OutOrStdout(), "%s\t%s\t%s\t%s\t%d%s\n", ordinal, item.Side, item.Description, item.ModifiedTime, item.Size, selected); err != nil {
 				return err
 			}
 		}

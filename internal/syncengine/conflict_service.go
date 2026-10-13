@@ -44,7 +44,17 @@ func (s Service) ConflictDetails(ctx context.Context, opts Options, id string) (
 		if conflict.ID != id {
 			continue
 		}
-		detail := ConflictDetail{ID: conflict.ID, Path: conflict.Path, Candidates: []ConflictCandidateView{{Ordinal: 0, Side: SideLocal, Size: conflict.LocalSize, Selected: conflict.SelectedSide == SideLocal}}}
+		detail := ConflictDetail{ID: conflict.ID, Path: conflict.Path}
+		if conflict.Deletion {
+			detail.Candidates = []ConflictCandidateView{{Ordinal: 0, Side: SideLocal, Description: "deletion", Selected: conflict.SelectedSide == SideLocal}}
+			if conflict.SelectedSide == SideCloud {
+				detail.Candidates = append(detail.Candidates, ConflictCandidateView{Ordinal: 1, Side: SideCloud, Description: "remote tree", Selected: true})
+			} else {
+				detail.Candidates = append(detail.Candidates, ConflictCandidateView{Ordinal: 1, Side: SideCloud, Description: "remote tree"})
+			}
+			return detail, nil
+		}
+		detail.Candidates = append(detail.Candidates, ConflictCandidateView{Ordinal: 0, Side: SideLocal, Size: conflict.LocalSize, Selected: conflict.SelectedSide == SideLocal})
 		for i, candidate := range conflictCandidates(conflict) {
 			detail.Candidates = append(detail.Candidates, ConflictCandidateView{Ordinal: i + 1, Side: SideCloud, ModifiedTime: candidate.ModifiedTime, Size: candidate.Size, Selected: conflict.SelectedSide == SideCloud && conflict.SelectedCandidate == i+1})
 		}
@@ -66,26 +76,32 @@ func (s Service) ResolveConflict(ctx context.Context, opts Options, id string, s
 		_ = lock.Close()
 		return errors.New("pending conflict not found")
 	}
-	if conflict.Baseline.RemoteID == "" && side == SideLocal {
+	if !conflict.Deletion && conflict.Baseline.RemoteID == "" && side == SideLocal {
 		_ = lock.Close()
 		return errors.New("local resolution is not supported for an untracked same-path addition")
 	}
 	candidates := conflictCandidates(*conflict)
-	if side == SideCloud && (candidateOrdinal == 0 && len(candidates) > 1 || candidateOrdinal > len(candidates)) {
+	if conflict.Deletion && candidateOrdinal != 0 {
+		_ = lock.Close()
+		return errors.New("deletion conflicts do not have revision candidates")
+	}
+	if !conflict.Deletion && side == SideCloud && (candidateOrdinal == 0 && len(candidates) > 1 || candidateOrdinal > len(candidates)) {
 		_ = lock.Close()
 		return errors.New("a valid cloud candidate ordinal is required")
 	}
-	if side == SideCloud && candidateOrdinal == 0 {
+	if !conflict.Deletion && side == SideCloud && candidateOrdinal == 0 {
 		candidateOrdinal = 1
 	}
-	if err = verifyPrivateStage(canonical.ProfileDir, conflict.LocalStagePath, conflict.LocalStageIdentity, conflict.LocalSHA256, "", conflict.LocalSize); err != nil {
-		_ = lock.Close()
-		return err
-	}
-	for _, candidate := range candidates {
-		if err = verifyPrivateStage(canonical.ProfileDir, candidate.StagePath, candidate.StageIdentity, candidate.SHA256, candidate.MD5, candidate.Size); err != nil {
+	if !conflict.Deletion {
+		if err = verifyPrivateStage(canonical.ProfileDir, conflict.LocalStagePath, conflict.LocalStageIdentity, conflict.LocalSHA256, "", conflict.LocalSize); err != nil {
 			_ = lock.Close()
 			return err
+		}
+		for _, candidate := range candidates {
+			if err = verifyPrivateStage(canonical.ProfileDir, candidate.StagePath, candidate.StageIdentity, candidate.SHA256, candidate.MD5, candidate.Size); err != nil {
+				_ = lock.Close()
+				return err
+			}
 		}
 	}
 	root, err := os.OpenRoot(canonical.LocalDir)
@@ -95,7 +111,17 @@ func (s Service) ResolveConflict(ctx context.Context, opts Options, id string, s
 	}
 	local, scanErr := scanLocal(ctx, root, nil)
 	closeRootErr := root.Close()
-	if scanErr != nil || closeRootErr != nil || !matchesLocalConflict(local, *conflict) {
+	localMatches := matchesLocalConflict(local, *conflict)
+	if conflict.Deletion {
+		localMatches = true
+		for _, entry := range local {
+			if containsPath(conflict.Path, entry.Path) {
+				localMatches = false
+				break
+			}
+		}
+	}
+	if scanErr != nil || closeRootErr != nil || !localMatches {
 		_ = lock.Close()
 		return errors.New("local conflict candidate changed")
 	}
@@ -115,11 +141,15 @@ func (s Service) ResolveConflict(ctx context.Context, opts Options, id string, s
 		}
 	}()
 	snapshot, scanErr := Scan(ctx, api, canonical.RemoteRoot)
-	if scanErr != nil || !matchesRemoteConflict(snapshot, *conflict) {
+	remoteMatches := matchesRemoteConflict(snapshot, *conflict)
+	if conflict.Deletion {
+		remoteMatches = matchesDeletionRemoteConflict(snapshot, *conflict)
+	}
+	if scanErr != nil || !remoteMatches {
 		_ = lock.Close()
 		return errors.New("remote conflict candidate changed")
 	}
-	if side == SideCloud && len(candidates) > 1 {
+	if !conflict.Deletion && side == SideCloud && len(candidates) > 1 {
 		mutationAPI, ok := api.(drive.SyncMutationAPI)
 		if !ok {
 			_ = lock.Close()
@@ -152,6 +182,14 @@ func (s Service) ResolveConflict(ctx context.Context, opts Options, id string, s
 	conflict.SelectedSide = side
 	conflict.SelectedCandidate = candidateOrdinal
 	state.Conflicts = replaceConflict(state.Conflicts, *conflict)
+	if conflict.Deletion && side == SideCloud {
+		if err = applyBaseline(&state, conflict.DeletionSubtree, nil); err != nil {
+			_ = lock.Close()
+			return err
+		}
+		state.Conflicts = withoutConflict(state.Conflicts, conflict.ID)
+		state.PopulationComplete = false
+	}
 	if err = saveState(canonical.ProfileDir, state); err != nil {
 		_ = lock.Close()
 		return err
@@ -160,8 +198,28 @@ func (s Service) ResolveConflict(ctx context.Context, opts Options, id string, s
 		return errors.New("cannot release sync profile lock")
 	}
 	canonical.TwoWay = true
+	if conflict.Deletion {
+		canonical.TwoWay = side == SideLocal
+		if side == SideLocal {
+			canonical.deletionResolutionID = conflict.ID
+		}
+	}
 	_, err = s.Run(ctx, canonical)
 	return err
+}
+
+func matchesDeletionRemoteConflict(snapshot Snapshot, conflict Conflict) bool {
+	rootPath := ""
+	for _, entry := range conflict.DeletionRemoteSubtree {
+		if entry.RemoteID == conflict.RemoteID {
+			rootPath = entry.Path
+			break
+		}
+	}
+	if rootPath == "" {
+		return false
+	}
+	return sameDeletionRemoteSubtree(conflict.DeletionRemoteSubtree, remoteDeletionSubtree(snapshot.Entries, rootPath))
 }
 
 func (s Service) lockedState(opts Options) (Options, State, *privatefs.Lock, error) {
@@ -178,7 +236,7 @@ func (s Service) lockedState(opts Options) (Options, State, *privatefs.Lock, err
 		_ = lock.Close()
 		return Options{}, State{}, nil, err
 	}
-	if !state.PopulationComplete {
+	if !state.PopulationComplete && (state.Version != 3 || len(state.Conflicts) == 0) {
 		_ = lock.Close()
 		return Options{}, State{}, nil, errors.New("profile is not fully populated")
 	}

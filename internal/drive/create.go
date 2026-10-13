@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"errors"
+	"fmt"
 	"io"
 
 	"net/url"
@@ -41,6 +42,16 @@ func (c *Client) Create(ctx context.Context, input Create, content io.Reader) (F
 func (c *Client) Trash(ctx context.Context, id string) error {
 	resp, err := c.request(ctx, "PATCH", c.base+"/files/"+url.PathEscape(id), url.Values{"fields": {"id,trashed"}}, []byte(`{"trashed":true}`), "application/json", false)
 	if err != nil {
+		var status int
+		rejected := errors.Is(err, ErrNotFound)
+		if !rejected && strings.HasPrefix(err.Error(), "drive request rejected with HTTP ") {
+			if scanned, _ := fmt.Sscanf(err.Error(), "drive request rejected with HTTP %d", &status); scanned == 1 && status >= 400 && status < 500 && status != 408 {
+				rejected = true
+			}
+		}
+		if rejected {
+			return fmt.Errorf("%w: %w", ErrMutationRejected, err)
+		}
 		return err
 	}
 	return resp.Body.Close()

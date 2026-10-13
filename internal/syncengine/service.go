@@ -113,15 +113,29 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 	if mutation, ok := api.(drive.SyncMutationAPI); ok {
 		ex.mutation = mutation
 	}
+	var recoveringTrash *Journal
+	if state.Transaction != nil && state.Transaction.Operation.Kind == OpTrash {
+		copy := *state.Transaction
+		recoveringTrash = &copy
+	}
 	if err = ex.recover(ctx, snapshot); err != nil {
 		return result, err
+	}
+	if recoveringTrash != nil && state.Transaction == nil {
+		stillTracked := false
+		for _, completed := range state.Completed {
+			stillTracked = stillTracked || completed.RemoteID == recoveringTrash.Operation.Entry.Remote.ID
+		}
+		if !stillTracked {
+			result.Trashed += len(recoveringTrash.Operation.RemoteSubtree)
+		}
 	}
 	local, err := scanLocal(ctx, root, nil)
 	if err != nil {
 		return result, err
 	}
 	if opts.TwoWay {
-		if !state.PopulationComplete {
+		if !state.PopulationComplete && opts.deletionResolutionID == "" {
 			return result, errors.New("two-way sync requires a populated profile")
 		}
 		if state.Version == 1 {
@@ -136,8 +150,12 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 		}
 	}
 	var plan Plan
-	if opts.TwoWay {
+	if opts.deletionResolutionID != "" {
+		plan, err = BuildDeletionResolutionPlan(snapshot, local, state, opts.deletionResolutionID)
+	} else if opts.TwoWay {
 		plan, err = BuildTwoWayPlan(snapshot, local, state)
+	} else if !state.PopulationComplete && len(state.Conflicts) > 0 {
+		plan, err = BuildRestorationPlan(snapshot, local, state)
 	} else {
 		plan, err = BuildPlan(snapshot, local, state)
 	}
@@ -173,9 +191,42 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 			return result, err
 		}
 	}
-	for _, op := range plan.Operations {
+	for index := 0; index < len(plan.Operations); index++ {
+		op := plan.Operations[index]
 		if err = ex.execute(ctx, op); err != nil {
 			return result, err
+		}
+		cloudRestore := op.Kind == OpConflict && op.Conflict != nil && op.Conflict.Deletion && op.ResolutionSide == SideCloud
+		partialLocalResolution := op.Kind == OpTrash && opts.deletionResolutionID != "" && !state.PopulationComplete
+		if cloudRestore || partialLocalResolution {
+			if partialLocalResolution {
+				result.Trashed += len(op.RemoteSubtree)
+			}
+			snapshot, err = Scan(ctx, api, opts.RemoteRoot)
+			if err != nil {
+				return result, err
+			}
+			local, err = scanLocal(ctx, root, nil)
+			if err != nil {
+				return result, err
+			}
+			plan, err = BuildRestorationPlan(snapshot, local, state)
+			if err != nil {
+				return result, err
+			}
+			for _, restoreOp := range plan.Operations {
+				if restoreOp.Kind == OpMove || restoreOp.Kind == OpReplace {
+					if err = probeMove(root, &state, save); err != nil {
+						return result, err
+					}
+					break
+				}
+			}
+			if err = probeDestination(root, probeSnapshot(snapshot, state.Completed), &state, save); err != nil {
+				return result, err
+			}
+			index = -1
+			continue
 		}
 		switch op.Kind {
 		case "download":
@@ -199,6 +250,8 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 			} else {
 				result.Uploaded++
 			}
+		case OpTrash:
+			result.Trashed += len(op.RemoteSubtree)
 		}
 	}
 	if !state.PopulationComplete {

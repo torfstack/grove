@@ -16,7 +16,7 @@ func Scan(ctx context.Context, api drive.API, rootID string) (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	if root.ID != rootID || root.MIMEType != drive.FolderMIME || !root.OwnedByMe || root.DriveID != "" || root.Trashed {
+	if root.ID != rootID || root.MIMEType != drive.FolderMIME || !root.OwnedByMe || root.DriveID != "" || root.Trashed || root.ExplicitlyTrashed {
 		return Snapshot{}, errors.New("remote root must be an owned My Drive folder")
 	}
 	seen := map[string]bool{rootID: true}
@@ -38,7 +38,7 @@ func Scan(ctx context.Context, api drive.API, rootID string) (Snapshot, error) {
 			}
 			names[f.Name] = true
 			seen[f.ID] = true
-			if !f.OwnedByMe || f.DriveID != "" || f.Trashed || len(f.Parents) != 1 || f.Parents[0] != id {
+			if !f.OwnedByMe || f.DriveID != "" || f.Trashed || f.ExplicitlyTrashed || len(f.Parents) != 1 || f.Parents[0] != id {
 				return errors.New("unsupported remote ownership or parent")
 			}
 			if f.MIMEType != drive.FolderMIME {

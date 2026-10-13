@@ -24,7 +24,10 @@ Milestones are ordered proposals; detailed implementation plans come before code
    passes; independent review findings were fixed and verified. Multi-competitor
    UI recovery, force-abandon, and automatic content merging follow later. Local
    deletion propagation is approved in
-   [spec 000007](spec/000007-deletion-propagation-design.md) and is next.
+   [spec 000007](spec/000007-deletion-propagation-design.md) and is implemented
+   on `feat/deletion-propagation`, pending pull request review. Filesystem
+   watching and scheduled continuous sync remain part of the later `groved`
+   daemon milestone.
 4. **Linux daemon**: scheduling, watching, remote polling, profile locking,
    observable status, and systemd user service integration.
 5. **Windows and macOS**: native lifecycle integration and platform-specific

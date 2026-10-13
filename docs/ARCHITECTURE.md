@@ -1,8 +1,9 @@
 # Architecture
 
 Authentication, the Drive fixture lifecycle, and initial/incremental download sync
-are implemented. Explicit local uploads and revision-aware conflict resolution
-are implemented in the shared sync engine. Deletion propagation is specified in
+are implemented. Explicit local uploads, revision-aware conflict resolution, and
+safe local deletion propagation are implemented in the shared sync engine. The
+approved deletion contract is in
 [spec 000007](spec/000007-deletion-propagation-design.md); daemon orchestration
 remains to be designed.
 
@@ -83,7 +84,7 @@ HTTP integration tests and the future daemon without spawning the CLI.
 State and fixtures remain outside the downloaded tree. Spec 000003 extends the
 same engine with remote additions, replacements, and moves. Spec 000004 adds
 two-way uploads and durable conflict choices. Remote removals stop preflight, and
-this is not a transactionally consistent remote snapshot. Spec 000007 defines
+this is not a transactionally consistent remote snapshot. Spec 000007 implements
 baseline-verified local deletion propagation through journaled Drive Trash
 operations. Baseline, incremental,
 and two-way upload/race-recovery live acceptance passed on macOS on 2026-10-10.
@@ -98,9 +99,9 @@ again. It emits typed mkdir/download/replace/move/record/skip operations; same-b
 version changes use record operations without transfer.
 
 Execution separates transfer verification, baseline/journal persistence,
-replacement transitions, and subtree moves. Version-2 state retains the original
+replacement transitions, and subtree moves. Version-3 state retains the original
 initial-download pending shape and adds a mutually exclusive typed transaction
-for replacements/moves. Version-1 recovery precedes atomic migration. Journal
+for replacements, moves, uploads, and Trash. Version-1 recovery precedes atomic migration. Journal
 validation rejects unsupported phases, unsafe artifacts, inconsistent baselines,
 and unrelated identities before recovery.
 
@@ -139,6 +140,31 @@ releases only a pin Grove introduced; missing ownership metadata preserves it.
 Drive does not permit unpinning non-head keepForever revisions, so successful
 uploads consume the per-file 200-revision pin quota. Multiple possible competitors
 remain journaled and pinned for manual recovery.
+
+Cloud-side deletion conflict resolution drops the selected tombstone subtree
+baseline and restores the reviewed remote tree through verified folder creation
+and downloads. The profile stays marked incomplete until restoration finishes,
+so an interrupted restore can resume through download-only sync without
+interpreting a missing child as a new deletion.
+
+## Local deletion propagation
+
+The two-way planner treats absent tracked paths as tombstones after complete
+local and remote scans. Files are matched by identity, parent, path, revision,
+modified time, size, and MD5. Missing folders collapse to one operation only
+when the listed live remote subtree exactly matches the tracked baseline.
+Changed or expanded subtrees become durable conflicts and ignore configured
+automatic conflict policies.
+
+Trash operations store the tracked baseline subtree and a live remote fingerprint
+in the existing profile journal. The executor performs a final complete scan and
+identity read before issuing one Drive Trash request. Recovery never repeats an
+uncertain request: it checks `explicitlyTrashed` on the root and inherited
+`trashed` on each recorded descendant before committing baseline removal. An
+explicit cloud conflict choice removes the old tracked subtree atomically and
+restores the current remote tree through verified folder creation and downloads.
+The Drive API has no conditional Trash operation, so an external remote change
+between preflight and the request remains a narrow race.
 
 ## Operator reconciliation
 

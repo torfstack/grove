@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-12.
+Updated: 2026-10-13.
 
 ## Release status
 
@@ -350,7 +350,7 @@ similar to the earlier review. The original recovery-order thread is outdated
 and marked resolved by GitHub after the fix. The live Drive suite remains
 disabled; Linux live acceptance is still for the Linux machine.
 
-## Local deletion propagation proposal
+## Local deletion propagation
 
 After PR #9 merged, the user selected local deletion propagation as the next
 feature and approved the design direction: on explicit two-way sync, trash a
@@ -358,9 +358,36 @@ matching Drive item only when it still matches Grove's saved baseline; preserve
 remote changes and surface a conflict. The first slice covers files and folders.
 Approved [spec 000007](spec/000007-deletion-propagation-design.md) and its paired
 [implementation plan](implementation-plans/000007-deletion-propagation-plan.md)
-are on `feat/deletion-propagation`; the plan is awaiting review before execution.
-Drive's
-trash operation is reversible, but its API does not provide a conditional write;
-the spec records the residual race between the final preflight read and trash
-request. Local file watching remains planned with daemon orchestration; one-shot
-sync rescans local state on each invocation.
+are implemented on `feat/deletion-propagation`. The planner now supports
+missing tracked files and topmost folder subtrees, producing either a journaled
+Drive Trash operation or a deletion tombstone when the remote state changed.
+Trash confirmation distinguishes an explicitly trashed root from descendants
+inherited as trashed, and an uncertain request is recovered by reading the same
+IDs without retrying the mutation. Explicit deletion conflict choices either
+trash the reviewed subtree or restore its current contents through normal
+verified downloads; configured conflict policy does not select a side.
+
+Full local formatting, lint (0 issues), offline/race suites, native build, and
+Linux amd64 cross-build pass. The enabled macOS live suite passed in 313.614
+seconds, including initial/incremental sync, revision pinning, upload recovery,
+and deletion. After review fixes, focused live deletion acceptance passed in
+49.349 seconds with exactly two Trash requests, independent root/descendant
+verification, no-op repeat, and fixture cleanup. A prior verification read failed
+after Trash and a retry failed while seeding; both retained fixture runs were
+cleaned with the ownership-checked CLI. Direct reads confirmed inherited Trash
+flags and showed metadata versions increase while content revision/time/hash
+remain stable.
+
+Independent static review found nested-journal validation, conflict/journal
+coexistence, post-Trash fingerprint verification, and partial cloud restoration
+issues. Regression tests reproduced the blockers and all findings are addressed.
+Cloud restoration keeps profiles incomplete until downloads finish, preserves
+unrelated tombstones, permits their explicit resolution during partial restore,
+and resumes through download-only sync. The reviewer reports no remaining
+Critical or Important findings in the reviewed fixes. Hosted CI and CodeRabbit
+review remain pending until the PR is opened. Linux live runtime acceptance
+remains untested; cross-build is compilation only.
+Drive Trash is reversible, but its API has no conditional write; the spec records
+the residual race between final preflight and the request. Local file watching
+remains planned with daemon orchestration; one-shot sync rescans local state on
+each invocation.

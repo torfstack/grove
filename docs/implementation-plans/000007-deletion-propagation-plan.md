@@ -1,6 +1,6 @@
 # Safe Local Deletion Propagation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Propagate explicit local deletions from a populated profile to Google Drive Trash only when the current remote item or subtree still matches Grove's saved baseline.
 
@@ -9,6 +9,8 @@
 **Tech Stack:** Go, existing Google Drive v3 client, syncengine planner/journal/services, Cobra CLI, deterministic fake-Drive integration tests.
 
 **Spec:** [docs/spec/000007-deletion-propagation-design.md](../spec/000007-deletion-propagation-design.md)
+
+Implementation tasks share state and planner interfaces and are delivered in one integrated commit after review fixes.
 
 ## Global Constraints
 
@@ -54,14 +56,14 @@
 - A topmost missing folder emits one `OpTrash` with `Before` containing the full tracked subtree; descendants are not emitted separately.
 - Changed remote items and folders with changed, missing, or additional descendants emit a deletion tombstone conflict. Deletion conflicts always use `ResolutionSide == ""` regardless of `ConflictPolicy`.
 
-- [ ] Add planner tests for one unchanged file deletion, an empty folder, a nested folder collapsed to one trash op with sorted subtree baseline, read-only `BuildPlan` still rejecting missing paths, and all remote update/add operations beneath a missing folder being suppressed.
-- [ ] Run `mise exec -- go test ./internal/syncengine -run 'Test.*(Plan|Conflict|State)' -count=1`; confirm the new deletion-planning assertions fail for the expected missing-path behavior.
-- [ ] Add planner tests for changed revision/content/path/type, incomplete or missing remote membership, and added/changed descendants beneath a missing folder; assert no `OpTrash` is planned and remote content is represented by one pending tombstone conflict.
-- [ ] Add service/Scan integration coverage proving an incomplete Drive page aborts before the planner and before any remote mutation; a complete listing missing a baseline ID retains the existing unsupported remote-removal error.
-- [ ] Implement deletion-subtree validation and topmost-folder collapse in `BuildTwoWayPlan`; preserve `BuildPlan` read-only semantics and keep deletion conflicts out of automatic policy selection.
-- [ ] Validate tombstone records in state loading: require a safe path, non-empty unique subtree IDs/paths, root entry matching the conflict path and baseline identity, and no content-stage fields for a tombstone.
-- [ ] Run the focused syncengine test command again; confirm normal upload/download conflict plans remain unchanged.
-- [ ] Commit as `feat: plan safe local deletions`.
+- [x] Add planner tests for one unchanged file deletion, an empty folder, a nested folder collapsed to one trash op with sorted subtree baseline, read-only `BuildPlan` still rejecting missing paths, and all remote update/add operations beneath a missing folder being suppressed.
+- [x] Run `mise exec -- go test ./internal/syncengine -run 'Test.*(Plan|Conflict|State)' -count=1`; confirm the new deletion-planning assertions fail for the expected missing-path behavior.
+- [x] Add planner tests for changed revision/content/path/type, incomplete or missing remote membership, and added/changed descendants beneath a missing folder; assert no `OpTrash` is planned and remote content is represented by one pending tombstone conflict.
+- [x] Add service/Scan integration coverage proving an incomplete Drive page aborts before the planner and before any remote mutation; a complete listing missing a baseline ID retains the existing unsupported remote-removal error.
+- [x] Implement deletion-subtree validation and topmost-folder collapse in `BuildTwoWayPlan`; preserve `BuildPlan` read-only semantics and keep deletion conflicts out of automatic policy selection.
+- [x] Validate tombstone records in state loading: require a safe path, non-empty unique subtree IDs/paths, root entry matching the conflict path and baseline identity, and no content-stage fields for a tombstone.
+- [x] Run the focused syncengine test command again; confirm normal upload/download conflict plans remain unchanged.
+- [x] Included in the integrated implementation commit `feat: propagate local deletions to Drive Trash`.
 
 ### Task 2: Drive trash metadata, execution, and recovery
 
@@ -79,17 +81,17 @@
 
 **Interfaces:**
 - Extend `drive.File` and the Drive wire resource with `ExplicitlyTrashed bool`; request `explicitlyTrashed` in metadata fields used by `Get` and `List`.
-- Extend `Journal` to accept `OpTrash`, storing the exact `Before` subtree, the target `Entry`, and phases `intent`, `trashed`, and `committed`; trash journals have no filesystem stage artifacts and `After` is empty.
+- Extend `Journal` to accept `OpTrash`, storing the exact `Before` subtree, the target `Entry`, live remote subtree, and phases `intent`, `trash-intent`, and `committed`; trash journals have no filesystem stage artifacts and `After` is empty.
 - Add `Result.Trashed int`; increment it only after the verified remote trash and durable baseline commit complete.
 
-- [ ] Add Drive HTTP tests proving `Get` and `List` decode `explicitlyTrashed` separately from inherited `trashed`, and the trash method continues to PATCH `trashed:true` rather than calling permanent delete.
-- [ ] Add executor tests asserting final preflight compares file identity, owned status, parent, name/type, revision/time/size/MD5, and folder membership before exactly one `Trash` call.
-- [ ] Add executor/recovery tests for confirmed trash, save failure after trash, cancellation, definite pre-send validation failure, uncertain request, changed live metadata, missing identity, and folder descendant state; assert uncertainty never issues a second trash request and baseline removal occurs only after confirmation.
-- [ ] Implement the trash journal validation and recovery branches. Persist intent before mutation, re-fetch and validate immediately before `Trash`, then re-fetch by recorded ID and require `ExplicitlyTrashed` for a root folder/file and inherited `Trashed` for every recorded descendant before removing the baseline entries.
-- [ ] Use `applyBaseline` to remove the complete recorded subtree and persist committed state before clearing the journal; retain the journal and original baseline on any ambiguous result.
-- [ ] Update `service.go` result counting and prove a regular read-only run cannot plan a new trash op while existing journal recovery remains available.
-- [ ] Run `mise exec -- go test ./internal/drive ./internal/syncengine -run '(Trash|Recovery|Plan)' -count=1`; confirm trash and recovery cases pass.
-- [ ] Commit as `feat: journal and recover Drive trash`.
+- [x] Add Drive HTTP tests proving `Get` and `List` decode `explicitlyTrashed` separately from inherited `trashed`, and the trash method continues to PATCH `trashed:true` rather than calling permanent delete.
+- [x] Add executor tests asserting final preflight compares file identity, owned status, parent, name/type, revision/time/size/MD5, and folder membership before exactly one `Trash` call.
+- [x] Add executor/recovery tests for confirmed trash, save failure after trash, cancellation, definite pre-send validation failure, uncertain request, changed live metadata, missing identity, and folder descendant state; assert uncertainty never issues a second trash request and baseline removal occurs only after confirmation.
+- [x] Implement the trash journal validation and recovery branches. Persist intent before mutation, re-fetch and validate immediately before `Trash`, then re-fetch by recorded ID and require `ExplicitlyTrashed` for a root folder/file and inherited `Trashed` for every recorded descendant before removing the baseline entries.
+- [x] Use `applyBaseline` to remove the complete recorded subtree and persist committed state before clearing the journal; retain the journal and original baseline on any ambiguous result.
+- [x] Update `service.go` result counting and prove a regular read-only run cannot plan a new trash op while existing journal recovery remains available.
+- [x] Run `mise exec -- go test ./internal/drive ./internal/syncengine -run '(Trash|Recovery|Plan)' -count=1`; confirm trash and recovery cases pass.
+- [x] Included in the integrated implementation commit `feat: propagate local deletions to Drive Trash`.
 
 ### Task 3: Deletion conflict inspection and explicit resolution
 
@@ -109,13 +111,13 @@
 - `conflicts show` prints a tombstone row for local deletion and the existing safe cloud candidate descriptions; `conflicts resolve <id> --keep local` explicitly selects trash, while `--keep cloud` restores the recorded remote subtree using normal verified download operations.
 - Configured `keep-local`/`keep-cloud` policies never auto-resolve deletion conflicts.
 
-- [ ] Add service/CLI tests for tombstone detail output with no stage path/hash/raw ID, explicit local resolution, cloud resolution of a file and folder subtree, and automatic policy not selecting either side.
-- [ ] Add stale-resolution tests where root metadata, descendant membership, or a descendant revision changes after the conflict is recorded; require the conflict and all baseline/local content to remain recoverable.
-- [ ] Implement tombstone-aware candidate details and resolution validation under existing profile/destination exclusions; reject local resolution for non-deletion conflicts without a valid local stage and keep existing content-conflict selection behavior.
-- [ ] Implement cloud-side tombstone resolution by atomically dropping only the selected tombstone's tracked baseline subtree and conflict record; the shared planner then schedules verified downloads as additions, so an interrupted restore is naturally retried by the next sync.
-- [ ] Implement explicit local-side resolution by routing the selected tombstone through the same trash journal and final preflight as an ordinary local deletion.
-- [ ] Run `mise exec -- go test ./internal/syncengine ./internal/cli -run '(Conflict|Plan|Sync)' -count=1`; confirm existing multi-candidate and content-conflict selection remains intact.
-- [ ] Commit as `feat: resolve deletion conflicts explicitly`.
+- [x] Add service/CLI tests for tombstone detail output with no stage path/hash/raw ID, explicit local resolution, cloud resolution of a file and folder subtree, and automatic policy not selecting either side.
+- [x] Add stale-resolution tests where root metadata, descendant membership, or a descendant revision changes after the conflict is recorded; require the conflict and all baseline/local content to remain recoverable.
+- [x] Implement tombstone-aware candidate details and resolution validation under existing profile/destination exclusions; reject local resolution for non-deletion conflicts without a valid local stage and keep existing content-conflict selection behavior.
+- [x] Implement cloud-side tombstone resolution by atomically dropping only the selected tombstone's tracked baseline subtree and conflict record; the shared planner schedules verified downloads as additions, and the profile remains incomplete until restoration succeeds so download-only sync safely resumes an interrupted restore.
+- [x] Implement explicit local-side resolution by routing the selected tombstone through the same trash journal and final preflight as an ordinary local deletion.
+- [x] Run `mise exec -- go test ./internal/syncengine ./internal/cli -run '(Conflict|Plan|Sync)' -count=1`; confirm existing multi-candidate and content-conflict selection remains intact.
+- [x] Included in the integrated implementation commit `feat: propagate local deletions to Drive Trash`.
 
 ### Task 4: CLI output, live acceptance, and documentation
 
@@ -135,13 +137,13 @@
 - Add a `Trashed` count to sync output, distinct from uploads and downloads.
 - Extend the opt-in fixture-owned live scenario to delete a file and nested folder locally, verify Drive's trash/inherited-trash metadata, repeat as a no-op, and clean up only fixture-owned data.
 
-- [ ] Add CLI output test requiring a separate `Trashed` count and retaining the existing counters.
-- [ ] Add a fixture-owned fake-HTTP sync integration test for initial population, local file deletion, nested-folder deletion, remote Trash verification, unchanged no-op repeat, and fixture-owned cleanup.
-- [ ] Extend the explicitly enabled live acceptance case using only dedicated test credentials and a fresh disposable run directory; verify trash state and cleanup without logging credentials or generated Drive IDs.
-- [ ] Document two-way deletion semantics, Trash behavior, conflicts, safe folder deletion, and unresolved remote-write race limits in README and update the accepted decision record.
-- [ ] Update status/product/architecture/roadmap with actual implementation and verification; distinguish offline, native, Linux cross-build, Linux live, and macOS live evidence.
-- [ ] Run focused fixture, CLI, and syncengine integration tests; confirm normal and live-disabled offline paths pass.
-- [ ] Commit as `feat: expose safe deletion propagation`.
+- [x] Add CLI output test requiring a separate `Trashed` count and retaining the existing counters.
+- [x] Add a fixture-owned fake-HTTP sync integration test for initial population, local file deletion, nested-folder deletion, remote Trash verification, unchanged no-op repeat, and fixture-owned cleanup.
+- [x] Extend the explicitly enabled live acceptance case using only dedicated test credentials and a fresh disposable run directory; verify trash state and cleanup without logging credentials or generated Drive IDs.
+- [x] Document two-way deletion semantics, Trash behavior, conflicts, safe folder deletion, and unresolved remote-write race limits in README and update the accepted decision record.
+- [x] Update status/product/architecture/roadmap with actual implementation and verification; distinguish offline, native, Linux cross-build, Linux live, and macOS live evidence.
+- [x] Run focused fixture, CLI, and syncengine integration tests; confirm normal and live-disabled offline paths pass.
+- [x] Included in the integrated implementation commit `feat: propagate local deletions to Drive Trash`.
 
 ### Task 5: Full verification and branch review
 
@@ -149,13 +151,13 @@
 - Review: implementation files and `docs/spec/000007-deletion-propagation-design.md`
 - Modify: `docs/STATUS.md`
 
-- [ ] Run `mise run fmt` and `git diff --check`.
-- [ ] Run `mise run lint` and `mise run test`.
-- [ ] Run `mise run test-race`.
-- [ ] Run `mise exec -- go build ./...` and `GOOS=linux GOARCH=amd64 mise exec -- go build ./...`.
-- [ ] Review the branch against each spec rule and Review Focus case; fix Critical or Important findings with failing regression tests first, then rerun affected checks and the full relevant suite.
-- [ ] Record actual results, live-test limitations, review findings, and remaining risks in `docs/STATUS.md`.
-- [ ] Commit as `docs: record deletion propagation verification`.
+- [x] Run `mise run fmt` and `git diff --check`.
+- [x] Run `mise run lint` and `mise run test`.
+- [x] Run `mise run test-race`.
+- [x] Run `mise exec -- go build ./...` and `GOOS=linux GOARCH=amd64 mise exec -- go build ./...`.
+- [x] Review the branch against each spec rule and Review Focus case; fix Critical or Important findings with failing regression tests first, then rerun affected checks and the full relevant suite.
+- [x] Record actual results, live-test limitations, review findings, and remaining risks in `docs/STATUS.md`.
+- [x] Included in the integrated implementation commit `feat: propagate local deletions to Drive Trash`.
 
 After local verification, push the custom branch and open a pull request against
 `main` as requested. Wait for hosted CI, CodeQL, dependency review, and CodeRabbit

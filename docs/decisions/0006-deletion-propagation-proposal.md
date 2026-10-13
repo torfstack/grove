@@ -1,6 +1,6 @@
 # 0006: Local deletion propagation proposal
 
-Date: 2026-10-12. Status: accepted.
+Date: 2026-10-12. Status: accepted; implemented locally on `feat/deletion-propagation`.
 
 ## Context
 
@@ -21,4 +21,8 @@ and do not let automatic content conflict policy silently choose a side.
 
 The accepted requirements are in
 [spec 000007](../spec/000007-deletion-propagation-design.md). Implementation
-will follow its paired implementation plan on `feat/deletion-propagation`.
+follows its paired implementation plan on `feat/deletion-propagation`. One-shot
+sync uses complete scans; watching belongs to later `groved` orchestration.
+Interrupted cloud restoration disables fresh two-way inference until
+download-only restoration finishes. Remaining conflicts stay inspectable and
+explicitly resolvable during that restoration.

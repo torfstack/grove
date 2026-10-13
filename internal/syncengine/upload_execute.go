@@ -21,6 +21,23 @@ func (e *executor) recordConflict(ctx context.Context, op Operation) error {
 		return errors.New("conflict operation has no conflict record")
 	}
 	conflict := *op.Conflict
+	if conflict.Deletion {
+		for _, existing := range e.state.Conflicts {
+			if existing.ID == conflict.ID {
+				return nil
+			}
+		}
+		next := *e.state
+		filtered := next.Conflicts[:0]
+		for _, existing := range next.Conflicts {
+			if existing.Deletion && existing.Path == conflict.Path {
+				continue
+			}
+			filtered = append(filtered, existing)
+		}
+		next.Conflicts = append(filtered, conflict)
+		return e.persist(next)
+	}
 	if conflict.Baseline.RemoteID != "" {
 		if err := e.requireFile(ctx, conflict.Path, Completed{Kind: "file", Size: conflict.LocalSize, SHA256: conflict.LocalSHA256}); err != nil {
 			return errors.New("local conflict candidate changed")
@@ -548,6 +565,18 @@ func (e *executor) resolveConflictOperation(ctx context.Context, operation Opera
 	saved := findConflict(e.state.Conflicts, conflict.ID)
 	if saved == nil {
 		return errors.New("pending conflict candidates are missing")
+	}
+	if saved.Deletion {
+		if operation.ResolutionSide != SideCloud {
+			return errors.New("deletion conflict must be resolved through its explicit trash plan")
+		}
+		next := *e.state
+		if err := applyBaseline(&next, saved.DeletionSubtree, nil); err != nil {
+			return err
+		}
+		next.Conflicts = withoutConflict(next.Conflicts, saved.ID)
+		next.PopulationComplete = false
+		return e.persist(next)
 	}
 	if operation.ResolutionSide == SideLocal {
 		if len(operation.Before) != 1 {

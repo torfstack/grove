@@ -15,6 +15,8 @@ func (e *executor) recover(ctx context.Context, snapshot Snapshot) error {
 		switch e.state.Transaction.Operation.Kind {
 		case OpMove:
 			err = e.recoverMove(ctx)
+		case OpTrash:
+			err = e.recoverTrash(ctx)
 		case OpReplace:
 			err = e.recoverReplace(ctx)
 		case OpUpload, OpCreate:

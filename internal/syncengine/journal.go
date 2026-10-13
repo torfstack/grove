@@ -107,7 +107,7 @@ func (e *executor) checkCurrentRemote(ctx context.Context, entry Entry, allowVer
 	if err != nil {
 		return err
 	}
-	if current.Trashed || !current.OwnedByMe || current.Name != entry.Remote.Name || len(current.Parents) != 1 || len(entry.Remote.Parents) != 1 || current.Parents[0] != entry.Remote.Parents[0] || (!allowVersionChange && current.Version != entry.Remote.Version) || current.MD5 != entry.Remote.MD5 || current.Size != entry.Remote.Size || current.HeadRevisionID != entry.Remote.HeadRevisionID || current.ModifiedTime != entry.Remote.ModifiedTime {
+	if current.Trashed || current.ExplicitlyTrashed || !current.OwnedByMe || current.Name != entry.Remote.Name || len(current.Parents) != 1 || len(entry.Remote.Parents) != 1 || current.Parents[0] != entry.Remote.Parents[0] || (!allowVersionChange && current.Version != entry.Remote.Version) || current.MD5 != entry.Remote.MD5 || current.Size != entry.Remote.Size || current.HeadRevisionID != entry.Remote.HeadRevisionID || current.ModifiedTime != entry.Remote.ModifiedTime {
 		return errPendingRemoteChanged
 	}
 	return nil

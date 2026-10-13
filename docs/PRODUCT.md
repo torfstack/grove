@@ -8,8 +8,10 @@ It uses Go and targets Linux first, followed by Windows and macOS.
 `grove` provides individual CLI operations such as `auth`, `sync`, and `status`.
 `groved` will provide background orchestration after one-shot sync is reliable.
 `grove fixture` implements disposable fixture management. `grove sync` supports
-initial and incremental downloads, plus explicit `--two-way` uploads on populated
-profiles. Profile conflict policy and candidate resolution are shared engine
+initial and incremental downloads, plus explicit `--two-way` uploads and safe
+local deletion propagation on populated profiles. Local deletions move matching
+Drive items to Trash after baseline and subtree validation. Profile conflict
+policy and candidate resolution are shared engine
 operations; `status` and daemon command syntax remain unfinalized.
 
 Development should prioritize fast iteration and meaningful tests, including a
@@ -26,8 +28,10 @@ dedicated Google test account with reproducible fixtures.
 ## Data safety
 
 Sync must have explicit deletion and conflict semantics and survive interrupted
-operations. Live tests use disposable data. Concrete recovery guarantees will
-be specified before implementing mutations.
+operations. Live tests use disposable data. Local deletions propagate only during
+explicit two-way sync and move unchanged Drive items to Trash. Changed remote
+subtrees remain pending until the user explicitly chooses local deletion or
+cloud restoration.
 
 ## Initial download behavior
 
@@ -36,7 +40,8 @@ into an absent or empty destination with one immutable profile binding. Repeatin
 an unchanged population performs no media transfers. Interrupted downloads resume
 at file boundaries; existing completed files are hash-checked and preserved.
 Local edits and unexpected files are errors. Changes to an established population
-follow the incremental behavior below. Deletion propagation is specified in
+follow the incremental behavior below. Local deletion propagation is implemented
+on `feat/deletion-propagation` according to
 [spec 000007](spec/000007-deletion-propagation-design.md).
 Unsupported names, symlinks,
 native documents, shortcuts, duplicates, shared drives, and non-owned files fail
@@ -67,7 +72,7 @@ the CLI and future daemon. The choices are ask (default), keep-local, and
 keep-cloud. Download-only remains the default. Drive does not enforce conditional
 writes, and retained revision pins consume its per-file quota; multiple concurrent
 competitors require manual recovery. Local renames remain deferred. Local deletion
-propagation is specified in spec 000007.
+propagation is implemented according to spec 000007.
 Independent local and cloud additions at the same path remain pending under
 keep-local; this slice supports choosing cloud for those conflicts. Uncertain
 remote writes preserve their journal and may require operator reconciliation.

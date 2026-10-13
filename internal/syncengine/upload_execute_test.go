@@ -28,6 +28,9 @@ type uploadAPI struct {
 	revisionDownloadErr    error
 	pinErr                 error
 	getErr                 error
+	trashErr               error
+	trashAfterError        bool
+	trashCalls             int
 }
 
 func (a *uploadAPI) Get(_ context.Context, id string) (drive.File, error) {
@@ -49,7 +52,13 @@ func (a *uploadAPI) Download(_ context.Context, _ string, w io.Writer) error {
 func (*uploadAPI) Create(context.Context, drive.Create, io.Reader) (drive.File, error) {
 	return drive.File{}, nil
 }
-func (*uploadAPI) Trash(context.Context, string) error                { return nil }
+func (a *uploadAPI) Trash(context.Context, string) error {
+	a.trashCalls++
+	if a.trashErr == nil || a.trashAfterError {
+		a.file.Trashed, a.file.ExplicitlyTrashed = true, true
+	}
+	return a.trashErr
+}
 func (*uploadAPI) GenerateIDs(context.Context, int) ([]string, error) { return nil, nil }
 func (*uploadAPI) CreateWithID(context.Context, string, drive.Create, io.Reader, int64) (drive.File, error) {
 	return drive.File{}, nil
@@ -353,6 +362,119 @@ func TestUploadCapturesPostPreflightRevisionAsConflict(t *testing.T) {
 	loaded, err := loadState(profileDir, state.Binding)
 	if err != nil || len(loaded.Conflicts) != 1 {
 		t.Fatalf("captured conflict was not durable and valid: %+v, %v", loaded, err)
+	}
+}
+
+func TestTrashCommitsOnlyAfterRemoteTrashIsConfirmed(t *testing.T) {
+	for _, confirm := range []bool{false, true} {
+		t.Run(map[bool]string{false: "unconfirmed", true: "confirmed"}[confirm], func(t *testing.T) {
+			_, profile := t.TempDir(), t.TempDir()
+			rootDir := t.TempDir()
+			root, err := os.OpenRoot(rootDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = root.Close() }()
+			remote := file("a", "a")
+			remote.HeadRevisionID = "rev-1"
+			baseline := baselineFile("a", "a", []byte("old"))
+			baseline.ModifiedTime, baseline.HeadRevisionID = remote.ModifiedTime, remote.HeadRevisionID
+			remote.Size, remote.MD5 = baseline.Size, baseline.MD5
+			apiErr := errors.New("response lost")
+			api := &uploadAPI{file: remote, data: []byte("old"), trashErr: apiErr, trashAfterError: confirm}
+			state := State{Version: 3, Completed: []Completed{baseline}}
+			save := func() error { return saveState(profile, state) }
+			if err = save(); err != nil {
+				t.Fatal(err)
+			}
+			entry := Entry{Path: "a", Remote: remote}
+			op := Operation{Kind: OpTrash, Entry: entry, Before: []Completed{baseline}, RemoteSubtree: []Completed{completedEntry(entry, "")}}
+			ex := executor{root: root, profileDir: profile, remoteRoot: "root", api: api, mutation: api, state: &state, save: save}
+			err = ex.execute(context.Background(), op)
+			if err == nil || state.Transaction == nil || len(state.Completed) != 1 || api.trashCalls != 1 {
+				t.Fatalf("uncertain trash was discarded/retried: %v %+v", err, state)
+			}
+			if confirm {
+				api.file.ExplicitlyTrashed = true
+				if err = ex.recoverTrash(context.Background()); err != nil || state.Transaction != nil || len(state.Completed) != 0 || api.trashCalls != 1 {
+					t.Fatalf("confirmed recovery failed: %v %+v", err, state)
+				}
+			} else if err = ex.recoverTrash(context.Background()); err == nil || state.Transaction == nil || api.trashCalls != 1 {
+				t.Fatalf("unconfirmed recovery did not remain blocked: %v %+v", err, state)
+			}
+		})
+	}
+}
+
+func TestTrashRecoveryFinishesAfterCommitSaveFailure(t *testing.T) {
+	localDir, profile := t.TempDir(), t.TempDir()
+	root, err := os.OpenRoot(localDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = root.Close() }()
+	remote := file("a", "a")
+	remote.HeadRevisionID = "rev-1"
+	baseline := baselineFile("a", "a", []byte("old"))
+	baseline.ModifiedTime, baseline.HeadRevisionID = remote.ModifiedTime, remote.HeadRevisionID
+	remote.Size, remote.MD5 = baseline.Size, baseline.MD5
+	api := &uploadAPI{file: remote, data: []byte("old")}
+	state := State{Version: 3, Completed: []Completed{baseline}}
+	failCommit := true
+	save := func() error {
+		if failCommit && state.Transaction != nil && state.Transaction.Phase == "committed" {
+			return errors.New("injected state save failure")
+		}
+		return saveState(profile, state)
+	}
+	if err = save(); err != nil {
+		t.Fatal(err)
+	}
+	entry := Entry{Path: "a", Remote: remote}
+	op := Operation{Kind: OpTrash, Entry: entry, Before: []Completed{baseline}, RemoteSubtree: []Completed{completedEntry(entry, "")}}
+	ex := executor{root: root, profileDir: profile, remoteRoot: "root", api: api, mutation: api, state: &state, save: save}
+	if err = ex.execute(context.Background(), op); err == nil || state.Transaction == nil || len(state.Completed) != 1 || api.trashCalls != 1 {
+		t.Fatalf("commit save failure lost its recovery evidence: %v %+v", err, state)
+	}
+	failCommit = false
+	if err = ex.recoverTrash(context.Background()); err != nil || state.Transaction != nil || len(state.Completed) != 0 || api.trashCalls != 1 {
+		t.Fatalf("recovery repeated trash or failed to commit: %v %+v", err, state)
+	}
+}
+
+func TestTrashRecoveryPreservesJournalWhenTrashedContentOrStructureChanged(t *testing.T) {
+	for name, change := range map[string]func(*drive.File){
+		"checksum":      func(f *drive.File) { f.MD5 = md5Text("changed") },
+		"parent":        func(f *drive.File) { f.Parents = []string{"other"} },
+		"name":          func(f *drive.File) { f.Name = "other" },
+		"revision":      func(f *drive.File) { f.HeadRevisionID = "other" },
+		"modified time": func(f *drive.File) { f.ModifiedTime = "2026-02-01T00:00:00Z" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			root, err := os.OpenRoot(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = root.Close() }()
+			base := baselineFile("a", "a", []byte("old"))
+			remote := file("a", "a")
+			base.ModifiedTime, base.HeadRevisionID = remote.ModifiedTime, remote.HeadRevisionID
+			remote.MD5, remote.Size = base.MD5, base.Size
+			entry := Entry{Path: "a", Remote: remote}
+			op := Operation{Kind: OpTrash, Entry: entry, Before: []Completed{base}, RemoteSubtree: []Completed{completedEntry(entry, "")}}
+			state := State{Version: 3, Completed: []Completed{base}}
+			profile := t.TempDir()
+			api := &uploadAPI{file: remote}
+			api.file.Trashed, api.file.ExplicitlyTrashed = true, true
+			change(&api.file)
+			ex := executor{root: root, profileDir: profile, api: api, mutation: api, state: &state, save: func() error { return saveState(profile, state) }}
+			if err = ex.journal(Journal{Operation: op, Phase: "trash-intent"}); err != nil {
+				t.Fatal(err)
+			}
+			if err = ex.recoverTrash(context.Background()); err == nil || state.Transaction == nil || len(state.Completed) != 1 {
+				t.Fatalf("changed trashed object discarded evidence: %v %+v", err, state)
+			}
+		})
 	}
 }
 

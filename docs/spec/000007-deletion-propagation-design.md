@@ -1,6 +1,6 @@
 # 000007: Safe local deletion propagation
 
-Date: 2026-10-12. Status: approved for implementation.
+Date: 2026-10-12. Status: implemented locally; pending pull request review.
 
 ## Intent
 
@@ -88,6 +88,20 @@ through verified normal download operations. If revalidation fails, retain the
 conflict and all content. Existing content conflicts and multi-candidate ordinal
 semantics remain unchanged.
 
+Each deletion conflict stores both the old tracked baseline subtree and a
+fingerprint of the live remote subtree shown for resolution. Resolution requires
+the live identities, paths, and relevant metadata to match that saved fingerprint.
+The local choice trashes the reviewed live subtree while removing only tracked
+baseline entries; the cloud choice drops the selected tombstone baseline before
+the normal planner restores all current remote descendants. A cloud restore marks
+the profile incomplete until every restore operation finishes, preventing a
+partially restored child from being interpreted as a new local deletion. A
+download-only sync safely resumes an interrupted restore. The `Trashed` result
+counts each remote file and folder, including descendants moved with a parent.
+Other pending conflicts remain inspectable and explicitly resolvable while that
+restore is incomplete. Restoration planning preserves their local candidates
+and tombstones and never infers a new remote deletion.
+
 Do not infer local renames from missing paths, hashes, or same-name entries.
 Local moves, arbitrary path rearrangements, deletion exclusions, Google-native
 documents, shortcuts, shared drives, and deletion propagation for preexisting
@@ -114,6 +128,12 @@ change; an active, changed, missing, or unverifiable item keeps the transaction
 blocked. Recovery never repeats a remote request whose outcome is uncertain,
 allocates a new identity, or selects a replacement object. A failure known to
 occur before the request was sent may safely retire the untouched intent.
+
+Confirmation also rechecks recorded parent/name/type, ownership, content revision,
+modification time, size, and MD5. Metadata version increases are expected for the
+Trash mutation and need not equal the preflight version afterward. A changed
+fingerprint or moved descendant retains recovery evidence instead of removing
+its baseline.
 
 The Drive API does not offer a conditional trash operation. A concurrent remote
 change between Grove's final preflight read and the trash request is therefore a

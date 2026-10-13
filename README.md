@@ -3,11 +3,12 @@
 A Google Drive sync client written in Go. Linux is the first supported
 platform; Windows and macOS are planned.
 
-The planned `grove` CLI performs individual operations such as authentication,
-sync, and status. A later `groved` daemon schedules the same shared sync engine.
+The `grove` CLI performs individual operations such as authentication, sync, and
+status. A later `groved` daemon schedules the same shared sync engine.
 Authentication, disposable fixture tooling, incremental downloads, explicit
-two-way uploads, conflict controls, and upload recovery commands are implemented.
-General status reporting, deletion propagation, and the daemon are planned.
+two-way uploads, safe deletion propagation, conflict controls, and upload
+recovery commands are implemented. General status reporting and the daemon are
+planned.
 
 Development tools are pinned in [mise.toml](mise.toml). Install them with
 `mise install`.
@@ -96,11 +97,24 @@ rehashes local files and reads remote metadata, without downloading media again.
 This version populates ordinary files and folders. It rejects Google-native
 files, shortcuts, duplicate sibling names, third-party-owned content, shared
 drives, symlinks, and incompatible names. After initial population, the same command downloads remote additions and updates
-and follows safe file/folder renames and moves. Local edits, missing tracked files,
-unexpected local entries, remote removals, type changes, occupied move targets,
-and cyclic rearrangements stop preflight and preserve content. The default path
-does not upload or propagate deletions. Interrupted
+and follows safe file/folder renames and moves. Local edits, unexpected local
+entries, remote removals, type changes, occupied move targets, and cyclic
+rearrangements stop preflight and preserve content. A missing tracked path still
+stops the default download-only path. On a populated profile, explicit
+`sync --two-way` treats missing tracked files and folders as deletion intent and
+moves unchanged remote items to Drive Trash. It verifies a deleted folder's full
+tracked subtree and trashes the topmost folder once. Changed or expanded remote
+subtrees stay in Drive and become explicit deletion conflicts. Use
+`conflicts show <id>` and then `conflicts resolve <id> --keep local|cloud` to
+choose whether to trash the reviewed remote tree or restore it locally. Configured
+automatic conflict policies do not choose for deletion conflicts. Trash is
+reversible in Drive; Grove never permanently deletes data. The sync summary's
+`Trashed` count includes descendants moved with a folder. Interrupted
 transfers restart from zero; completed progress is retained.
+
+If cloud-side deletion conflict restoration is interrupted, resume with
+`sync` without `--two-way`. The profile stays incomplete until restoration
+finishes; other pending conflicts can still be inspected and explicitly resolved.
 
 The private `<profile-dir>/state.json` stores remote identities/versions, local
 SHA-256 hashes, and recovery intent. Every run rehashes local files; timestamps
@@ -125,10 +139,11 @@ registered in `$XDG_STATE_HOME/grove/destinations` (default
 there is no reset command yet. Keep the profile and registry records together
 rather than deleting them to bypass a conflict.
 
-## Upload recovery
+## Two-way sync and conflict recovery
 
-On a populated profile, `sync --two-way` explicitly enables local additions and
-content uploads using read-write authorization. Conflict controls are available
+On a populated profile, `sync --two-way` explicitly enables local additions,
+content uploads, and safe local deletion propagation using read-write
+authorization. Conflict controls are available
 through `config set conflict-policy ask|keep-local|keep-cloud`,
 `conflicts list`, `conflicts show <id>`, and
 `conflicts resolve <id> --keep local|cloud`. Use `conflicts show` to see the local
@@ -162,7 +177,7 @@ Retry can finish recording proven success, preserve a competing revision as a
 pending conflict, or finish owned cleanup. It does not start other sync work,
 send file content, create objects, or apply the profile's conflict policy. A
 `conflict-pending` outcome requires explicit conflict resolution afterward.
-Download/move/replace recovery remains with the normal `sync` command.
+Download/move/replace/trash recovery remains with the normal `sync` command.
 
 To retrieve an available verified snapshot without changing the transaction:
 
