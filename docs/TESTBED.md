@@ -16,6 +16,14 @@ Linux execution is now demonstrated for every live scenario, but the aggregate
 suite is not fully green; the intermittent initial-download consistency check
 remains unresolved.
 
+The metadata-version fix from spec 000008 subsequently passed the full Linux
+live suite on 2026-10-22 in 279.377 seconds. Initial sync, incremental sync,
+revision pinning, stale-write probing, two-way upload/concurrent revision
+recovery, and local deletion all passed with fixture-owned cleanup. Formatting,
+lint, full offline/race tests, and the native Linux build also passed. The
+version-only failure is covered deterministically for transfers and disk-reloaded
+recovery; the original server-side trigger remains unknown.
+
 ## Google setup (user)
 
 1. Create a Google account holding only disposable test data.

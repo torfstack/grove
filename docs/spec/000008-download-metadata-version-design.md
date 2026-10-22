@@ -1,6 +1,6 @@
 # Download consistency across metadata-only Drive changes
 
-Date: 2026-10-22. Status: approved design; implementation not started.
+Date: 2026-10-22. Status: implemented locally; offline/race and full Linux live verification passed.
 
 ## Intent and evidence
 
@@ -12,7 +12,7 @@ unsupported metadata, and local conflicts, including after interruption.
 The user selected this reliability ticket after Linux live acceptance and asked
 to start with a written spec and a dedicated branch. Work is on
 `fix/download-metadata-version`. The user approved this written spec. The
-requirements below are agreed; the paired implementation plan awaits review.
+requirements below are agreed; the user approved the paired plan for native execution.
 
 At `8123f12`, the Linux live suite failed initial sync because the post-download
 metadata version differed from the scan. Identity, parents, size/MD5, ownership,

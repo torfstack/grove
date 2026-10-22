@@ -1,6 +1,6 @@
 # 0007: Download validation across metadata-version changes
 
-Date: 2026-10-22. Status: accepted design; implementation not started.
+Date: 2026-10-22. Status: accepted; implemented with offline/race and full Linux live verification.
 
 ## Context
 
@@ -31,5 +31,6 @@ preconditions, infer deletion, or weaken artifact ownership and checksum checks.
 No schema migration or new remote mutation is expected. The full live suite
 must pass; a successful focused retry is insufficient acceptance evidence.
 
-The user approved spec 000008. Its paired implementation plan is prepared for
-review and execution-method selection; this behavior is not yet implemented.
+The user approved spec 000008 and native execution of its paired plan. The
+implementation passed local checks and the full Linux live suite in 279.377
+seconds; independent branch review and integration remain.

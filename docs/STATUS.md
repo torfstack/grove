@@ -427,43 +427,35 @@ the required filesystem/network access passed configuration validation.
 
 ## Download metadata-version reliability
 
-The user selected the intermittent initial-download failure as the next ticket
-and requested a spec and dedicated branch. Approved
-[spec 000008](spec/000008-download-metadata-version-design.md) and
-[decision 0007](decisions/0007-download-metadata-version-proposal.md)
-are recorded on `fix/download-metadata-version`. They require allowing a
-metadata-version increase only with matching content revision, modified time,
-checksum/size, and structure, covering both transfer and download recovery.
-The cause of the observed Drive version advance remains unknown. Planned
-journal snapshots remain intact; move, upload, and Trash preconditions retain
-their existing rules. The paired
-[implementation plan](implementation-plans/000008-download-metadata-version-plan.md)
-was approved for native execution. Transfer, initial recovery, and unpublished
-replacement validation are implemented. Original journal snapshots and the
-strict fallback for missing revision/time evidence remain intact.
+Approved [spec 000008](spec/000008-download-metadata-version-design.md),
+[decision 0007](decisions/0007-download-metadata-version-proposal.md), and the
+paired [plan](implementation-plans/000008-download-metadata-version-plan.md)
+are implemented natively on `fix/download-metadata-version`. One comparison now
+validates transfer, initial-download recovery, and unpublished replacement
+recovery. Higher numeric versions require unchanged revision/time, size/hash,
+and file structure/access. Missing revision/time evidence retains the strict
+version check. Planned journal snapshots remain intact, and subsequent scans
+reconcile newer metadata without another transfer or destination-file rewrite.
+Move, upload, and Trash preconditions retain their existing rules.
 
-Native execution of spec 000008 is underway. Task 1 implements the shared
-download metadata comparison and transfer checks. The version-only regression
-failed before the fix and passes for normal and empty files afterward; focused
-validation/transfer tests and the full offline suite pass. Recovery work and
-fresh live acceptance remain pending.
+Regressions reproduced the transfer and recovery failures before the respective
+fixes. Deterministic tests cover byte and metadata rejection, disk-reloaded
+interruption phases, save faults, artifact preservation, legacy strict fallback,
+HTTP reconciliation, and cloud restoration with an unrelated deletion tombstone.
+Existing stale-content fixtures now change revision as well as version, so they
+continue testing real changes alongside the new version-only acceptance cases.
 
-Task 2 covers initial-download recovery with the full saved file metadata and
-relative path. Four disk-reloaded interruption phases failed under the old
-strict version comparison and now pass. Focused recovery tests also pass for
-changed evidence, replaced artifacts, legacy strict fallback, and repeated
-version advances across a save failure. Replacement recovery remains next.
+Formatting, lint (0 issues), full offline/race suites, and the native Linux build
+pass. The explicitly enabled full Linux live suite passed in 279.377 seconds:
+configuration, deletion (46.65s), incremental sync (73.86s), initial sync
+(38.32s), revision pinning (23.44s), conditional-write probing (32.16s), and
+upload/concurrent revision recovery (64.94s). All scenarios completed their
+fixture-owned cleanup. No credentials, generated IDs, or synced contents were
+printed or committed. This is a passing aggregate run, unlike the earlier
+failed run and focused retry recorded above. The cause of that original Drive
+version increase remains unknown; deterministic cases establish the exception's
+safety rule without attributing a cause.
 
-Task 3 switches only unpublished replacement checks to the download comparator.
-Metadata-only recovery failed before the switch and now passes from verified
-and backed-up journals. Focused replacement, save-failure, stale-content, move,
-Trash, and upload tests pass. Existing stale-content fixtures now change the
-revision as well as version; version-only acceptance has separate regressions.
-Integration coverage and full local/live verification remain pending.
-
-HTTP integration tests now pass for initial/replacement metadata reconciliation
-and cloud restoration with a retained unrelated deletion tombstone. Formatting,
-lint (0 issues), the full offline and race suites, and the native Linux build
-pass. Lint initially found one unused test assignment; it is fixed and lint was
-rerun successfully. Full live verification is running; independent branch review
-is still pending. No fresh aggregate live success is claimed yet.
+Independent whole-branch review is next. No pull request or push has been made
+for this branch. Local commits preserve the implementation and verification
+record; integration awaits the user's choice after review.

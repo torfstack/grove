@@ -97,7 +97,8 @@ this is not a transactionally consistent remote snapshot. Spec 000007 implements
 baseline-verified local deletion propagation through journaled Drive Trash
 operations. Baseline, incremental,
 and two-way upload/race-recovery live acceptance passed on macOS on 2026-10-10.
-Linux live integration remains untested.
+Full Linux live acceptance passed on 2026-10-22 after spec 000008 implemented
+metadata-version tolerance for downloads and recovery.
 
 ## Incremental reconciliation and recovery
 
