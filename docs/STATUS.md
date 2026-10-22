@@ -459,5 +459,21 @@ safety rule without attributing a cause.
 Independent read-only review of `8123f12..1967fc8` found no critical, important,
 or minor issues and no material test gaps; nothing was declined as outside
 scope. The reviewer confirmed plan alignment and the recorded execution
-choices. No pull request or push has been made for this branch. Implementation
-and verification are complete; integration awaits the user's choice.
+choices. The user authorized opening a PR and rerunning tests with the dedicated
+local token. [PR #13](https://github.com/torfstack/grove/pull/13) targets `main`.
+Fresh lint, uncached offline/race suites, and the native Linux build pass. A full
+local-token live rerun passed in 275.451 seconds with fixture-owned cleanup.
+CI, CodeQL, and dependency review passed on `cf301cd`. At 19:46 UTC,
+CodeRabbit still reported "Review in progress" for that head, nearly ten minutes
+after starting at 19:37 UTC. Its summary named the correct commit and selected
+all 19 changed files, but the reviews API, inline-comments API, and GraphQL
+review threads contained no feedback. CodeRabbit's
+[status page](https://status.coderabbit.ai/) reported degraded GitHub pull-request
+performance; that does not establish the cause of this particular delay.
+
+This documentation update records the fresh local-token acceptance and PR
+review limitation; it changes no Go code. The PR is not being reported ready
+while CodeRabbit is pending. Next, retrieve the completed summary, inline
+comments, and review threads for the latest PR head, assess any findings, fix
+valid issues with verification, and wait for fresh CI/review after fixes. The
+PR remains open for the user's integration decision.

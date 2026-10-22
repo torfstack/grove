@@ -22,7 +22,10 @@ revision pinning, stale-write probing, two-way upload/concurrent revision
 recovery, and local deletion all passed with fixture-owned cleanup. Formatting,
 lint, full offline/race tests, and the native Linux build also passed. The
 version-only failure is covered deterministically for transfers and disk-reloaded
-recovery; the original server-side trigger remains unknown.
+recovery; the original server-side trigger remains unknown. A subsequent fresh
+full-suite run for PR #13 using the dedicated local token also passed in
+275.451 seconds with fixture-owned cleanup. Uncached offline/race tests, lint,
+and the native Linux build passed again before PR review.
 
 ## Google setup (user)
 
