@@ -471,9 +471,15 @@ review threads contained no feedback. CodeRabbit's
 [status page](https://status.coderabbit.ai/) reported degraded GitHub pull-request
 performance; that does not establish the cause of this particular delay.
 
-This documentation update records the fresh local-token acceptance and PR
-review limitation; it changes no Go code. The PR is not being reported ready
-while CodeRabbit is pending. Next, retrieve the completed summary, inline
-comments, and review threads for the latest PR head, assess any findings, fix
-valid issues with verification, and wait for fresh CI/review after fixes. The
-PR remains open for the user's integration decision.
+CodeRabbit subsequently completed its implementation review of
+`8123f12..cf301cd` and reported no actionable comments, minimal merge risk,
+and no architecture-level concerns. The complete summary was read through
+GitHub, and the inline-comments API and GraphQL review threads were checked:
+both contained no findings. Its retained comparison and recovery-safety
+observations agree with the approved scope; no fixes or declined suggestions
+remain from that review.
+
+Documentation-only follow-ups record the fresh local-token acceptance and
+review outcome. No Go code changed after the reviewed implementation. The PR
+remains open for the user's integration decision; check the latest CI and
+CodeRabbit status before merging.
