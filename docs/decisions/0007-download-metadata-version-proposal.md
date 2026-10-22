@@ -33,4 +33,5 @@ must pass; a successful focused retry is insufficient acceptance evidence.
 
 The user approved spec 000008 and native execution of its paired plan. The
 implementation passed local checks and the full Linux live suite in 279.377
-seconds; independent branch review and integration remain.
+seconds. Independent branch review found no actionable findings; integration
+remains.

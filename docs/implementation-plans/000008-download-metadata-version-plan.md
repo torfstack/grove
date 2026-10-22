@@ -10,7 +10,7 @@
 
 **Spec:** [000008-download-metadata-version-design.md](../spec/000008-download-metadata-version-design.md), approved 2026-10-22.
 
-**Status:** Native implementation and local/live verification complete; final branch review pending. Branch: `fix/download-metadata-version`.
+**Status:** Complete: native implementation, local/live verification, and independent branch review. Branch: `fix/download-metadata-version`.
 
 ## Global Constraints
 
@@ -96,7 +96,7 @@ No changes to `drive.API`, persisted types, `journal.go`'s `checkCurrentRemote`,
 - [x] Run `mise run fmt`, `mise run lint`, `mise run test`, `mise run test-race`, and `mise exec -- go build ./...` sequentially. Expected: successful exit codes, no lint findings or races. Re-run only affected checks if subsequent edits require it.
 - [x] Run the full live suite on Linux with `GROVE_LIVE_TEST=1`, `GROVE_TEST_TOKEN_FILE="$HOME/.config/grove-test/token.json"`, and `GROVE_TEST_RUNS_DIR="$HOME/.local/state/grove-test/runs"`: `mise run test-live`. Use required filesystem/network access, keep session commands sequential to avoid token-lock contention, and do not print private records. Expected: the entire command exits zero with all scenarios passed and successful fixture-owned cleanup. If it fails, inspect sanitized diagnostics and retain/report the aggregate failure; investigate before repeating. Any retained fixture cleanup must use the ownership-checked CLI.
 - [x] Update product and architecture descriptions with the implemented transfer/recovery rule and strict fallback; record actual full-suite results and remaining limitations in status/testbed docs. Mark the spec/decision implemented only after evidence supports it. Preserve historical failed-run results and distinguish subsequent runs. Run `git diff --check`; expected no whitespace errors.
-- [ ] Review the branch diff against every spec criterion, including unchanged move/upload/Trash checks and original journal snapshots. Use the chosen execution workflow's review process, fix valid findings, and verify affected behavior. Commit as `test: verify metadata-only download recovery on Linux` with documentation and task updates. Opening/pushing a PR is a separate action; if authorized later, follow `AGENTS.md`'s CI and CodeRabbit requirements.
+- [x] Review the branch diff against every spec criterion, including unchanged move/upload/Trash checks and original journal snapshots. Use the chosen execution workflow's review process, fix valid findings, and verify affected behavior. Commit as `test: verify metadata-only download recovery on Linux` with documentation and task updates. Opening/pushing a PR is a separate action; if authorized later, follow `AGENTS.md`'s CI and CodeRabbit requirements.
 
 ## Execution result
 
@@ -104,5 +104,6 @@ The user selected native execution. Transfer and recovery regression tests were
 observed failing before their fixes and passing afterward. Formatting, lint,
 full offline/race suites, native build, and the full Linux live suite pass;
 the aggregate live run completed in 279.377 seconds with fixture-owned cleanup.
-Final independent branch review is pending. The historical failed Linux run and
+Independent read-only review of `8123f12..1967fc8` found no actionable issues
+or material test gaps. No review fixes or deferred minor findings remain. The historical failed Linux run and
 focused retry remain recorded in the status and testbed documents.
