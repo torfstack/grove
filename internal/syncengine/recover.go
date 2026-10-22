@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 )
@@ -42,7 +43,14 @@ func (e *executor) recover(ctx context.Context, snapshot Snapshot) error {
 		}
 	}
 	expected := Completed{Path: p.Entry.Path, RemoteID: p.Entry.Remote.ID, Version: p.Entry.Remote.Version, MD5: p.Entry.Remote.MD5, Kind: entryKind(p.Entry), Size: p.Entry.Remote.Size}
-	if current == nil || !same(*current, expected) {
+	if current == nil || current.Path != p.Entry.Path {
+		return fmt.Errorf("initial download recovery: %w (identity_path=false)", errPendingRemoteChanged)
+	}
+	if entryKind(p.Entry) == "file" {
+		if err := validateDownloadRemote(p.Entry.Remote, current.Remote); err != nil {
+			return fmt.Errorf("initial download recovery: %w", err)
+		}
+	} else if !same(*current, expected) {
 		return errors.New("pending remote entry changed; initial sync cannot resume")
 	}
 	if err := ctx.Err(); err != nil {

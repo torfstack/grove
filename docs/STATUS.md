@@ -449,3 +449,9 @@ download metadata comparison and transfer checks. The version-only regression
 failed before the fix and passes for normal and empty files afterward; focused
 validation/transfer tests and the full offline suite pass. Recovery work and
 fresh live acceptance remain pending.
+
+Task 2 covers initial-download recovery with the full saved file metadata and
+relative path. Four disk-reloaded interruption phases failed under the old
+strict version comparison and now pass. Focused recovery tests also pass for
+changed evidence, replaced artifacts, legacy strict fallback, and repeated
+version advances across a save failure. Replacement recovery remains next.
