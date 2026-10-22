@@ -93,7 +93,7 @@ func (e *executor) recoverReplace(ctx context.Context) error {
 	if !stage {
 		return errors.New("verified replacement stage missing")
 	}
-	if err = e.currentRemote(ctx, j.Operation.Entry); err != nil {
+	if err = e.currentDownloadRemote(ctx, j.Operation.Entry); err != nil {
 		if errors.Is(err, errPendingRemoteChanged) && j.Phase == "verified" && present && !backup {
 			if oldErr := e.requireFile(ctx, target, old); oldErr != nil {
 				return oldErr

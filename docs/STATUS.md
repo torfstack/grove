@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-13.
+Updated: 2026-10-22.
 
 ## Release status
 
@@ -396,9 +396,90 @@ amd64 cross-build, Linux checks, CodeQL, and dependency review passed. CodeRabbi
 was still marked “Review in progress” at 09:14 UTC, about five minutes after it
 started; no completed review for that head was available. Next, inspect the
 CodeRabbit summary, inline comments, and threads for the latest PR head, assess
-any new findings, and address valid ones. Linux live runtime acceptance remains
-untested; cross-build is compilation only.
+any new findings, and address valid ones. Linux live runtime results are recorded
+below; cross-build is compilation only.
 Drive Trash is reversible, but its API has no conditional write; the spec records
 the residual race between final preflight and the request. Local file watching
 remains planned with daemon orchestration; one-shot sync rescans local state on
 each invocation.
+
+## Linux live acceptance, 2026-10-22
+
+On Linux x86_64 at `8123f12`, the explicitly enabled `mise run test-live`
+finished in 270.050 seconds with one failure. Configuration validation, local
+deletion, incremental sync, current-head revision pinning, conditional-write
+probing, and two-way upload/concurrent revision recovery passed. Initial sync
+rejected a metadata-version change during download while identity, parents,
+content size/hash, ownership, and active status still matched. This repeats the
+previously recorded macOS symptom. Independent fixture inspection verified five
+files and three directories, and ownership-checked cleanup succeeded.
+
+A fresh focused `TestInitialSyncLive` retry passed in 38.686 seconds, including
+verification, no-op repeat, and owned cleanup. Every live scenario has now passed
+on Linux, but the aggregate run was not green; the intermittent initial-download
+version check remains unresolved. Next, investigate why Drive advances metadata
+version after fixture seeding and whether the download consistency check can use
+a proven content identity without weakening change detection. Private records
+remain outside Git; credentials, generated IDs, and synced contents were not
+printed. The initial sandboxed attempt could not create private run directories
+and failed temporary-path validation before Drive operations; rerunning with
+the required filesystem/network access passed configuration validation.
+
+## Download metadata-version reliability
+
+Approved [spec 000008](spec/000008-download-metadata-version-design.md),
+[decision 0007](decisions/0007-download-metadata-version-proposal.md), and the
+paired [plan](implementation-plans/000008-download-metadata-version-plan.md)
+are implemented natively on `fix/download-metadata-version`. One comparison now
+validates transfer, initial-download recovery, and unpublished replacement
+recovery. Higher numeric versions require unchanged revision/time, size/hash,
+and file structure/access. Missing revision/time evidence retains the strict
+version check. Planned journal snapshots remain intact, and subsequent scans
+reconcile newer metadata without another transfer or destination-file rewrite.
+Move, upload, and Trash preconditions retain their existing rules.
+
+Regressions reproduced the transfer and recovery failures before the respective
+fixes. Deterministic tests cover byte and metadata rejection, disk-reloaded
+interruption phases, save faults, artifact preservation, legacy strict fallback,
+HTTP reconciliation, and cloud restoration with an unrelated deletion tombstone.
+Existing stale-content fixtures now change revision as well as version, so they
+continue testing real changes alongside the new version-only acceptance cases.
+
+Formatting, lint (0 issues), full offline/race suites, and the native Linux build
+pass. The explicitly enabled full Linux live suite passed in 279.377 seconds:
+configuration, deletion (46.65s), incremental sync (73.86s), initial sync
+(38.32s), revision pinning (23.44s), conditional-write probing (32.16s), and
+upload/concurrent revision recovery (64.94s). All scenarios completed their
+fixture-owned cleanup. No credentials, generated IDs, or synced contents were
+printed or committed. This is a passing aggregate run, unlike the earlier
+failed run and focused retry recorded above. The cause of that original Drive
+version increase remains unknown; deterministic cases establish the exception's
+safety rule without attributing a cause.
+
+Independent read-only review of `8123f12..1967fc8` found no critical, important,
+or minor issues and no material test gaps; nothing was declined as outside
+scope. The reviewer confirmed plan alignment and the recorded execution
+choices. The user authorized opening a PR and rerunning tests with the dedicated
+local token. [PR #13](https://github.com/torfstack/grove/pull/13) targets `main`.
+Fresh lint, uncached offline/race suites, and the native Linux build pass. A full
+local-token live rerun passed in 275.451 seconds with fixture-owned cleanup.
+CI, CodeQL, and dependency review passed on `cf301cd`. At 19:46 UTC,
+CodeRabbit still reported "Review in progress" for that head, nearly ten minutes
+after starting at 19:37 UTC. Its summary named the correct commit and selected
+all 19 changed files, but the reviews API, inline-comments API, and GraphQL
+review threads contained no feedback. CodeRabbit's
+[status page](https://status.coderabbit.ai/) reported degraded GitHub pull-request
+performance; that does not establish the cause of this particular delay.
+
+CodeRabbit subsequently completed its implementation review of
+`8123f12..cf301cd` and reported no actionable comments, minimal merge risk,
+and no architecture-level concerns. The complete summary was read through
+GitHub, and the inline-comments API and GraphQL review threads were checked:
+both contained no findings. Its retained comparison and recovery-safety
+observations agree with the approved scope; no fixes or declined suggestions
+remain from that review.
+
+Documentation-only follow-ups record the fresh local-token acceptance and
+review outcome. No Go code changed after the reviewed implementation. The PR
+remains open for the user's integration decision; check the latest CI and
+CodeRabbit status before merging.

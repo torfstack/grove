@@ -289,6 +289,60 @@ func TestInterruptedCloudRestoreRetainsUnrelatedDeletionConflict(t *testing.T) {
 	}
 }
 
+func TestCloudRestorationDownloadMetadataVersion(t *testing.T) {
+	service, opts, remote := httpService(t)
+	if _, err := service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	remote.put("new-child", "new-child", "folder", "new remote content")
+	f := remote.files["new-child"]
+	f.Version = "9"
+	remote.files["new-child"] = f
+	remote.put("b", "b", "root", "changed remote content")
+	if err := os.RemoveAll(filepath.Join(opts.LocalDir, "old")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(opts.LocalDir, "b")); err != nil {
+		t.Fatal(err)
+	}
+	opts.TwoWay = true
+	if _, err := service.Run(context.Background(), opts); err != nil {
+		t.Fatal(err)
+	}
+	conflicts, err := service.ListConflicts(context.Background(), opts)
+	if err != nil || len(conflicts) != 2 {
+		t.Fatalf("expected two tombstones: %v", err)
+	}
+	id := ""
+	for _, c := range conflicts {
+		if c.Path == "old" {
+			id = c.ID
+		}
+	}
+	if id == "" {
+		t.Fatal("missing subtree conflict")
+	}
+	service = advanceMetadataOnDownload(t, service, remote, "new-child")
+	if err := service.ResolveConflict(context.Background(), opts, id, SideCloud, 0); err != nil {
+		t.Fatal(err)
+	}
+	for path, want := range map[string]string{"old/a": "old", "old/new-child": "new remote content"} {
+		data, err := os.ReadFile(filepath.Join(opts.LocalDir, path))
+		if err != nil || string(data) != want {
+			t.Fatalf("wrong restored bytes at %s: %v", path, err)
+		}
+	}
+	state := testProfileState(t, opts)
+	if !state.PopulationComplete || len(state.Conflicts) != 1 || state.Conflicts[0].Path != "b" || remote.files["new-child"].Version != "10" {
+		t.Fatal("restoration lost unrelated tombstone or did not exercise advance")
+	}
+	downloads := remote.downloads
+	result, err := service.Run(context.Background(), opts)
+	if err != nil || result.Downloaded != 0 || remote.downloads != downloads || remote.mutations != 0 || remote.files["b"].Trashed {
+		t.Fatalf("restoration repeat performed work: %v", err)
+	}
+}
+
 func TestCloudDeletionResolutionRejectsUnrelatedLocalChangesBeforeSaving(t *testing.T) {
 	for _, change := range []string{"edit", "add", "remove"} {
 		t.Run(change, func(t *testing.T) {

@@ -76,6 +76,7 @@ func TestStaleReplacementRecovery(t *testing.T) {
 			apiErr := errors.New("remote unavailable")
 			if remoteChanged {
 				ex.api.(*downloadAPI).children[0].Version = "3"
+				ex.api.(*downloadAPI).children[0].HeadRevisionID = "rev-3"
 			} else {
 				ex.api = metadataErrorAPI{API: ex.api, err: apiErr}
 			}
@@ -138,6 +139,7 @@ func TestReplacementCancellationRecovery(t *testing.T) {
 				t.Fatal(err)
 			}
 			ex.api.(*downloadAPI).children[0].Version = "3"
+			ex.api.(*downloadAPI).children[0].HeadRevisionID = "rev-3"
 			save := ex.save
 			calls := 0
 			ex.save = func() error {
@@ -193,6 +195,7 @@ func TestStaleReplacementAfterBackupPreserved(t *testing.T) {
 		t.Fatal(err)
 	}
 	ex.api.(*downloadAPI).children[0].Version = "3"
+	ex.api.(*downloadAPI).children[0].HeadRevisionID = "rev-3"
 	if err = ex.recover(context.Background(), Snapshot{}); !errors.Is(err, errPendingRemoteChanged) {
 		t.Fatal("stale staged content accepted", err)
 	}

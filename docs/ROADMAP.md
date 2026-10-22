@@ -2,6 +2,12 @@
 
 Milestones are ordered proposals; detailed implementation plans come before code.
 
+The download reliability fix in
+[spec 000008](spec/000008-download-metadata-version-design.md) is implemented
+on `fix/download-metadata-version`. Formatting, lint, offline/race checks, native
+Linux build, and full Linux live acceptance passed. Independent branch review
+found no actionable findings; integration remains before daemon orchestration.
+
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus
    repeatable fixture seeding and verification.

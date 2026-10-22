@@ -38,6 +38,7 @@ func (a *downloadAPI) Get(_ context.Context, id string) (drive.File, error) {
 	f := a.children[0]
 	if a.changed && a.downloads > 0 {
 		f.Version = "2"
+		f.HeadRevisionID = "revision-changed"
 	}
 	return f, nil
 }

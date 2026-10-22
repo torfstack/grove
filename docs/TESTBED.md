@@ -5,6 +5,28 @@ fixture manifest. The baseline workflow is merged into main and passed live acce
 The incremental scenario is implemented on `feat/incremental-download`; dedicated-
 account live acceptance passed on macOS on 2026-10-10.
 
+On Linux x86_64 on 2026-10-22 at `8123f12`, the full live suite completed in
+270.050 seconds with one initial-sync failure: Drive's metadata version changed
+during download while identity, parents, size/hash, ownership, and active status
+still matched. All other live scenarios passed, including deletion, incremental
+sync, revision pinning, conditional-write probing, and upload/concurrent revision
+recovery. The retained fixture passed independent inspection and owned cleanup.
+A fresh initial-sync retry passed in 38.686 seconds and cleaned its fixture.
+Linux execution is now demonstrated for every live scenario, but the aggregate
+suite is not fully green; the intermittent initial-download consistency check
+remains unresolved.
+
+The metadata-version fix from spec 000008 subsequently passed the full Linux
+live suite on 2026-10-22 in 279.377 seconds. Initial sync, incremental sync,
+revision pinning, stale-write probing, two-way upload/concurrent revision
+recovery, and local deletion all passed with fixture-owned cleanup. Formatting,
+lint, full offline/race tests, and the native Linux build also passed. The
+version-only failure is covered deterministically for transfers and disk-reloaded
+recovery; the original server-side trigger remains unknown. A subsequent fresh
+full-suite run for PR #13 using the dedicated local token also passed in
+275.451 seconds with fixture-owned cleanup. Uncached offline/race tests, lint,
+and the native Linux build passed again before PR review.
+
 ## Google setup (user)
 
 1. Create a Google account holding only disposable test data.
