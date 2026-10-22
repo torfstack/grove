@@ -443,3 +443,9 @@ recommended for its four sequential tasks. Next: review the plan, then implement
 and verify the fix using the selected workflow. No Go changes or new test runs
 were made while writing the spec and plan; the Linux live results above describe
 the existing implementation.
+
+Native execution of spec 000008 is underway. Task 1 implements the shared
+download metadata comparison and transfer checks. The version-only regression
+failed before the fix and passes for normal and empty files afterward; focused
+validation/transfer tests and the full offline suite pass. Recovery work and
+fresh live acceptance remain pending.
