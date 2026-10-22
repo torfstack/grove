@@ -455,3 +455,10 @@ relative path. Four disk-reloaded interruption phases failed under the old
 strict version comparison and now pass. Focused recovery tests also pass for
 changed evidence, replaced artifacts, legacy strict fallback, and repeated
 version advances across a save failure. Replacement recovery remains next.
+
+Task 3 switches only unpublished replacement checks to the download comparator.
+Metadata-only recovery failed before the switch and now passes from verified
+and backed-up journals. Focused replacement, save-failure, stale-content, move,
+Trash, and upload tests pass. Existing stale-content fixtures now change the
+revision as well as version; version-only acceptance has separate regressions.
+Integration coverage and full local/live verification remain pending.
