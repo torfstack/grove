@@ -114,6 +114,102 @@ func httpService(t *testing.T) (Service, Options, *remoteHTTP) {
 	}}
 	return service, opts, r
 }
+
+func advanceMetadataOnDownload(t *testing.T, service Service, remote *remoteHTTP, id string) Service {
+	t.Helper()
+	advanced := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !advanced && r.Method == http.MethodGet && r.URL.Path == "/drive/v3/files/"+id && r.URL.Query().Get("alt") == "media" {
+			f := remote.files[id]
+			f.Version = "10"
+			remote.files[id] = f
+			advanced = true
+		}
+		remote.serve(w, r)
+	}))
+	t.Cleanup(server.Close)
+	service.OpenAPI = func(context.Context, string, string) (drive.API, func() error, error) {
+		return drive.NewClient(server.Client(), drive.ClientOptions{BaseURL: server.URL + "/drive/v3"}), func() error { return nil }, nil
+	}
+	return service
+}
+
+func testProfileState(t *testing.T, opts Options) State {
+	t.Helper()
+	canonical, err := canonicalOptions(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, err := loadState(canonical.ProfileDir, Binding{RemoteRoot: canonical.RemoteRoot, LocalDir: canonical.LocalDir, TokenFile: canonical.TokenFile})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return state
+}
+
+func TestServiceDownloadMetadataVersionReconciliation(t *testing.T) {
+	for _, replace := range []bool{false, true} {
+		name := "initial"
+		if replace {
+			name = "replacement"
+		}
+		t.Run(name, func(t *testing.T) {
+			service, opts, remote := httpService(t)
+			want := "old"
+			if replace {
+				if _, err := service.Run(context.Background(), opts); err != nil {
+					t.Fatal(err)
+				}
+				want = "replacement bytes"
+				remote.put("a", "a", "folder", want)
+			}
+			f := remote.files["a"]
+			f.Version = "9"
+			remote.files["a"] = f
+			service = advanceMetadataOnDownload(t, service, remote, "a")
+			if _, err := service.Run(context.Background(), opts); err != nil {
+				t.Fatal(err)
+			}
+			state := testProfileState(t, opts)
+			found := false
+			for _, c := range state.Completed {
+				if c.RemoteID == "a" {
+					found = true
+					if c.Version != "9" {
+						t.Fatal("planned snapshot not retained")
+					}
+				}
+			}
+			if !found || remote.files["a"].Version != "10" {
+				t.Fatal("metadata advance not exercised")
+			}
+			path := filepath.Join(opts.LocalDir, "old", "a")
+			before, err := os.Stat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			downloads := remote.downloads
+			result, err := service.Run(context.Background(), opts)
+			if err != nil || result.Downloaded != 0 || remote.downloads != downloads || remote.mutations != 0 {
+				t.Fatalf("metadata reconciliation transferred or mutated: %v", err)
+			}
+			state = testProfileState(t, opts)
+			for _, c := range state.Completed {
+				if c.RemoteID == "a" && c.Version != "10" {
+					t.Fatal("fresh metadata not recorded")
+				}
+			}
+			after, err := os.Stat(path)
+			if err != nil || !before.ModTime().Equal(after.ModTime()) {
+				t.Fatal("metadata reconciliation rewrote target")
+			}
+			data, err := os.ReadFile(path)
+			if err != nil || string(data) != want {
+				t.Fatalf("wrong bytes after reconciliation: %v", err)
+			}
+		})
+	}
+}
 func TestServiceIncrementalHTTP(t *testing.T) {
 	service, opts, r := httpService(t)
 	ctx := context.Background()

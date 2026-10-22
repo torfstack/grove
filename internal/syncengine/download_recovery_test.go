@@ -156,10 +156,10 @@ func TestInitialDownloadRecoveryRejectsChangedEvidence(t *testing.T) {
 
 func TestInitialDownloadRecoveryLegacyEvidence(t *testing.T) {
 	for _, advance := range []bool{false, true} {
-		ex, entry, _, _ := interruptedDownload(t, "published")
+		ex, _, _, _ := interruptedDownload(t, "published")
 		ex.state.Pending.Entry.Remote.HeadRevisionID = ""
 		ex.state.Pending.Entry.Remote.ModifiedTime = ""
-		entry = ex.state.Pending.Entry
+		entry := ex.state.Pending.Entry
 		if advance {
 			entry.Remote.Version = "10"
 		}

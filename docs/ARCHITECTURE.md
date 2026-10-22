@@ -71,7 +71,16 @@ profile and canonical destination lease. Root-confined operations reject symlink
 A private journal tracks download intents, exclusive temporary paths, verified
 hashes, and completion. Unix hard-link publication cannot replace a destination;
 verified final files can be adopted after interrupted completion recording.
-Files use size/MD5 checks and a post-transfer version check before publication.
+Files use actual-byte size/MD5 checks and a post-transfer metadata comparison
+before publication. The download-specific comparison accepts a numeric version
+increase only with matching nonempty revision/time evidence and unchanged file
+structure, ownership/location, active status, and capability. Equal versions
+remain required when revision/time evidence is absent. Pending initial files
+and unpublished replacements use the same comparison during recovery; initial
+recovery also verifies the saved relative path. Planned journal snapshots stay
+unchanged, and later scans reconcile newer versions through metadata-record
+operations. Move, upload, and Trash checks retain their separate rules. See
+[spec 000008](spec/000008-download-metadata-version-design.md).
 
 `internal/privatefs` supplies atomic owner-only JSON records and nonblocking
 process locks. A private destination registry prevents overlapping profile

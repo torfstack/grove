@@ -47,6 +47,15 @@ Unsupported names, symlinks,
 native documents, shortcuts, duplicates, shared drives, and non-owned files fail
 preflight rather than being silently skipped.
 
+Download verification and recovery accept a metadata-version increase only when
+the same binary revision, modified time, size/checksum, identity, type, parent,
+ownership, active status, and download capability are proven unchanged. If
+revision/time evidence is absent, version equality remains required. Actual
+downloaded bytes must still pass checksum verification. Saved journal snapshots
+remain intact; a later scan can reconcile a newer version without downloading
+again or changing destination-file mtimes. See
+[spec 000008](spec/000008-download-metadata-version-design.md).
+
 ## Incremental download behavior
 
 Approved spec 000003 is implemented on `feat/incremental-download`. Reusing a

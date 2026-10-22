@@ -438,11 +438,9 @@ The cause of the observed Drive version advance remains unknown. Planned
 journal snapshots remain intact; move, upload, and Trash preconditions retain
 their existing rules. The paired
 [implementation plan](implementation-plans/000008-download-metadata-version-plan.md)
-is prepared for review and execution-method selection. Native execution is
-recommended for its four sequential tasks. Next: review the plan, then implement
-and verify the fix using the selected workflow. No Go changes or new test runs
-were made while writing the spec and plan; the Linux live results above describe
-the existing implementation.
+was approved for native execution. Transfer, initial recovery, and unpublished
+replacement validation are implemented. Original journal snapshots and the
+strict fallback for missing revision/time evidence remain intact.
 
 Native execution of spec 000008 is underway. Task 1 implements the shared
 download metadata comparison and transfer checks. The version-only regression
@@ -462,3 +460,10 @@ and backed-up journals. Focused replacement, save-failure, stale-content, move,
 Trash, and upload tests pass. Existing stale-content fixtures now change the
 revision as well as version; version-only acceptance has separate regressions.
 Integration coverage and full local/live verification remain pending.
+
+HTTP integration tests now pass for initial/replacement metadata reconciliation
+and cloud restoration with a retained unrelated deletion tombstone. Formatting,
+lint (0 issues), the full offline and race suites, and the native Linux build
+pass. Lint initially found one unused test assignment; it is fixed and lint was
+rerun successfully. Full live verification is running; independent branch review
+is still pending. No fresh aggregate live success is claimed yet.
