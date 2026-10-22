@@ -1,6 +1,6 @@
 # Download consistency across metadata-only Drive changes
 
-Date: 2026-10-22. Status: draft for user review; implementation not started.
+Date: 2026-10-22. Status: approved design; implementation not started.
 
 ## Intent and evidence
 
@@ -11,8 +11,8 @@ unsupported metadata, and local conflicts, including after interruption.
 
 The user selected this reliability ticket after Linux live acceptance and asked
 to start with a written spec and a dedicated branch. Work is on
-`fix/download-metadata-version`. This draft proposes the details below; they are
-not yet agreed implementation requirements.
+`fix/download-metadata-version`. The user approved this written spec. The
+requirements below are agreed; the paired implementation plan awaits review.
 
 At `8123f12`, the Linux live suite failed initial sync because the post-download
 metadata version differed from the scan. Identity, parents, size/MD5, ownership,
@@ -52,7 +52,7 @@ upload, and Trash preconditions retain their existing rules. This proposal
 supersedes strict version equality only at the download boundaries described
 here; it does not rewrite the historical requirements in specs 000002/000003.
 
-## Proposed validation rule
+## Validation rule
 
 Compare the planned file metadata with the fresh observation after transfer or
 at a download recovery boundary. Both must describe a supported ordinary binary
@@ -173,6 +173,6 @@ passing acceptance result. Repeated clean runs are supporting evidence, not a
 substitute for deterministic regression coverage.
 
 Update status, testbed results, product behavior, and architecture descriptions
-with the implemented rule and actual verification outcomes. After this draft is
-approved, write the paired plan at
-`docs/implementation-plans/000008-download-metadata-version-plan.md`.
+with the implemented rule and actual verification outcomes. Execution follows
+the paired [implementation plan](../implementation-plans/000008-download-metadata-version-plan.md)
+after its review and execution-method selection.

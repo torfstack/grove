@@ -428,14 +428,18 @@ the required filesystem/network access passed configuration validation.
 ## Download metadata-version reliability
 
 The user selected the intermittent initial-download failure as the next ticket
-and requested a spec and dedicated branch. Draft
+and requested a spec and dedicated branch. Approved
 [spec 000008](spec/000008-download-metadata-version-design.md) and
-[decision proposal 0007](decisions/0007-download-metadata-version-proposal.md)
-are prepared on `fix/download-metadata-version`. They propose allowing a
+[decision 0007](decisions/0007-download-metadata-version-proposal.md)
+are recorded on `fix/download-metadata-version`. They require allowing a
 metadata-version increase only with matching content revision, modified time,
 checksum/size, and structure, covering both transfer and download recovery.
 The cause of the observed Drive version advance remains unknown. Planned
-journal snapshots would remain intact; move, upload, and Trash preconditions
-would retain their existing rules. Next: review the draft, then write its paired
-implementation plan. No Go changes or new test runs were made for this draft;
-the Linux live results above describe the existing implementation.
+journal snapshots remain intact; move, upload, and Trash preconditions retain
+their existing rules. The paired
+[implementation plan](implementation-plans/000008-download-metadata-version-plan.md)
+is prepared for review and execution-method selection. Native execution is
+recommended for its four sequential tasks. Next: review the plan, then implement
+and verify the fix using the selected workflow. No Go changes or new test runs
+were made while writing the spec and plan; the Linux live results above describe
+the existing implementation.

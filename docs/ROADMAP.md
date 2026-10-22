@@ -2,12 +2,13 @@
 
 Milestones are ordered proposals; detailed implementation plans come before code.
 
-The next reliability ticket is draft
+The next reliability ticket is approved
 [spec 000008](spec/000008-download-metadata-version-design.md): stop rejecting
 proven metadata-only Drive version increases during download and recovery.
 Linux live testing reproduced the intermittent initial-sync failure; a focused
-retry passed, but full-suite acceptance remains incomplete. Review this spec
-and implement the fix before proceeding to daemon orchestration.
+retry passed, but full-suite acceptance remains incomplete. Its paired
+implementation plan awaits review before implementing the fix and proceeding
+to daemon orchestration.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus

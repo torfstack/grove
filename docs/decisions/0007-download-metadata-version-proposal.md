@@ -1,6 +1,6 @@
 # 0007: Download validation across metadata-version changes
 
-Date: 2026-10-22. Status: proposal; awaiting review of spec 000008.
+Date: 2026-10-22. Status: accepted design; implementation not started.
 
 ## Context
 
@@ -10,7 +10,7 @@ The exact cause of the version advance and equality of unreported revision/time
 fields have not been established. The user selected this reliability work and
 requested a spec and dedicated branch before implementation.
 
-## Proposed decision
+## Agreed decision
 
 Use the stronger content-revision and structural comparison in
 [spec 000008](../spec/000008-download-metadata-version-design.md) to tolerate
@@ -31,4 +31,5 @@ preconditions, infer deletion, or weaken artifact ownership and checksum checks.
 No schema migration or new remote mutation is expected. The full live suite
 must pass; a successful focused retry is insufficient acceptance evidence.
 
-This is a proposed design, not an accepted decision or implemented behavior.
+The user approved spec 000008. Its paired implementation plan is prepared for
+review and execution-method selection; this behavior is not yet implemented.
