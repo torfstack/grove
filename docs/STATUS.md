@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-13.
+Updated: 2026-10-22.
 
 ## Release status
 
@@ -396,9 +396,46 @@ amd64 cross-build, Linux checks, CodeQL, and dependency review passed. CodeRabbi
 was still marked “Review in progress” at 09:14 UTC, about five minutes after it
 started; no completed review for that head was available. Next, inspect the
 CodeRabbit summary, inline comments, and threads for the latest PR head, assess
-any new findings, and address valid ones. Linux live runtime acceptance remains
-untested; cross-build is compilation only.
+any new findings, and address valid ones. Linux live runtime results are recorded
+below; cross-build is compilation only.
 Drive Trash is reversible, but its API has no conditional write; the spec records
 the residual race between final preflight and the request. Local file watching
 remains planned with daemon orchestration; one-shot sync rescans local state on
 each invocation.
+
+## Linux live acceptance, 2026-10-22
+
+On Linux x86_64 at `8123f12`, the explicitly enabled `mise run test-live`
+finished in 270.050 seconds with one failure. Configuration validation, local
+deletion, incremental sync, current-head revision pinning, conditional-write
+probing, and two-way upload/concurrent revision recovery passed. Initial sync
+rejected a metadata-version change during download while identity, parents,
+content size/hash, ownership, and active status still matched. This repeats the
+previously recorded macOS symptom. Independent fixture inspection verified five
+files and three directories, and ownership-checked cleanup succeeded.
+
+A fresh focused `TestInitialSyncLive` retry passed in 38.686 seconds, including
+verification, no-op repeat, and owned cleanup. Every live scenario has now passed
+on Linux, but the aggregate run was not green; the intermittent initial-download
+version check remains unresolved. Next, investigate why Drive advances metadata
+version after fixture seeding and whether the download consistency check can use
+a proven content identity without weakening change detection. Private records
+remain outside Git; credentials, generated IDs, and synced contents were not
+printed. The initial sandboxed attempt could not create private run directories
+and failed temporary-path validation before Drive operations; rerunning with
+the required filesystem/network access passed configuration validation.
+
+## Download metadata-version reliability
+
+The user selected the intermittent initial-download failure as the next ticket
+and requested a spec and dedicated branch. Draft
+[spec 000008](spec/000008-download-metadata-version-design.md) and
+[decision proposal 0007](decisions/0007-download-metadata-version-proposal.md)
+are prepared on `fix/download-metadata-version`. They propose allowing a
+metadata-version increase only with matching content revision, modified time,
+checksum/size, and structure, covering both transfer and download recovery.
+The cause of the observed Drive version advance remains unknown. Planned
+journal snapshots would remain intact; move, upload, and Trash preconditions
+would retain their existing rules. Next: review the draft, then write its paired
+implementation plan. No Go changes or new test runs were made for this draft;
+the Linux live results above describe the existing implementation.

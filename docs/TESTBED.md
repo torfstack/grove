@@ -5,6 +5,17 @@ fixture manifest. The baseline workflow is merged into main and passed live acce
 The incremental scenario is implemented on `feat/incremental-download`; dedicated-
 account live acceptance passed on macOS on 2026-10-10.
 
+On Linux x86_64 on 2026-10-22 at `8123f12`, the full live suite completed in
+270.050 seconds with one initial-sync failure: Drive's metadata version changed
+during download while identity, parents, size/hash, ownership, and active status
+still matched. All other live scenarios passed, including deletion, incremental
+sync, revision pinning, conditional-write probing, and upload/concurrent revision
+recovery. The retained fixture passed independent inspection and owned cleanup.
+A fresh initial-sync retry passed in 38.686 seconds and cleaned its fixture.
+Linux execution is now demonstrated for every live scenario, but the aggregate
+suite is not fully green; the intermittent initial-download consistency check
+remains unresolved.
+
 ## Google setup (user)
 
 1. Create a Google account holding only disposable test data.
