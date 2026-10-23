@@ -513,3 +513,9 @@ The user approved plan 000009 for native execution. Task 1 adds typed lock
 contention and exclusive/shared-probe lifetime leases. Focused privatefs tests
 and race tests pass, including a separate process and canonical parent aliases.
 The remaining six tasks and full/local live verification are pending.
+
+Task 2 adds locked existing-profile execution and offline inspection. Full
+syncengine and race suites pass, including missing/rebound state rejection,
+held-lock checks, incomplete download versus two-way validation, conflict
+counts, uncertain upload preservation, and read-only Trash outcome recovery.
+Normal one-shot execution shares the same engine body and remains covered.

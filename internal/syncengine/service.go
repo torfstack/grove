@@ -54,18 +54,24 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 		return result, err
 	}
 	defer closeResult(profileLock.Close, &err)
-	lease, err := registerDestination(registry, opts.ProfileDir, opts.LocalDir)
-	if err != nil {
-		return result, err
-	}
-	defer closeResult(lease.Close, &err)
 	binding := Binding{RemoteRoot: opts.RemoteRoot, LocalDir: opts.LocalDir, TokenFile: opts.TokenFile}
 	state, err := loadState(opts.ProfileDir, binding)
 	if err != nil {
 		return result, err
 	}
 	_, statErr := os.Lstat(filepath.Join(opts.ProfileDir, "state.json"))
-	isNew := errors.Is(statErr, os.ErrNotExist)
+	return runLocked(ctx, opts, registry, state, errors.Is(statErr, os.ErrNotExist), open)
+}
+
+func runLocked(ctx context.Context, opts Options, registry string, state State, isNew bool, open func(context.Context) (drive.API, func() error, error)) (result Result, err error) {
+	if err = ctx.Err(); err != nil {
+		return result, err
+	}
+	lease, err := registerDestination(registry, opts.ProfileDir, opts.LocalDir)
+	if err != nil {
+		return result, err
+	}
+	defer closeResult(lease.Close, &err)
 	if isNew {
 		if opts.TwoWay {
 			return result, errors.New("two-way sync requires a populated profile")
@@ -73,6 +79,9 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 		if err = checkInitialDestination(opts.LocalDir); err != nil {
 			return result, err
 		}
+	}
+	if err = ctx.Err(); err != nil {
+		return result, err
 	}
 	api, closeAPI, err := open(ctx)
 	if err != nil {
