@@ -581,3 +581,32 @@ Its fake HTTP handler initially hung on an unread request body; consuming that
 body before blocking fixed the test server's cancellation detection. No production
 endpoint or mutation behavior was changed for the test. Fresh full checks and a
 second enabled live aggregate on the final fixes are pending.
+
+## Minimal Linux daemon complete
+
+All seven tasks of spec/plan 000009 are implemented on `feat/linux-daemon`.
+The independent review's one Important finding is fixed with the regressions
+listed above; no Critical, deferred Minor, or declined findings remain. The
+single fix pass preserved cancellation causes throughout engine/authentication
+boundaries and retains uncertain journals/stages without repeating mutations.
+
+Final formatting, lint (0 issues), all 11 offline and race-tested packages, and
+both native Linux builds pass on `e3b1d26`. The final explicitly enabled full
+live suite passed in 410.947s using the dedicated local token: daemon download
+76.08s, daemon upload 48.33s, deletion 47.49s, incremental 78.14s, initial 39.66s,
+revision pinning 24.93s, conditional-write probe 33.59s, and upload/concurrent
+revision recovery 62.71s. Every scenario completed fixture-owned cleanup. A
+macOS arm64 cross-build passed before the final cancellation-only fixes; no
+non-Linux daemon runtime acceptance is claimed. Credentials, generated IDs, and
+synced contents were neither printed nor committed. README documents private
+config, foreground lifecycle, historical status, modes, and operator actions.
+
+The changes are committed locally; no PR, push, or merge has been requested for
+this daemon branch. Next: choose integration, then a bounded systemd-user-service
+or file-watching ticket. Runtime remains Linux-only, config changes require a
+restart, and existing Drive conditional-write/revision-pin limitations remain.
+
+Environment note: an early mise invocation reported removing older globally
+installed Bun, Node, and Java versions. This was not requested; subsequent
+commands used non-login shells and did not repeat it. Its cause was not
+established. No unrelated repository changes were made.

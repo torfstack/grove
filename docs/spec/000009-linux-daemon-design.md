@@ -1,6 +1,6 @@
 # Minimal Linux daemon with periodic sync
 
-Date: 2026-10-23. Status: approved design; implementation complete, live acceptance in progress.
+Date: 2026-10-23. Status: implemented; Linux acceptance and review fixes verified.
 
 ## Intent and agreed direction
 
@@ -12,7 +12,8 @@ The user selected periodic background sync for one configured profile and chose
 a small configuration file over repeated command-line flags. Linux is the first
 target. File watching and systemd installation follow later. Those choices are
 agreed, and the user subsequently approved this written spec including the
-detailed defaults below. Work is on `feat/linux-daemon`; the paired plan is being executed natively with final acceptance underway.
+detailed defaults below. Work is on `feat/linux-daemon`; the paired plan is
+implemented and verified through native execution.
 
 ## Approaches
 

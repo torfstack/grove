@@ -215,6 +215,8 @@ and token locks coordinate all writers, including manual CLI commands.
 SIGINT/SIGTERM cancel the active context and await its return and cleanup before
 releasing lifetime ownership. Private Drive error wrappers retain cancellation
 causes without putting request URLs or response bodies in displayed errors.
+Shared engine and OAuth refresh boundaries preserve those causes as well, while
+joining genuine cleanup failures so cancellation cannot hide them.
 `daemon-status.json` is a private atomic advisory record, written only in an
 existing profile. Record failure stops scheduling. Offline `grove status` uses
 a non-mutating shared lock probe for ownership, maps history into a public DTO,

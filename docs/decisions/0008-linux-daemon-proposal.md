@@ -1,6 +1,6 @@
 # 0008: First Linux daemon slice
 
-Date: 2026-10-23. Status: accepted; implemented, final acceptance in progress.
+Date: 2026-10-23. Status: accepted; implemented and verified on Linux.
 
 ## Agreed direction
 
@@ -18,7 +18,7 @@ lease per profile, and preserve per-attempt exclusion for manual commands.
 Add offline `grove status` using lock-observed ownership and advisory historical
 records; never derive liveness or mutation authority from a stale PID/cache.
 
-The user approved the written spec; its paired plan is in native execution. Watching,
+The user approved the written spec; its paired plan is implemented and verified. Watching,
 systemd installation, multiple profiles in one process, IPC, and hot reload
 remain later slices. Existing-profile resolution must remain inside the shared
 engine's locking boundary so the scheduler cannot accidentally create or rebind
@@ -36,6 +36,7 @@ status from recreating a missing profile, at the cost of one narrow shared API.
 
 Real signal tests required private Drive errors to preserve transport/body
 cancellation identity, including the context's exact signal cancellation cause.
-Displayed errors remain fixed; unrelated joined cleanup failures remain fatal.
+Shared engine and OAuth boundaries also preserve cancellation causes. Displayed
+errors remain fixed; unrelated joined cleanup failures remain fatal.
 This changes internal error-unwrapping semantics and is covered by cancellation
 and redaction regressions across reads, folder creation, pinning, and uploads.

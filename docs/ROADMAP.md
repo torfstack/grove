@@ -5,11 +5,12 @@ Milestones are ordered proposals; detailed implementation plans come before code
 The download reliability fix in
 [spec 000008](spec/000008-download-metadata-version-design.md) is merged through
 PR #13 with local and full Linux live verification and clean implementation
-reviews. The next ticket is approved
-[spec 000009](spec/000009-linux-daemon-design.md): one-profile periodic sync
-through `groved`, a small config file, safe shutdown, and offline status. Its
-paired implementation plan is being executed natively; process/offline checks
-pass and dedicated-account daemon acceptance is underway.
+reviews. [Spec 000009](spec/000009-linux-daemon-design.md) is implemented and
+verified on `feat/linux-daemon`: one-profile periodic sync through `groved`,
+a small config file, safe shutdown, and offline status. All seven plan tasks,
+full local/live checks, and the independent review's regression fixes are complete.
+Integration is next; subsequent daemon tickets can add systemd user integration
+or local file watching under a new bounded spec.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus
@@ -34,9 +35,8 @@ pass and dedicated-account daemon acceptance is underway.
    UI recovery, force-abandon, and automatic content merging follow later. Local
    deletion propagation is approved in
    [spec 000007](spec/000007-deletion-propagation-design.md) and is implemented
-   on `feat/deletion-propagation`, pending pull request review. Filesystem
-   watching and scheduled continuous sync remain part of the later `groved`
-   daemon milestone.
+   on `feat/deletion-propagation`, pending pull request review. Periodic scheduling is
+   implemented in spec 000009; filesystem watching remains a follow-up.
 4. **Linux daemon**: the first implemented slice is spec 000009: a foreground
    process periodically syncing one existing profile through the shared engine,
    with lifetime exclusion, cancellation, and offline status. Local file

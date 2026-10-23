@@ -10,7 +10,7 @@
 
 **Spec:** [000009-linux-daemon-design.md](../spec/000009-linux-daemon-design.md), approved 2026-10-23.
 
-**Status:** Approved for native execution on `feat/linux-daemon`; implementation in progress.
+**Status:** Completed natively on `feat/linux-daemon`; all seven tasks and final verification pass.
 
 ## Global Constraints
 
@@ -142,17 +142,16 @@ Tests live beside their owning components. Tasks 1–3 precede Task 4; Tasks 1, 
 
 **Files:** Create `tests/live/daemon_sync_test.go`; update `README.md`, `docs/TESTBED.md`, `docs/PRODUCT.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, decision/spec statuses, and this plan.
 
-- [ ] Add a gated Linux-only `TestDaemonPeriodicDownloadLive`: call the existing live config gate before credentials/build/network work, seed an owned fixture, and perform initial one-shot sync in a disposable existing profile. Write a mode-0600 download config outside Git/destination, launch the actual `groved` binary with a short valid interval, observe its first attempt complete, then apply an owned remote fixture mutation. Acquire the fixture's token session with bounded retries only for typed pre-work lock contention; once held, the daemon must report busy rather than overlap it. Never retry a mutation whose outcome is uncertain. Independently verify the subsequent download and a no-op cycle's unchanged bytes/mtimes and operation counts; query `grove status`, stop via SIGTERM, and verify inactive ownership and owned cleanup.
-- [ ] Add `TestDaemonPeriodicUploadLive`: reuse the fixture/profile lifecycle with explicit two-way config. After initial idle readiness, make one owned local edit, independently read and verify Drive content after a later attempt, verify a no-op cycle, and stop before cleanup. Do not infer successful remote mutation from daemon status alone or add server-conditional-write assumptions.
-- [ ] Keep process startup/progress/shutdown waits bounded with safe diagnostics. Stop the daemon before fixture cleanup or any separate session command that needs the same token, except the ownership-checked mutation session coordinated above. A failed run retains private records; clean only recorded owned fixtures. Validate the fixture/token gate remains separate from default offline tests. Use the session-authorized dedicated test profile and explicit `GROVE_LIVE_TEST=1` for live acceptance; preserve any existing authorization without asking again.
-- [ ] Run the two focused live scenarios only when explicitly enabled, then the full enabled `mise run test-live`. Expected the aggregate suite exits zero and all owned fixtures are cleaned. On failure, investigate the named scenario and retain/report the aggregate failure; do not substitute a focused retry for full acceptance.
-- [ ] Record actual results, runtime/portability limits, mode semantics, restart-only config changes, historical status labeling, and operator actions for conflicts/auth/pending recovery. Provide a private config example and manual foreground lifecycle; mark watching/systemd as later work. Update spec/decision/plan statuses only to the degree implemented and verified.
-- [ ] Run `git diff --check`, verify doc links, and review the complete branch against every spec criterion. Apply the chosen native workflow's one fresh whole-branch review, assess findings, fix valid blockers with regression tests, and rerun affected checks. Commit `test: verify periodic daemon sync and Linux acceptance`. Opening a PR, posting replies/resolving GitHub threads, and merging follow their separate authorization and AGENTS.md review rules.
+- [x] Add a gated Linux-only `TestDaemonPeriodicDownloadLive`: call the existing live config gate before credentials/build/network work, seed an owned fixture, and perform initial one-shot sync in a disposable existing profile. Write a mode-0600 download config outside Git/destination, launch the actual `groved` binary with a short valid interval, observe its first attempt complete, then apply an owned remote fixture mutation. Acquire the fixture's token session with bounded retries only for typed pre-work lock contention; once held, the daemon must report busy rather than overlap it. Never retry a mutation whose outcome is uncertain. Independently verify the subsequent download and a no-op cycle's unchanged bytes/mtimes and operation counts; query `grove status`, stop via SIGTERM, and verify inactive ownership and owned cleanup.
+- [x] Add `TestDaemonPeriodicUploadLive`: reuse the fixture/profile lifecycle with explicit two-way config. After initial idle readiness, make one owned local edit, independently read and verify Drive content after a later attempt, verify a no-op cycle, and stop before cleanup. Do not infer successful remote mutation from daemon status alone or add server-conditional-write assumptions.
+- [x] Keep process startup/progress/shutdown waits bounded with safe diagnostics. Stop the daemon before fixture cleanup or any separate session command that needs the same token, except the ownership-checked mutation session coordinated above. A failed run retains private records; clean only recorded owned fixtures. Validate the fixture/token gate remains separate from default offline tests. Use the session-authorized dedicated test profile and explicit `GROVE_LIVE_TEST=1` for live acceptance; preserve any existing authorization without asking again.
+- [x] Run the two focused live scenarios only when explicitly enabled, then the full enabled `mise run test-live`. Expected the aggregate suite exits zero and all owned fixtures are cleaned. On failure, investigate the named scenario and retain/report the aggregate failure; do not substitute a focused retry for full acceptance.
+- [x] Record actual results, runtime/portability limits, mode semantics, restart-only config changes, historical status labeling, and operator actions for conflicts/auth/pending recovery. Provide a private config example and manual foreground lifecycle; mark watching/systemd as later work. Update spec/decision/plan statuses only to the degree implemented and verified.
+- [x] Run `git diff --check`, verify doc links, and review the complete branch against every spec criterion. Apply the chosen native workflow's one fresh whole-branch review, assess findings, fix valid blockers with regression tests, and rerun affected checks. Commit `test: verify periodic daemon sync and Linux acceptance`. Opening a PR, posting replies/resolving GitHub threads, and merging follow their separate authorization and AGENTS.md review rules.
 
 ## Handoff
 
-Read the approved spec with this plan. Native execution remains the established
-preference; no task has been implemented or verified yet. Review the plan before
-execution, then carry out all tasks without permission prompts between tasks.
-The existing-profile and lease interfaces are deliberate shared contracts;
-record any implementation ruling rather than silently changing their semantics.
+All seven tasks are implemented and verified. See [STATUS](../STATUS.md) for
+actual offline/race/build/live results and the independent review's cancellation
+finding, now fixed with regressions. Integration remains the user's choice;
+file watching and systemd installation are subsequent bounded tickets.
