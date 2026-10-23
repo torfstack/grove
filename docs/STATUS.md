@@ -519,3 +519,9 @@ syncengine and race suites pass, including missing/rebound state rejection,
 held-lock checks, incomplete download versus two-way validation, conflict
 counts, uncertain upload preservation, and read-only Trash outcome recovery.
 Normal one-shot execution shares the same engine body and remains covered.
+
+Task 3 implements strict descriptor-validated Linux JSON configuration with
+owner-only permissions, explicit modes, duration limits, duplicate/unknown-field
+rejection, canonical profiles, and config/destination/reserved-record exclusion.
+Focused config tests pass. Scheduling, status, binary/process, and live work
+remain pending.
