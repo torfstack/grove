@@ -3,10 +3,11 @@
 Milestones are ordered proposals; detailed implementation plans come before code.
 
 The download reliability fix in
-[spec 000008](spec/000008-download-metadata-version-design.md) is implemented
-on `fix/download-metadata-version`. Formatting, lint, offline/race checks, native
-Linux build, and full Linux live acceptance passed. Independent branch review
-found no actionable findings; integration remains before daemon orchestration.
+[spec 000008](spec/000008-download-metadata-version-design.md) is merged through
+PR #13 with local and full Linux live verification and clean implementation
+reviews. The next ticket is draft
+[spec 000009](spec/000009-linux-daemon-design.md): one-profile periodic sync
+through `groved`, a small config file, safe shutdown, and offline status.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus
@@ -34,8 +35,10 @@ found no actionable findings; integration remains before daemon orchestration.
    on `feat/deletion-propagation`, pending pull request review. Filesystem
    watching and scheduled continuous sync remain part of the later `groved`
    daemon milestone.
-4. **Linux daemon**: scheduling, watching, remote polling, profile locking,
-   observable status, and systemd user service integration.
+4. **Linux daemon**: the first proposed slice is spec 000009: a foreground
+   process periodically syncing one existing profile through the shared engine,
+   with lifetime exclusion, cancellation, and offline status. Local file
+   watching, richer remote polling, and systemd user service integration follow.
 5. **Windows and macOS**: native lifecycle integration and platform-specific
    filesystem and credential behavior, backed by tests on each platform.
 
