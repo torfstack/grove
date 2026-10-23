@@ -532,3 +532,9 @@ and race suites pass. Status cannot recreate a deleted profile: the shared
 atomic writer now has an existing-parent-only entrypoint. Contradictory counts
 before a recorded attempt completes are rejected by a reproduced regression.
 Offline status, binary/process verification, and live acceptance remain pending.
+
+Task 5 implements offline status and CLI wiring. Daemon, CLI, and command test
+and race suites pass, covering stale records, invalid inspection, concurrent
+readers, busy summaries, private-data redaction, partial errors, and faithful
+operation counts. Status works without a token file or Drive access. Binary/
+process acceptance and the dedicated-account live scenarios remain next.

@@ -10,6 +10,8 @@ import (
 	"github.com/torfstack/grove/internal/cli"
 	"github.com/torfstack/grove/internal/drive"
 	"github.com/torfstack/grove/internal/fixture"
+	"github.com/torfstack/grove/internal/privatefs"
+	"github.com/torfstack/grove/internal/syncengine"
 	"golang.org/x/oauth2"
 	"io"
 	"mime"
@@ -24,6 +26,25 @@ import (
 	"testing"
 	"time"
 )
+
+func TestServicesStatusUsesOfflineProfile(t *testing.T) {
+	profile := t.TempDir()
+	state := syncengine.State{Version: 2, PopulationComplete: true, Binding: syncengine.Binding{RemoteRoot: "private-drive-id", LocalDir: t.TempDir(), TokenFile: filepath.Join(t.TempDir(), "missing-token.json")}}
+	if err := privatefs.WriteJSON(filepath.Join(profile, "state.json"), state); err != nil {
+		t.Fatal(err)
+	}
+	svc := services(nil, drive.ClientOptions{})
+	if svc.Status == nil {
+		t.Fatal("status service not wired")
+	}
+	report, err := svc.Status(context.Background(), profile)
+	if err != nil || report.Owner != "inactive" || report.Profile == nil || !report.Profile.PopulationComplete {
+		t.Fatalf("offline command service failed: %+v %v", report, err)
+	}
+	if _, err := os.Stat(state.Binding.TokenFile); !os.IsNotExist(err) {
+		t.Fatal("status accessed/created a token")
+	}
+}
 
 func TestCLIWorkflowHTTP(t *testing.T) {
 	dir := t.TempDir()
