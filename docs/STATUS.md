@@ -492,15 +492,19 @@ implementation findings and skipped re-reviewing the documentation-only changes
 as similar. The earlier PR-open narrative above records that session's state.
 
 The user selected periodic background sync for one profile as the next feature
-and chose a small config file over command-line settings. Draft
+and chose a small config file over command-line settings. Approved
 [spec 000009](spec/000009-linux-daemon-design.md) and
-[decision proposal 0008](decisions/0008-linux-daemon-proposal.md) are on
-`feat/linux-daemon`. Proposed details include JSON config, an existing-profile
+[decision 0008](decisions/0008-linux-daemon-proposal.md) are on
+`feat/linux-daemon`. Agreed details include JSON config, an existing-profile
 reference, explicit mode, a five-minute default interval, sequential scheduling,
 safe signal cancellation, lifetime daemon exclusion, and offline status using
 lock-observed ownership plus historical records. File watching and systemd
 installation remain follow-ups. A fresh read-only builder check reported
 "nothing important left"; self-review clarified startup guard-file ordering,
 startup contention, and comparison against the original validated binding.
-Next: user review of the draft before the paired implementation plan.
-No Go code changed or tests ran for this draft.
+The paired [implementation plan](implementation-plans/000009-linux-daemon-plan.md)
+is prepared for review with seven tasks covering leases, the locked existing-
+profile API, config, scheduling, offline status, process lifecycle, and live
+acceptance. Native execution is retained as the user's existing preference.
+Next: review the plan before implementation. No Go code changed or tests ran
+while preparing the spec and plan.

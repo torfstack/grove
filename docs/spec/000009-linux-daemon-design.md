@@ -1,6 +1,6 @@
 # Minimal Linux daemon with periodic sync
 
-Date: 2026-10-23. Status: draft for user review; implementation not started.
+Date: 2026-10-23. Status: approved design; implementation not started.
 
 ## Intent and agreed direction
 
@@ -11,8 +11,9 @@ overlapping writers, shuts down safely, and exposes useful offline status.
 The user selected periodic background sync for one configured profile and chose
 a small configuration file over repeated command-line flags. Linux is the first
 target. File watching and systemd installation follow later. Those choices are
-agreed; the detailed defaults and behavior below are proposals for this review.
-Work is on `feat/linux-daemon`.
+agreed, and the user subsequently approved this written spec including the
+detailed defaults below. Work is on `feat/linux-daemon`; the paired plan awaits
+review before implementation.
 
 ## Approaches
 
@@ -23,8 +24,8 @@ Work is on `feat/linux-daemon`.
   duplicates settings in each launcher. The user selected the file instead.
 
 JSON, a five-minute default interval, and a reference to the existing profile
-are the author's proposed implementation choices. JSON matches Grove's private
-record format and requires no additional parsing dependency. Referencing the
+were proposed by the author and accepted with this spec. JSON matches Grove's
+private record format and requires no additional parsing dependency. Referencing the
 profile avoids duplicating its immutable binding or storing credentials in the
 daemon configuration.
 
@@ -76,8 +77,8 @@ Read a regular, nonsymlink, current-user-owned configuration file with owner-onl
 permissions, outside Git and the synchronized destination. Limit its size to
 64 KiB and require valid UTF-8 JSON. Reject unknown fields, duplicate fields,
 wrong types, missing required fields, multiple JSON values, and trailing
-non-whitespace data. Do not expand
-`~`, environment variables, or relative paths inside JSON. Report field names
+non-whitespace data. Do not expand `~`, environment variables, or relative paths
+inside JSON. Report field names
 and fixed reasons without echoing values or file contents.
 
 Read configuration once, validate it, and retain the parsed settings for the
@@ -112,8 +113,8 @@ binding as an expected identity, and compare each freshly loaded binding against
 it while holding the profile lock. A profile deleted, malformed, or rebound
 between attempts yields an attempt failure; it is never silently recreated or
 rebound. The remembered binding is a comparison value, not authority to proceed
-when current profile state is missing. Keep canonical profile, destination, registry, and token
-exclusion checks. A profile-specific offline inspection path may reuse the same
+when current profile state is missing. Keep canonical profile, destination,
+registry, and token exclusion checks. A profile-specific offline inspection path may reuse the same
 validated state loading for status, without opening authentication or Drive.
 
 ## Scheduling and outcomes
@@ -276,9 +277,12 @@ no-op cycle and offline status, stop cleanly, and confirm owned cleanup. Include
 an explicit two-way daemon case for an owned local edit and its independently
 verified upload. Bound live waits and clean only fixture-owned data; failed runs
 retain recovery records. Offline tests, not timing-sensitive live tests, prove
-the failure/recovery invariants. No live run is authorized merely by this draft.
+the failure/recovery invariants. Live acceptance is explicitly enabled during
+execution using the dedicated test account; default offline tests never load
+its credentials.
 
-After approval, write the paired plan at
-`docs/implementation-plans/000009-linux-daemon-plan.md`. Update product,
+Execution follows the paired
+[implementation plan](../implementation-plans/000009-linux-daemon-plan.md)
+after its review. Update product,
 architecture, roadmap, status, and testbed documentation with implemented
 behavior and actual results during execution.

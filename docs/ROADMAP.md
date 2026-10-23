@@ -5,9 +5,10 @@ Milestones are ordered proposals; detailed implementation plans come before code
 The download reliability fix in
 [spec 000008](spec/000008-download-metadata-version-design.md) is merged through
 PR #13 with local and full Linux live verification and clean implementation
-reviews. The next ticket is draft
+reviews. The next ticket is approved
 [spec 000009](spec/000009-linux-daemon-design.md): one-profile periodic sync
-through `groved`, a small config file, safe shutdown, and offline status.
+through `groved`, a small config file, safe shutdown, and offline status. Its
+paired implementation plan is prepared for review before native execution.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus
