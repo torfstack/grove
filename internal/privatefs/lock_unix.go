@@ -31,7 +31,10 @@ func Acquire(path string) (*Lock, error) {
 	}
 	if err = syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		_ = f.Close()
-		return nil, errors.New("resource is locked by another Grove command")
+		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
+			return nil, ErrLocked
+		}
+		return nil, errors.New("cannot acquire lock")
 	}
 	return &Lock{file: f}, nil
 }
@@ -64,7 +67,10 @@ func AcquireDirectory(path string, shared bool) (*Lock, error) {
 	}
 	if err := syscall.Flock(fd, mode|syscall.LOCK_NB); err != nil {
 		_ = file.Close()
-		return nil, errors.New("destination or ancestor is in use by another Grove command")
+		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
+			return nil, ErrLocked
+		}
+		return nil, errors.New("cannot acquire directory lease")
 	}
 	return &Lock{file: file}, nil
 }

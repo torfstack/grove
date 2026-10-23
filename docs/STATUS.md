@@ -508,3 +508,8 @@ profile API, config, scheduling, offline status, process lifecycle, and live
 acceptance. Native execution is retained as the user's existing preference.
 Next: review the plan before implementation. No Go code changed or tests ran
 while preparing the spec and plan.
+
+The user approved plan 000009 for native execution. Task 1 adds typed lock
+contention and exclusive/shared-probe lifetime leases. Focused privatefs tests
+and race tests pass, including a separate process and canonical parent aliases.
+The remaining six tasks and full/local live verification are pending.

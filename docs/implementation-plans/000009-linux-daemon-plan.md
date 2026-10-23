@@ -10,7 +10,7 @@
 
 **Spec:** [000009-linux-daemon-design.md](../spec/000009-linux-daemon-design.md), approved 2026-10-23.
 
-**Status:** Prepared for plan review on `feat/linux-daemon`. Native execution is retained as the user's preference; implementation has not started.
+**Status:** Approved for native execution on `feat/linux-daemon`; implementation in progress.
 
 ## Global Constraints
 
@@ -55,10 +55,10 @@ Tests live beside their owning components. Tasks 1–3 precede Task 4; Tasks 1, 
 - `AcquireLease(path string) (*Lock, error)`: nonblocking exclusive file lease, mode 0600, requiring an existing parent; canonicalize parent aliases and reject a symlink/nonregular leaf. Do not create parent directories or unlink lock files.
 - `ProbeLease(path string) (active bool, err error)`: open the same regular leaf read-only without creation, take a shared nonblocking lock, and release it. Missing means false/nil, exclusive contention means true/nil, all other failures mean unknown/error. Shared readers do not block one another.
 
-- [ ] Add `TestLeaseExclusiveAndSharedProbe`: hold a real exclusive lease, assert a second acquisition matches `ErrLocked`, and assert probing returns active. Release it and assert inactive; probe a missing path and assert no file/directory appears. Add a subprocess holder using the existing `TestProcessLock` pattern. Run `mise exec -- go test ./internal/privatefs -run 'TestLease' -count=1`; confirm missing lease support fails before implementation.
-- [ ] Add `TestLeaseProbeReadersAndFailures`: overlapping shared readers must report inactive, not each other as a daemon; permission/open/close failures must remain errors. Reject symlink/directory leaves and support profile-parent aliases. Add `TestLockBusyClassification` for profile/token-style `Acquire` and directory leases, with `errors.Is` assertions distinguishing real contention from malformed paths.
-- [ ] Implement the primitives using the existing Unix boundary. Resolve the parent rather than following the lock leaf; use regular-file checks and no-follow opens. Keep unsupported-platform stubs and preserve useful error text. Introduce no lock deletion or PID tests.
-- [ ] Run `mise exec -- go test ./internal/privatefs -count=1` and its race variant. Expected: existing atomic-record/process-lock tests and all new cases pass. Commit `feat: add observable lifetime leases and typed lock contention`, updating status and task progress.
+- [x] Add `TestLeaseExclusiveAndSharedProbe`: hold a real exclusive lease, assert a second acquisition matches `ErrLocked`, and assert probing returns active. Release it and assert inactive; probe a missing path and assert no file/directory appears. Add a subprocess holder using the existing `TestProcessLock` pattern. Run `mise exec -- go test ./internal/privatefs -run 'TestLease' -count=1`; confirm missing lease support fails before implementation.
+- [x] Add `TestLeaseProbeReadersAndFailures`: overlapping shared readers must report inactive, not each other as a daemon; permission/open/close failures must remain errors. Reject symlink/directory leaves and support profile-parent aliases. Add `TestLockBusyClassification` for profile/token-style `Acquire` and directory leases, with `errors.Is` assertions distinguishing real contention from malformed paths.
+- [x] Implement the primitives using the existing Unix boundary. Resolve the parent rather than following the lock leaf; use regular-file checks and no-follow opens. Keep unsupported-platform stubs and preserve useful error text. Introduce no lock deletion or PID tests.
+- [x] Run `mise exec -- go test ./internal/privatefs -count=1` and its race variant. Expected: existing atomic-record/process-lock tests and all new cases pass. Commit `feat: add observable lifetime leases and typed lock contention`, updating status and task progress.
 
 ### Task 2: Execute and inspect an existing profile under one lock
 
