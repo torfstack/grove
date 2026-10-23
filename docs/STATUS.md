@@ -525,3 +525,10 @@ owner-only permissions, explicit modes, duration limits, duplicate/unknown-field
 rejection, canonical profiles, and config/destination/reserved-record exclusion.
 Focused config tests pass. Scheduling, status, binary/process, and live work
 remain pending.
+
+Task 4 implements the sequential loop, lifetime ownership, elapsed waits,
+private advisory records, and safe cancellation/cleanup. Daemon/privatefs test
+and race suites pass. Status cannot recreate a deleted profile: the shared
+atomic writer now has an existing-parent-only entrypoint. Contradictory counts
+before a recorded attempt completes are rejected by a reproduced regression.
+Offline status, binary/process verification, and live acceptance remain pending.
