@@ -538,3 +538,10 @@ and race suites pass, covering stale records, invalid inspection, concurrent
 readers, busy summaries, private-data redaction, partial errors, and faithful
 operation counts. Status works without a token file or Drive access. Binary/
 process acceptance and the dedicated-account live scenarios remain next.
+
+Task 6 adds the foreground Linux binary and builds both commands. Real-process
+acceptance passes SIGINT/SIGTERM during transfer and wait, forced-death restart,
+profile aliases, manual sync/recovery exclusion, and shared-token contention.
+Cancellation retains its identity through private Drive errors, including Go's
+signal-specific cancellation cause. Formatting, lint (0 issues), full offline/
+race suites, and both native builds pass. Live daemon acceptance remains next.

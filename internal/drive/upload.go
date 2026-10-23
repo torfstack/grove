@@ -112,7 +112,7 @@ func (c *Client) resumableMedia(ctx context.Context, method, id string, input Cr
 	request.Header.Set("X-Upload-Content-Length", strconv.FormatInt(size, 10))
 	response, err := c.http.Do(request)
 	if err != nil {
-		return File{}, errors.New("sync upload initiation failed")
+		return File{}, privateError{"sync upload initiation failed", err}
 	}
 	if response.StatusCode != http.StatusOK {
 		_ = response.Body.Close()
@@ -173,7 +173,7 @@ func (c *Client) sendChunk(ctx context.Context, sessionURL, id string, content i
 	}
 	response, err := c.http.Do(request)
 	if err != nil {
-		return File{}, errors.New("sync upload transfer failed")
+		return File{}, privateError{"sync upload transfer failed", err}
 	}
 	defer func() { _ = response.Body.Close() }()
 	if !final {
@@ -186,7 +186,10 @@ func (c *Client) sendChunk(ctx context.Context, sessionURL, id string, content i
 		return File{}, errors.New("sync upload completion was not confirmed")
 	}
 	var wire wireFile
-	if err = json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&wire); err != nil || wire.ID != id {
+	if err = json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&wire); err != nil {
+		return File{}, privateError{"sync upload completion was uncertain", err}
+	}
+	if wire.ID != id {
 		return File{}, errors.New("sync upload completion was uncertain")
 	}
 	return wire.file(), nil
@@ -279,7 +282,7 @@ func (c *Client) DownloadRevision(ctx context.Context, id, revisionID string, ds
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if _, err = io.Copy(dst, resp.Body); err != nil {
-		return errors.New("drive revision download failed")
+		return privateError{"drive revision download failed", err}
 	}
 	return nil
 }

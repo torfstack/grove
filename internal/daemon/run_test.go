@@ -298,3 +298,17 @@ func TestDaemonCancellationPreservesOtherFailures(t *testing.T) {
 		t.Fatalf("mixed shutdown outcome lost: %+v %v", r, loadErr)
 	}
 }
+
+func TestDaemonCancellationCause(t *testing.T) {
+	path, _, _ := daemonFixture(t, "download")
+	ctx, cancel := context.WithCancelCause(context.Background())
+	defer cancel(nil)
+	cause := errors.New("private signal cause")
+	err := Run(ctx, path, Dependencies{RunExisting: func(context.Context, string, syncengine.Binding, bool) (syncengine.Result, error) {
+		cancel(cause)
+		return syncengine.Result{}, cause
+	}})
+	if err != nil {
+		t.Fatalf("requested cancellation failed: %v", err)
+	}
+}

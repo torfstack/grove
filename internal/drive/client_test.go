@@ -223,3 +223,32 @@ func TestErrorsRedacted(t *testing.T) {
 		t.Fatal("unsanitized error")
 	}
 }
+
+func TestCancellationIdentityIsPrivate(t *testing.T) {
+	for _, operation := range []string{"request", "download", "decode"} {
+		t.Run(operation, func(t *testing.T) {
+			client := NewClient(&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+				if operation == "request" {
+					return nil, context.Canceled
+				}
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(cancelReader{})}, nil
+			})}, ClientOptions{BaseURL: "https://private.invalid/PRIVATE_ID"})
+			var err error
+			if operation == "download" {
+				err = client.Download(context.Background(), "PRIVATE_ID", io.Discard)
+			} else {
+				_, err = client.Get(context.Background(), "PRIVATE_ID")
+			}
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf("cancellation identity lost: %v", err)
+			}
+			if strings.Contains(err.Error(), "PRIVATE") || strings.Contains(err.Error(), "private.invalid") {
+				t.Fatal("private request detail exposed")
+			}
+		})
+	}
+}
+
+type cancelReader struct{}
+
+func (cancelReader) Read([]byte) (int, error) { return 0, context.Canceled }

@@ -23,7 +23,7 @@ func (e *failure) Error() string            { return "daemon failed: " + e.reaso
 func (e *failure) Unwrap() error            { return e.cause }
 func failed(reason string, err error) error { return &failure{reason: reason, cause: err} }
 
-func cancellationOnly(err error) bool {
+func cancellationOnly(err, cancellationCause error) bool {
 	if err == context.Canceled || err == context.DeadlineExceeded {
 		return true
 	}
@@ -33,16 +33,16 @@ func cancellationOnly(err error) bool {
 			return false
 		}
 		for _, cause := range causes {
-			if !cancellationOnly(cause) {
+			if !cancellationOnly(cause, cancellationCause) {
 				return false
 			}
 		}
 		return true
 	}
 	if wrapped, ok := err.(interface{ Unwrap() error }); ok {
-		return cancellationOnly(wrapped.Unwrap())
+		return cancellationOnly(wrapped.Unwrap(), cancellationCause)
 	}
-	return false
+	return cancellationCause != nil && errors.Is(err, cancellationCause)
 }
 
 func Run(ctx context.Context, configPath string, deps Dependencies) (err error) {
@@ -94,7 +94,7 @@ func Run(ctx context.Context, configPath string, deps Dependencies) (err error) 
 	}
 	summary, err := deps.InspectProfile(ctx, cfg.ProfileDir)
 	if err != nil {
-		if ctx.Err() != nil && cancellationOnly(err) {
+		if ctx.Err() != nil && cancellationOnly(err, context.Cause(ctx)) {
 			return nil
 		}
 		return failed("profile_unavailable", err)
@@ -157,7 +157,7 @@ func Run(ctx context.Context, configPath string, deps Dependencies) (err error) 
 		case runErr == nil:
 			r.Outcome = "completed"
 			r.Reason = ""
-		case ctx.Err() != nil && cancellationOnly(runErr):
+		case ctx.Err() != nil && cancellationOnly(runErr, context.Cause(ctx)):
 			r.Outcome = "cancelled"
 			r.Reason = "cancelled"
 		case errors.Is(runErr, privatefs.ErrLocked):
@@ -169,7 +169,7 @@ func Run(ctx context.Context, configPath string, deps Dependencies) (err error) 
 		}
 		if ctx.Err() != nil {
 			stopErr := stop()
-			if runErr != nil && !cancellationOnly(runErr) && !errors.Is(runErr, privatefs.ErrLocked) {
+			if runErr != nil && !cancellationOnly(runErr, context.Cause(ctx)) && !errors.Is(runErr, privatefs.ErrLocked) {
 				return errors.Join(stopErr, failed("sync_failed", runErr))
 			}
 			return stopErr
@@ -180,7 +180,7 @@ func Run(ctx context.Context, configPath string, deps Dependencies) (err error) 
 			return err
 		}
 		if err := deps.Clock.Wait(ctx, cfg.Interval); err != nil {
-			if ctx.Err() != nil && cancellationOnly(err) {
+			if ctx.Err() != nil && cancellationOnly(err, context.Cause(ctx)) {
 				return stop()
 			}
 			return failed("clock_wait_failed", err)
