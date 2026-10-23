@@ -560,3 +560,24 @@ close failures now join the original error through a sanitized message. Extended
 Drive regressions preserve cancellation through folder/pin response decoding,
 revision downloads, and upload initiation/transfer/completion. Focused tests pass.
 The full enabled live aggregate and final independent review are pending.
+
+The full enabled Linux live aggregate passed in 398.704s, including daemon
+download (71.37s), daemon upload (46.57s), deletion, incremental/initial sync,
+revision pinning, conditional-write probing, and upload/concurrent revision
+recovery. Every scenario completed fixture-owned cleanup. The probe again showed
+Drive accepting a stale version condition; existing documented race limits stand.
+
+Independent read-only review of `ccfa67e..2040386` found one Important issue:
+several shared engine and OAuth boundaries still discarded cancellation causes
+above the fixed Drive client. No Critical/Minor findings or declined judgments
+were reported; the reviewer accepted the plan and recorded implementation choices.
+Regression tests reproduced cause loss in RunExisting uploads/file/folder creates,
+upload staging and private-stage verification, conflict checks/downloads, Trash
+descendant verification, and actual OAuth refresh. Fixed-message wrappers retain
+those causes and genuine joined close failures while preserving uncertain intent,
+verified stages, credentials, and no-blind-retry rules. A real SIGTERM subprocess
+regression also covers a blocked folder creation with a retained create-intent.
+Its fake HTTP handler initially hung on an unread request body; consuming that
+body before blocking fixed the test server's cancellation detection. No production
+endpoint or mutation behavior was changed for the test. Fresh full checks and a
+second enabled live aggregate on the final fixes are pending.

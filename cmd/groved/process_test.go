@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -30,18 +31,31 @@ import (
 )
 
 type processDrive struct {
-	mu      sync.Mutex
-	data    string
-	version string
-	gate    chan struct{}
-	started chan struct{}
-	once    sync.Once
+	mu            sync.Mutex
+	data          string
+	version       string
+	gate          chan struct{}
+	started       chan struct{}
+	createStarted chan struct{}
+	once          sync.Once
 }
 
 func (d *processDrive) serve(w http.ResponseWriter, r *http.Request) {
 	d.mu.Lock()
-	data, version, gate, started := d.data, d.version, d.gate, d.started
+	data, version, gate, started, createStarted := d.data, d.version, d.gate, d.started, d.createStarted
 	d.mu.Unlock()
+	if createStarted != nil && strings.HasSuffix(r.URL.Path, "/generateIds") {
+		_ = json.NewEncoder(w).Encode(map[string]any{"ids": []string{"allocated"}})
+		return
+	}
+	if createStarted != nil && r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/files") {
+		if _, err := io.Copy(io.Discard, r.Body); err != nil {
+			return
+		}
+		d.once.Do(func() { close(createStarted) })
+		<-r.Context().Done()
+		return
+	}
 	if r.Method != http.MethodGet {
 		http.Error(w, "unexpected mutation", 500)
 		return
@@ -334,5 +348,39 @@ func TestGrovedProcessesShareToken(t *testing.T) {
 	}
 	if err := waitProcess(t, first); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestGrovedSignalDuringFolderCreation(t *testing.T) {
+	f := newProcessFixture(t)
+	started := make(chan struct{})
+	f.remote.mu.Lock()
+	f.remote.createStarted = started
+	f.remote.mu.Unlock()
+	if err := os.Mkdir(filepath.Join(f.opts.LocalDir, "new-folder"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := privatefs.WriteJSON(f.config, map[string]any{"version": 1, "profile_dir": f.opts.ProfileDir, "mode": "two-way", "interval": "1s"}); err != nil {
+		t.Fatal(err)
+	}
+	child := startDaemonChild(t, f, f.config)
+	select {
+	case <-started:
+	case <-time.After(10 * time.Second):
+		t.Fatal("folder creation did not start")
+	}
+	if err := child.cmd.Process.Signal(syscall.SIGTERM); err != nil {
+		t.Fatal(err)
+	}
+	if err := waitProcess(t, child); err != nil {
+		t.Fatal("requested stop during folder creation failed")
+	}
+	var state syncengine.State
+	if err := privatefs.ReadJSON(filepath.Join(f.opts.ProfileDir, "state.json"), &state); err != nil || state.Transaction == nil || state.Transaction.Phase != "create-intent" {
+		t.Fatal("cancelled folder creation discarded uncertain intent")
+	}
+	r, err := daemon.LoadRecord(f.opts.ProfileDir)
+	if err != nil || r.Outcome != "cancelled" || r.Phase != "stopped" {
+		t.Fatal("folder cancellation was not recorded as a clean stop")
 	}
 }
