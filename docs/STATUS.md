@@ -545,3 +545,18 @@ profile aliases, manual sync/recovery exclusion, and shared-token contention.
 Cancellation retains its identity through private Drive errors, including Go's
 signal-specific cancellation cause. Formatting, lint (0 issues), full offline/
 race suites, and both native builds pass. Live daemon acceptance remains next.
+
+Task 7 adds gated actual-binary live download/upload scenarios and operator docs.
+The first focused download passed in 76.96s. Upload independently verified Drive
+bytes but its no-op snapshot preceded a later metadata reconciliation, changing
+a directory mtime. The corrected test first establishes a zero-operation cycle;
+focused upload then passed in 46.14s. The failed process was stopped and its
+recorded owned fixture was subsequently cleaned with ownership checks. No
+uncertain mutation was retried. No-op acceptance now checks all local file hashes
+and file/directory mtimes across a subsequent cycle.
+
+A shared-engine regression also proved cancellation could hide a cleanup failure;
+close failures now join the original error through a sanitized message. Extended
+Drive regressions preserve cancellation through folder/pin response decoding,
+revision downloads, and upload initiation/transfer/completion. Focused tests pass.
+The full enabled live aggregate and final independent review are pending.

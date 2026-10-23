@@ -200,3 +200,24 @@ identities, retains the original stage and state, and never authenticates.
 CLI formatting uses only sanitized reports and safe error categories. See
 [spec 000005](spec/000005-operator-reconciliation-design.md) for the contract and
 indefinite-blocking limits.
+
+## Linux periodic daemon
+
+`cmd/groved` supplies signals and argument validation to `internal/daemon`.
+The scheduler directly calls the shared engine's locked existing-profile API;
+it never shells out to sync or creates a missing profile. Startup validates a
+strict private config and retains its binding, acquires a lifetime `daemon.lock`,
+and inspects the state under the per-attempt profile lock. Each attempt reloads
+state and compares the original binding before authentication. Attempts run
+sequentially with elapsed waits after completion. Existing profile, destination,
+and token locks coordinate all writers, including manual CLI commands.
+
+SIGINT/SIGTERM cancel the active context and await its return and cleanup before
+releasing lifetime ownership. Private Drive error wrappers retain cancellation
+causes without putting request URLs or response bodies in displayed errors.
+`daemon-status.json` is a private atomic advisory record, written only in an
+existing profile. Record failure stops scheduling. Offline `grove status` uses
+a non-mutating shared lock probe for ownership, maps history into a public DTO,
+and independently locks the profile for its summary. Neither history nor a PID
+is liveness evidence or authority to mutate data. See
+[spec 000009](spec/000009-linux-daemon-design.md).

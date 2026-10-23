@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/torfstack/grove/internal/drive"
@@ -269,5 +270,16 @@ func TestRunExistingProfileTrashRecovery(t *testing.T) {
 	result, err := service.RunExisting(context.Background(), opts.ProfileDir, summary.Binding, false)
 	if err != nil || result.Trashed != 2 || remote.mutations != 1 {
 		t.Fatalf("trash repeated or recovery lost: %+v %v", result, err)
+	}
+}
+
+func TestCancellationRetainsCleanupFailure(t *testing.T) {
+	err := error(context.Canceled)
+	closeResult(func() error { return errors.New("private cleanup detail") }, &err)
+	if !errors.Is(err, context.Canceled) || err.Error() == context.Canceled.Error() {
+		t.Fatal("cleanup failure was hidden by cancellation")
+	}
+	if strings.Contains(err.Error(), "private cleanup detail") {
+		t.Fatal("cleanup exposed private details")
 	}
 }

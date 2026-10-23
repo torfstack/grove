@@ -272,8 +272,8 @@ func runLocked(ctx context.Context, opts Options, registry string, state State, 
 	return result, nil
 }
 func closeResult(close func() error, err *error) {
-	if closeErr := close(); closeErr != nil && *err == nil {
-		*err = errors.New("cannot close sync resource")
+	if closeErr := close(); closeErr != nil {
+		*err = errors.Join(*err, errors.New("cannot close sync resource"))
 	}
 }
 func registryPath() (string, error) {

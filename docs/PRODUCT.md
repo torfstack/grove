@@ -94,3 +94,15 @@ remote writes preserve their journal and may require operator reconciliation.
 Export copies bytes without clearing intent. Uncertain writes can remain blocked
 indefinitely; force-abandon, unrecorded artifact reconciliation and selection
 among multiple competitors remain deferred.
+
+## Periodic Linux sync
+
+[Spec 000009](spec/000009-linux-daemon-design.md) adds foreground `groved` for
+one existing profile and offline `grove status`. A private JSON config requires
+explicit download or two-way mode and defaults to five minutes between completed
+attempts. Configuration changes require restart. Status separates lock-observed
+ownership from historical attempts and unavailable/busy profile summaries.
+Signal shutdown preserves the shared engine's recovery obligations; conflicts
+and uncertain mutations keep their existing operator workflow. File watching,
+systemd installation, multiple profiles per process, and other native platform
+lifecycles remain follow-ups.

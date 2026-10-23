@@ -8,7 +8,8 @@ PR #13 with local and full Linux live verification and clean implementation
 reviews. The next ticket is approved
 [spec 000009](spec/000009-linux-daemon-design.md): one-profile periodic sync
 through `groved`, a small config file, safe shutdown, and offline status. Its
-paired implementation plan is prepared for review before native execution.
+paired implementation plan is being executed natively; process/offline checks
+pass and dedicated-account daemon acceptance is underway.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus
@@ -36,7 +37,7 @@ paired implementation plan is prepared for review before native execution.
    on `feat/deletion-propagation`, pending pull request review. Filesystem
    watching and scheduled continuous sync remain part of the later `groved`
    daemon milestone.
-4. **Linux daemon**: the first proposed slice is spec 000009: a foreground
+4. **Linux daemon**: the first implemented slice is spec 000009: a foreground
    process periodically syncing one existing profile through the shared engine,
    with lifetime exclusion, cancellation, and offline status. Local file
    watching, richer remote polling, and systemd user service integration follow.

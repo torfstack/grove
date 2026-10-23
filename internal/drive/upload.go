@@ -67,7 +67,7 @@ func (c *Client) CreateWithID(ctx context.Context, id string, input Create, cont
 		}
 		var wire wireFile
 		if err = decode(resp, &wire); err != nil || wire.ID != id {
-			return File{}, errors.New("sync create outcome is uncertain")
+			return File{}, privateError{"sync create outcome is uncertain", err}
 		}
 		return wire.file(), nil
 	}
@@ -267,7 +267,7 @@ func (c *Client) SetRevisionKeepForever(ctx context.Context, id, revisionID stri
 		KeepForever bool   `json:"keepForever"`
 	}
 	if err = decode(resp, &result); err != nil || result.ID != revisionID || result.KeepForever != keep {
-		return errors.New("drive revision state was not confirmed")
+		return privateError{"drive revision state was not confirmed", err}
 	}
 	return nil
 }
