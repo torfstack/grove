@@ -785,3 +785,7 @@ Local watching Task 1: strict optional watch_local configuration and offline
 historical status are implemented; daemon/CLI tests pass. Baseline full offline
 tests passed with filesystem/loopback access and a temporary Go cache. Watching
 runtime is not connected yet.
+
+Task 2 adds deterministic debounce/periodic/retry scheduling. Scheduler tests
+and daemon race tests pass. Selectable timers extend the existing clock contract
+rather than replacing periodic-only test injection.
