@@ -168,3 +168,28 @@ func TestValidateDaemonProfileConfig(t *testing.T) {
 		t.Fatal("reserved hardlink alias accepted")
 	}
 }
+
+func TestConfigWatchLocal(t *testing.T) {
+	base := configText(t.TempDir(), "download", "")
+	for _, tc := range []struct {
+		raw         string
+		valid, want bool
+	}{
+		{"", true, false}, {"false", true, false}, {"true", true, true},
+		{"null", false, false}, {`"true"`, false, false}, {"1", false, false}, {"[]", false, false}, {"{}", false, false}, {`true,"watch_local":false`, false, false},
+	} {
+		t.Run(tc.raw, func(t *testing.T) {
+			text := base
+			if tc.raw != "" {
+				text = strings.TrimSuffix(base, "}") + `,"watch_local":` + tc.raw + "}"
+			}
+			cfg, err := LoadConfig(writeConfig(t, text))
+			if (err == nil) != tc.valid {
+				t.Fatalf("valid=%t: %v", tc.valid, err)
+			}
+			if tc.valid && cfg.WatchLocal != tc.want {
+				t.Fatalf("watch=%t want=%t", cfg.WatchLocal, tc.want)
+			}
+		})
+	}
+}

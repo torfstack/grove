@@ -7,7 +7,7 @@ The `grove` CLI performs individual operations such as authentication, sync, and
 status. The Linux `groved` daemon schedules the same shared sync engine.
 Authentication, disposable fixture tooling, incremental downloads, explicit
 two-way uploads, safe deletion propagation, conflict controls, and upload
-recovery commands, periodic scheduling, and offline daemon/profile status are
+recovery commands, periodic scheduling, opt-in local watching, and offline daemon/profile status are
 implemented.
 
 Development tools are pinned in [mise.toml](mise.toml). Install them with
@@ -263,7 +263,8 @@ paths (replace the example profile path):
   "version": 1,
   "profile_dir": "/home/you/.local/state/grove/profiles/example",
   "mode": "download",
-  "interval": "5m"
+  "interval": "5m",
+  "watch_local": false
 }
 ```
 
@@ -277,13 +278,29 @@ chmod 600 /absolute/path/daemon.json
 
 `groved` stays in the foreground. Ctrl-C or SIGTERM cancels active work, waits
 for cleanup, and releases ownership. It attempts sync immediately, then waits
-the full interval after each attempt finishes. Omit `interval` for five minutes;
+the full interval after each attempt finishes when watching is disabled. Omit `interval` for five minutes;
 the minimum is one second. Restart to apply config changes. `mode` is required:
 `download` permits remote downloads; `two-way` explicitly enables the existing
 upload and deletion behavior and requires a fully populated profile.
 
+Set `watch_local` to `true` to react to local changes as well as periodic scans.
+Watching requires an existing destination directory and Linux `/proc/self/fd`.
+Changes wait for one quiet second, capped at five seconds from the first hint;
+changes during sync request one follow-up. Grove's own writes can cause a no-op
+follow-up, but unchanged scans settle back to waiting. Event-driven attempts do
+not postpone periodic remote scans. Busy/failed attempts restrict event retries
+for one interval; conflicts and uncertain writes retain their operator workflow.
+Download mode still rejects unsupported local changes; watching does not enable
+uploads. Root replacement, watch limits, permission failures, or unrecoverable
+watch coverage errors stop the daemon visibly. Restart after addressing the cause.
+Native events are best effort, particularly on network/unsupported filesystems;
+periodic full scans remain necessary. Overflow repairs coverage and requests a
+full sync without authorizing deletions from missing events.
+
 Status observes the lifetime lock independently of its **last recorded** phase,
-result, and schedule. History may be stale after a crash. A busy profile has no
+result, and schedule. History may be stale after a crash. The recorded `watch_local` flag is
+configuration history, not a watcher-health check; `next_attempt_at` is the
+earliest currently scheduled deadline and may change with local events. A busy profile has no
 available summary. Status requires no credentials or network access. Another
 daemon for the profile is rejected; manual commands and other profiles sharing
 a token retain their normal per-attempt exclusion.
@@ -291,8 +308,9 @@ a token retain their normal per-attempt exclusion.
 Conflicts, expired authentication, and uncertain writes retain the engine's
 existing safety rules. Inspect status and the existing conflict/recovery commands;
 stop the daemon before making operator repairs, reauthenticate when necessary,
-and restart. The daemon waits a full interval after busy or failed attempts; it
+and restart. Event retries wait a full interval after busy or failed attempts; periodic
+reconciliation keeps its existing deadline. The daemon
 does not resolve conflicts implicitly. Ownership/record/cleanup failures stop
 it with a nonzero exit. A [systemd user-service template and installation
 guide](contrib/systemd/README.md) supports background operation of existing
-profiles. File watching, hot reload, and non-Linux daemon runtime are future work.
+profiles. Hot reload and non-Linux daemon runtime remain future work.

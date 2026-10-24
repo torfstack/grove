@@ -110,5 +110,9 @@ and uncertain mutations keep their existing operator workflow.
 user-service template and installation instructions for named config instances.
 Users explicitly start/enable services; operation after logout is an optional
 linger setting. Fatal failures stay stopped for inspection and graceful stop
-waits for cleanup without a forced timeout. File watching, multiple profiles
-per process, and other native platform lifecycles remain follow-ups.
+waits for cleanup without a forced timeout. [Spec 000011](spec/000011-local-watching-design.md) adds opt-in `watch_local`
+Linux events with one-second quiet/five-second maximum debounce and periodic
+scans retained. Events request sequential normal engine runs and do not grant
+mutation authority. Failed/busy event retries wait one interval, and fatal watch
+coverage/root failures stop visibly. Multiple profiles per process, hot reload,
+and other native platform lifecycles remain follow-ups.

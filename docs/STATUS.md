@@ -4,6 +4,41 @@ Updated: 2026-10-24.
 
 ## Systemd user integration
 
+PR #16 is now merged into main at `23c583b` (2026-10-24); GitHub merge
+state was confirmed and origin/main refreshed. The implementation/review
+narrative below is historical and its no-merge-authorized wording is superseded
+by the user's completed merge.
+
+## Local watching
+
+[Spec 000011](spec/000011-local-watching-design.md) and its
+[implementation plan](implementation-plans/000011-local-watching-plan.md) are
+approved and implemented. Opt-in `watch_local` defaults false; Linux native
+hints request debounced sequential shared-engine attempts while periodic scans
+continue. Configuration/status, scheduling, recursive coverage, lifecycle,
+process acceptance, and gated live harness/operator docs are complete.
+
+All local fmt/lint/offline/race/build checks pass, including the dependency-
+integrated tree and regression-backed shutdown/attempt-classification fixes.
+Both binaries cross-build for macOS arm64. The independent review's two
+Important findings are fixed; CodeRabbit's completed initial review of `9fb0c84`
+selected all 31 files and found no actionable issues, comments, or threads.
+[PR #17](https://github.com/torfstack/grove/pull/17) tracks hosted checks and
+integration. The user authorized publication, one completed CodeRabbit review,
+fixes, passing CI, and merge, followed by continued bounded work.
+
+Authenticated local watching is gated and unrun. Native descriptor churn is
+covered without forcibly injecting kernel descriptor reuse. Network filesystem
+reliability and non-Linux daemon runtime are not claimed. Native registration
+requires `/proc/self/fd`; fatal watch/root errors stop visibly.
+
+Dependency maintenance is complete: PR #11 merged at `002a20e` and PR #14 at
+`750ba2a`, each after its completed review and fresh passing checks. The primary
+checkout is on main; original design-only drafts are preserved in a named stash.
+Detailed implementation, review, verification, and integration history follows.
+
+## Systemd implementation and verification history
+
 PR #15 is merged into main at `63de937`; its review and verification history
 below is historical. The user approved spec and plan 000010 for native execution.
 The template and guide are implemented on `feat/systemd-user-service`:
@@ -756,3 +791,116 @@ documentation fix `a5c7d03`. The original thread is now outdated but remains ope
 no reply or manual thread-resolution action was posted. All actionable findings
 are addressed. Per decision 0009, no second CodeRabbit review is requested or
 awaited. This follow-up records results only. No merge is authorized.
+
+Local watching Task 1: strict optional watch_local configuration and offline
+historical status are implemented; daemon/CLI tests pass. Baseline full offline
+tests passed with filesystem/loopback access and a temporary Go cache. Watching
+runtime is not connected yet.
+
+Task 2 adds deterministic debounce/periodic/retry scheduling. Scheduler tests
+and daemon race tests pass. Selectable timers extend the existing clock contract
+rather than replacing periodic-only test injection.
+
+Task 3 implements recursive descriptor-anchored Linux inotify watching using
+existing x/sys. Native and daemon race tests pass, including overflow repair,
+repeated directory replacement, symlink exclusion, root identity, and reader
+shutdown. Registration requires /proc/self/fd. Event hints never resolve paths
+for engine operations; full engine scans remain authoritative.
+
+Task 4 connects watch hints to one sequential shared-engine worker while the
+scheduler continues draining events. Daemon/CLI/process race tests pass, covering
+completion-boundary edits, retry limits, historical deadlines, cancellation,
+watcher errors, and cleanup-before-lease-release ordering. Periodic-only behavior
+retains its original wait path and shares attempt classification.
+
+Task 5 real subprocess acceptance passes, including three repeated race-enabled
+runs: Grove's own downloads settle after one no-op follow-up, an edit during a
+blocked transfer is observed, SIGINT/SIGTERM clean up, root replacement stops
+visibly, and lifetime ownership is released. A reproduced transient-probe
+ENOENT during watcher enumeration now triggers coverage repair; deterministic
+and actual-directory-to-symlink swap regressions pass. No shared engine mutation
+semantics changed.
+
+Task 6 adds gated actual-binary watch-triggered upload acceptance and operator
+records. Disabled-mode acceptance reports an explicit SKIP without token/network
+use; authenticated local watching remains untested. Fresh fmt, lint (0 issues),
+all 11 offline/race packages, both Linux builds, and diff checks pass. Both
+binaries also cross-build for macOS arm64; no non-Linux runtime is claimed.
+The independent whole-change review and hosted PR review/checks are next.
+
+Independent whole-change review of `23c583b..dc8cb58` found two Important
+shutdown-ordering defects and no Critical findings. Deterministic regressions
+reproduced both: SIGTERM masked queued/late watcher failures, and cancellation
+during reconciliation became fatal while genuine completion cleanup errors
+could be lost. The single fix pass preserves sticky reader errors after join,
+suppresses only expected closed-reader cancellation, and distinguishes graceful
+repair cancellation from genuine engine/repair faults. All five new shutdown/
+read-error regressions pass. Fresh fmt, lint (0 issues), full offline/race suites,
+both Linux builds, both macOS arm64 cross-builds, and diff checks pass on the fixes.
+The reviewer also identified an overstated verification sentence: the plan now
+explicitly records that directory churn does not forcibly inject kernel watch-
+descriptor reuse/stale-event ordering. Authenticated watching remains gated/unrun;
+network filesystems, non-Linux runtime, and adversarial transient reparenting
+are not claimed. Event hints never become mutation paths or deletion authority.
+The user authorized PR publication, completed CodeRabbit review, fixes, passing
+CI, and merge; publication and hosted review/checks are next.
+
+## Local watching PR and dependency maintenance
+
+[PR #17](https://github.com/torfstack/grove/pull/17) is published. Linux CI,
+CodeQL Go/Actions, and dependency review passed on implementation head `9fb0c84`.
+CodeRabbit skipped automatic review for the repository's star count; the manual
+request at 14:28 UTC was rate-limited. The retry at 17:09 UTC was accepted and
+completed its initial full review of `23c583b..9fb0c84` at 17:16 UTC. A successful skipped
+status is not review evidence; retrieve the completed summary, inline comments,
+and review threads before merging. The user has authorized that workflow and
+merge after fixes and fresh CI; no second completed review is required.
+
+The next bounded maintenance work is completed: PR #11 merged at `002a20e`
+(x/sys v0.49.0) and PR #14 at `750ba2a` (immutable mise/CodeQL action updates).
+Their completed CodeRabbit summaries were retrieved and assessed: PR #11 reviewed
+`1d5f7ded` with unchanged go.mod/go.sum in the later pre-update head; PR #14
+reviewed `c974994`. Both selected the changed reviewable source files and reported
+no actionable findings. Submitted reviews, inline-comment APIs, and GraphQL
+review threads were retrieved and empty; comment-based completed summaries,
+not successful status checks, establish the reviews. No re-review was requested.
+Both branches were refreshed against main, all hosted CI/security checks passed,
+and each merge used the verified head. Upstream release tags resolve to the
+pinned action commits, with CodeQL init/analyze aligned.
+
+Combined local validation of the dependency updates with watching passes module
+verification, fmt, lint, full offline/race suites, both Linux builds, and macOS
+arm64 cross-builds. The watcher branch now includes both dependency merges.
+A further regression reproduced attempt-local timeout/cancellation being labelled
+as daemon cancellation after attempt-classification extraction; classification
+now requires an actual daemon cancellation cause. The regression, daemon race
+suite, and fresh full integrated fmt/lint/offline/race/build checks pass.
+This regression-backed fix follows the completed initial CodeRabbit review;
+push and fresh CI are next.
+Authenticated watching remains gated and unrun.
+
+PR #17's initial full CodeRabbit review completed at 17:16 UTC on `9fb0c84`,
+selected all 31 changed files, and reported minimal merge risk with no actionable
+findings. The entire summary, submitted-review API, inline comments, and GraphQL
+review threads were retrieved; the latter three are empty. There are no findings
+to decline or defer. The initial review covers the implementation; the narrow
+attempt-timeout classification regression/fix and already-reviewed dependency
+merges follow it. Full integrated local checks pass. Per decision 0009, no second
+CodeRabbit review is requested or awaited. Push and fresh integrated-head CI are
+next, then merge under the user's standing authorization.
+
+The primary checkout is now clean on main with both dependency merges. Its
+pre-implementation design-only drafts were preserved in the named Git stash
+`preserve local watching design drafts before implementation integration`;
+those approved files are also committed on the watcher branch. The implementation
+worktree remains `/tmp/grove-local-watching` until integration completes.
+
+All hosted CI/security checks passed on `7237fbb`, after the completed initial
+review. A final deterministic regression then reproduced a remaining native
+coverage-worker ordering: a genuine repair error returned concurrently with
+cancellation was discarded. The worker now suppresses cancellation-only errors
+and retains genuine faults for the scheduler's post-join drain. The failing
+`TestWatchRepairFailureDuringCancellation` passes with the fix. Fresh fmt, lint
+(0 issues), full offline/race suites, both Linux builds, both macOS arm64 cross-
+builds, and diff checks pass. This narrow shutdown fix is pushed for fresh CI;
+no additional CodeRabbit review is requested under decision 0009.
