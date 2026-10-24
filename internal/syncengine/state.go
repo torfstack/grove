@@ -32,6 +32,10 @@ func loadState(profile string, binding Binding) (State, error) {
 	if err = privatefs.ReadJSON(path, &s); err != nil {
 		return State{}, err
 	}
+	return validateState(s, binding)
+}
+
+func validateState(s State, binding Binding) (State, error) {
 	s.Conflicts = normalizeConflicts(s.Conflicts)
 	if (s.Version != 1 && s.Version != 2 && s.Version != 3) || s.Binding != binding {
 		return State{}, errors.New("unsupported state or changed profile binding")
@@ -39,7 +43,7 @@ func loadState(profile string, binding Binding) (State, error) {
 	if s.ConflictPolicy == "" {
 		s.ConflictPolicy = ConflictAsk
 	}
-	if err = validateConflictPolicy(s.ConflictPolicy); err != nil {
+	if err := validateConflictPolicy(s.ConflictPolicy); err != nil {
 		return State{}, err
 	}
 	seen := map[string]bool{}
@@ -58,7 +62,7 @@ func loadState(profile string, binding Binding) (State, error) {
 		if (s.Version != 2 && s.Version != 3) || !journalAllowsConflicts(s.Transaction, s.Conflicts) || !pendingAllowsConflicts(s.Pending, s.Conflicts) {
 			return State{}, errors.New("invalid pending conflict state")
 		}
-		if err = validateConflicts(s.Conflicts, s.Completed, s.Version >= 3); err != nil {
+		if err := validateConflicts(s.Conflicts, s.Completed, s.Version >= 3); err != nil {
 			return State{}, err
 		}
 	}

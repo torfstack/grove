@@ -77,20 +77,12 @@ func (e *executor) stageUpload(ctx context.Context, entry LocalEntry) (_ uploadS
 		_ = source.Close()
 		return uploadStage{}, errors.New("local upload source changed")
 	}
-	defer func() {
-		if closeErr := source.Close(); retErr == nil && closeErr != nil {
-			retErr = errors.New("cannot close local upload source")
-		}
-	}()
+	defer closeResult(source.Close, &retErr)
 	profileRoot, err := os.OpenRoot(e.profileDir)
 	if err != nil {
 		return uploadStage{}, errors.New("cannot open private upload profile")
 	}
-	defer func() {
-		if closeErr := profileRoot.Close(); retErr == nil && closeErr != nil {
-			retErr = errors.New("cannot close private upload profile")
-		}
-	}()
+	defer closeResult(profileRoot.Close, &retErr)
 	name := ".grove-upload-" + nonce()
 	if len(name) == len(".grove-upload-") {
 		return uploadStage{}, errors.New("cannot create upload stage identity")
@@ -114,10 +106,8 @@ func (e *executor) stageUpload(ctx context.Context, entry LocalEntry) (_ uploadS
 	syncErr := stageFile.Sync()
 	closeErr := stageFile.Close()
 	if copyErr != nil || syncErr != nil || closeErr != nil || count != entry.Size || hex.EncodeToString(sha.Sum(nil)) != entry.SHA256 {
-		if removeErr := removeOwnedStage(profileRoot, name, identity); removeErr != nil {
-			return uploadStage{}, errors.Join(errors.New("local upload source changed while staging"), removeErr)
-		}
-		return uploadStage{}, errors.New("local upload source changed while staging")
+		removeErr := removeOwnedStage(profileRoot, name, identity)
+		return uploadStage{}, failedPrivately("local upload source changed while staging", copyErr, syncErr, closeErr, removeErr)
 	}
 	if err = syncProfileRoot(profileRoot); err != nil {
 		return uploadStage{}, err
@@ -131,7 +121,7 @@ func (e *executor) stageUpload(ctx context.Context, entry LocalEntry) (_ uploadS
 		return uploadStage{}, errors.New("local upload source changed while staging")
 	}
 	if err = e.requireFile(ctx, entry.Path, Completed{Kind: "file", Size: entry.Size, SHA256: entry.SHA256}); err != nil {
-		return uploadStage{}, errors.New("local upload source changed while staging")
+		return uploadStage{}, failedPrivately("local upload source changed while staging", err)
 	}
 	return uploadStage{Path: name, Identity: identity, SHA256: entry.SHA256, MD5: hex.EncodeToString(md5sum.Sum(nil)), Size: count}, nil
 }

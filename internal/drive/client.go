@@ -55,7 +55,7 @@ func (c *Client) request(ctx context.Context, method, path string, q url.Values,
 		}
 		resp, err := c.http.Do(req)
 		if err != nil {
-			return nil, errors.New("drive request failed or cancelled")
+			return nil, privateError{"drive request failed or cancelled", err}
 		}
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return resp, nil
@@ -100,7 +100,7 @@ func (c *Client) request(ctx context.Context, method, path string, q url.Values,
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			return nil, errors.New("drive request cancelled")
+			return nil, privateError{"drive request cancelled", ctx.Err()}
 		case <-timer.C:
 		}
 	}
@@ -121,7 +121,7 @@ func safeDriveErrorReason(reason string) bool {
 func decode(resp *http.Response, target any) error {
 	defer func() { _ = resp.Body.Close() }()
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 16<<20)).Decode(target); err != nil {
-		return errors.New("invalid Drive response")
+		return privateError{"invalid Drive response", err}
 	}
 	return nil
 }
@@ -190,3 +190,11 @@ func ChildrenQuery(id string) string {
 func EscapeQuery(value string) string {
 	return strings.NewReplacer("\\", "\\\\", "'", "\\'").Replace(value)
 }
+
+type privateError struct {
+	message string
+	cause   error
+}
+
+func (e privateError) Error() string { return e.message }
+func (e privateError) Unwrap() error { return e.cause }

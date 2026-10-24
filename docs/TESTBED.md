@@ -163,3 +163,22 @@ Crash recovery is tested deterministically
 with real local files and journal-save faults; kernel fsync failure is not
 independently injected at every transition. Linux runtime evidence comes from
 Linux execution/CI, not the cross-build.
+
+## Daemon acceptance on Linux
+
+The opt-in live suite includes `TestDaemonPeriodicDownloadLive` and
+`TestDaemonPeriodicUploadLive`. Each passes the dedicated-token gate before
+building actual binaries, seeds its own fixture, initializes a disposable profile,
+and runs `groved` in the foreground with an isolated destination registry.
+Download acceptance coordinates a fixture mutation through the same token lease
+and observes a busy daemon attempt. Upload acceptance independently reads Drive
+bytes after a local edit. Both verify a later no-op cycle, unchanged local mtimes,
+offline command status, SIGTERM exit, inactive ownership, and owned cleanup.
+Bounded token-acquisition retries stop once fixture work begins; uncertain
+mutations are never retried. Failed runs retain private process/status/fixture
+records. Stop the process before inspecting or cleaning its recorded fixture.
+
+Offline process tests use a test-only fake HTTP Drive with real token/profile/
+destination leases. They exercise active and idle signal cancellation, a second
+owner through an alias, manual sync/recovery contention, shared-token profiles,
+forced process death, and restart recovery. Production has no fake endpoint flag.

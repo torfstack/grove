@@ -111,7 +111,7 @@ func (e *executor) recoverTrash(ctx context.Context) error {
 		}
 		child, getErr := e.api.Get(ctx, descendant.RemoteID)
 		if getErr != nil {
-			return errors.New("remote trash subtree is not confirmed; transaction remains blocked")
+			return failedPrivately("remote trash subtree is not confirmed; transaction remains blocked", getErr)
 		}
 		if child.ID != descendant.RemoteID {
 			return errors.New("remote trash descendant identity is not confirmed; transaction remains blocked")

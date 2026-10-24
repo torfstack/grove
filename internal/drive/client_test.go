@@ -223,3 +223,43 @@ func TestErrorsRedacted(t *testing.T) {
 		t.Fatal("unsanitized error")
 	}
 }
+
+func TestCancellationIdentityIsPrivate(t *testing.T) {
+	for _, operation := range []string{"request", "download", "decode", "revision", "create-folder", "pin", "upload-init", "upload-chunk", "upload-completion"} {
+		t.Run(operation, func(t *testing.T) {
+			client := NewClient(&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+				if operation == "request" || operation == "upload-init" || operation == "upload-chunk" {
+					return nil, context.Canceled
+				}
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(cancelReader{})}, nil
+			})}, ClientOptions{BaseURL: "https://private.invalid/PRIVATE_ID"})
+			var err error
+			switch operation {
+			case "download":
+				err = client.Download(context.Background(), "PRIVATE_ID", io.Discard)
+			case "revision":
+				err = client.DownloadRevision(context.Background(), "PRIVATE_ID", "PRIVATE_REVISION", io.Discard)
+			case "create-folder":
+				_, err = client.CreateWithID(context.Background(), "PRIVATE_ID", Create{Name: "folder", MIMEType: FolderMIME}, nil, 0)
+			case "pin":
+				err = client.SetRevisionKeepForever(context.Background(), "PRIVATE_ID", "PRIVATE_REVISION", true)
+			case "upload-init":
+				_, err = client.UpdateContent(context.Background(), "PRIVATE_ID", Update{ContentChanged: true}, strings.NewReader("a"), 1)
+			case "upload-chunk", "upload-completion":
+				_, err = client.sendChunk(context.Background(), "https://private.invalid/PRIVATE_SESSION", "PRIVATE_ID", strings.NewReader("a"), 0, 1, 1, true)
+			default:
+				_, err = client.Get(context.Background(), "PRIVATE_ID")
+			}
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf("cancellation identity lost: %v", err)
+			}
+			if strings.Contains(err.Error(), "PRIVATE") || strings.Contains(err.Error(), "private.invalid") {
+				t.Fatal("private request detail exposed")
+			}
+		})
+	}
+}
+
+type cancelReader struct{}
+
+func (cancelReader) Read([]byte) (int, error) { return 0, context.Canceled }

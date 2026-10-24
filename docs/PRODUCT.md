@@ -6,13 +6,15 @@ Grove is a personal Google Drive sync client, similar in purpose to InSync.
 It uses Go and targets Linux first, followed by Windows and macOS.
 
 `grove` provides individual CLI operations such as `auth`, `sync`, and `status`.
-`groved` will provide background orchestration after one-shot sync is reliable.
+`groved` provides foreground periodic sync for one existing Linux profile.
 `grove fixture` implements disposable fixture management. `grove sync` supports
 initial and incremental downloads, plus explicit `--two-way` uploads and safe
 local deletion propagation on populated profiles. Local deletions move matching
 Drive items to Trash after baseline and subtree validation. Profile conflict
 policy and candidate resolution are shared engine
-operations; `status` and daemon command syntax remain unfinalized.
+operations. `grove status --profile-dir PATH [--json]` and
+`groved --config PATH` are implemented and documented in
+[spec 000009](spec/000009-linux-daemon-design.md).
 
 Development should prioritize fast iteration and meaningful tests, including a
 dedicated Google test account with reproducible fixtures.
@@ -94,3 +96,15 @@ remote writes preserve their journal and may require operator reconciliation.
 Export copies bytes without clearing intent. Uncertain writes can remain blocked
 indefinitely; force-abandon, unrecorded artifact reconciliation and selection
 among multiple competitors remain deferred.
+
+## Periodic Linux sync
+
+[Spec 000009](spec/000009-linux-daemon-design.md) adds foreground `groved` for
+one existing profile and offline `grove status`. A private JSON config requires
+explicit download or two-way mode and defaults to five minutes between completed
+attempts. Configuration changes require restart. Status separates lock-observed
+ownership from historical attempts and unavailable/busy profile summaries.
+Signal shutdown preserves the shared engine's recovery obligations; conflicts
+and uncertain mutations keep their existing operator workflow. File watching,
+systemd installation, multiple profiles per process, and other native platform
+lifecycles remain follow-ups.

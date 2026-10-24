@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/torfstack/grove/internal/auth"
 	"github.com/torfstack/grove/internal/cli"
+	"github.com/torfstack/grove/internal/daemon"
 	"github.com/torfstack/grove/internal/drive"
 	"github.com/torfstack/grove/internal/fixture"
 	"github.com/torfstack/grove/internal/privatefs"
@@ -20,7 +21,9 @@ func services(authenticate cli.AuthenticateFunc, driveOptions drive.ClientOption
 		}
 		return drive.NewClient(session.HTTPClient, driveOptions), session.Close, nil
 	}}
-	return cli.Services{Authenticate: authenticate, Seed: func(ctx context.Context, opts cli.FixtureOptions) (path string, err error) {
+	return cli.Services{Status: func(ctx context.Context, profile string) (daemon.StatusReport, error) {
+		return daemon.Inspect(ctx, profile, syncService)
+	}, Authenticate: authenticate, Seed: func(ctx context.Context, opts cli.FixtureOptions) (path string, err error) {
 		v, err := fixture.LoadManifest(opts.Manifest)
 		if err != nil {
 			return "", err
