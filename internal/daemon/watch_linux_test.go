@@ -155,8 +155,24 @@ func TestWatchSymlinkRegistrationRace(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := w.Reconcile(context.Background()); err != nil {
-		t.Fatal(err)
-	}
+        t.Fatal(err)
+    }
+    native := w.(*nativeWatcher)
+    child := filepath.Join(root, "race")
+    if err := os.Mkdir(child,0700); err != nil { t.Fatal(err) }
+    swapped := false
+    native.coverage.Lock()
+    native.readEntries = func(f *os.File)([]os.DirEntry,error) {
+        entries,err := f.ReadDir(-1)
+        if !swapped {
+            swapped = true
+            if renameErr := os.Rename(child,filepath.Join(outside,"moved")); renameErr != nil { return nil,renameErr }
+            if linkErr := os.Symlink(outside,child); linkErr != nil { return nil,linkErr }
+        }
+        return entries,err
+    }
+    native.coverage.Unlock()
+    if err := w.Reconcile(context.Background()); err != nil { t.Fatal(err) }
 	// A barrier drains kernel events before asserting that outside writes are ignored.
 	time.Sleep(50 * time.Millisecond)
 	_ = w.Take()
@@ -252,5 +268,26 @@ func TestWatchDescriptorReuse(t *testing.T) {
 	}
 	if b := awaitWatch(t, w); b.Err != nil {
 		t.Fatal(b.Err)
+	}
+}
+
+func TestWatchRemovedDuringEnumeration(t *testing.T) {
+	_, watch := watchFixture(t)
+	w := watch.(*nativeWatcher)
+	w.coverage.Lock()
+	calls := 0
+	w.readEntries = func(f *os.File) ([]os.DirEntry, error) {
+		calls++
+		if calls == 1 {
+			return nil, os.ErrNotExist
+		}
+		return f.ReadDir(-1)
+	}
+	w.coverage.Unlock()
+	if err := w.Reconcile(context.Background()); err != nil {
+		t.Fatal("transient directory removal stopped coverage repair", err)
+	}
+	if calls < 2 {
+		t.Fatal("incomplete enumeration accepted")
 	}
 }

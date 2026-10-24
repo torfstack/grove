@@ -801,3 +801,11 @@ scheduler continues draining events. Daemon/CLI/process race tests pass, coverin
 completion-boundary edits, retry limits, historical deadlines, cancellation,
 watcher errors, and cleanup-before-lease-release ordering. Periodic-only behavior
 retains its original wait path and shares attempt classification.
+
+Task 5 real subprocess acceptance passes, including three repeated race-enabled
+runs: Grove's own downloads settle after one no-op follow-up, an edit during a
+blocked transfer is observed, SIGINT/SIGTERM clean up, root replacement stops
+visibly, and lifetime ownership is released. A reproduced transient-probe
+ENOENT during watcher enumeration now triggers coverage repair; deterministic
+and actual-directory-to-symlink swap regressions pass. No shared engine mutation
+semantics changed.

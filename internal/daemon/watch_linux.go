@@ -16,22 +16,23 @@ import (
 )
 
 type nativeWatcher struct {
-	root      string
-	rootFile  *os.File
-	rootInfo  os.FileInfo
-	file      *os.File
-	fd        int
-	clock     Clock
-	mailbox   *watchMailbox
-	ctx       context.Context
-	cancel    context.CancelFunc
-	repair    chan struct{}
-	workers   sync.WaitGroup
-	coverage  sync.Mutex
-	watches   map[int]struct{}
-	rootWD    atomic.Int64
-	closeOnce sync.Once
-	closeErr  error
+	readEntries func(*os.File) ([]os.DirEntry, error)
+	root        string
+	rootFile    *os.File
+	rootInfo    os.FileInfo
+	file        *os.File
+	fd          int
+	clock       Clock
+	mailbox     *watchMailbox
+	ctx         context.Context
+	cancel      context.CancelFunc
+	repair      chan struct{}
+	workers     sync.WaitGroup
+	coverage    sync.Mutex
+	watches     map[int]struct{}
+	rootWD      atomic.Int64
+	closeOnce   sync.Once
+	closeErr    error
 }
 
 func openWatcher(ctx context.Context, root string, clock Clock) (Watcher, error) {
@@ -200,7 +201,14 @@ func (w *nativeWatcher) walk(ctx context.Context, dir *os.File, next map[int]str
 	}
 	w.watches[wd] = struct{}{}
 	next[wd] = struct{}{}
-	entries, err := dir.ReadDir(-1)
+	read := w.readEntries
+	if read == nil {
+		read = func(f *os.File) ([]os.DirEntry, error) { return f.ReadDir(-1) }
+	}
+	entries, err := read(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return errWatchChanged
+	}
 	if err != nil {
 		return err
 	}
