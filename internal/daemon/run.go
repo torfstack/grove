@@ -109,7 +109,7 @@ func Run(ctx context.Context, configPath string, deps Dependencies) (err error) 
 	if _, err := rand.Read(session); err != nil {
 		return failed("session_unavailable", err)
 	}
-	r := Record{Version: 1, SessionID: hex.EncodeToString(session), Mode: cfg.Mode, Interval: cfg.Interval, Outcome: "never"}
+	r := Record{WatchLocal: cfg.WatchLocal, Version: 1, SessionID: hex.EncodeToString(session), Mode: cfg.Mode, Interval: cfg.Interval, Outcome: "never"}
 	now := func() *time.Time { stamp := deps.Clock.Now().UTC(); return &stamp }
 	save := func(phase string) error {
 		r.Phase = phase
@@ -131,6 +131,9 @@ func Run(ctx context.Context, configPath string, deps Dependencies) (err error) 
 		}
 		return save("stopped")
 	}
+	if cfg.WatchLocal {
+		return runWatching(ctx, cfg, deps, summary.Binding, &r, save, stop)
+	}
 	if err := save("starting"); err != nil {
 		return err
 	}
@@ -151,22 +154,8 @@ func Run(ctx context.Context, configPath string, deps Dependencies) (err error) 
 			return stop()
 		}
 		result, runErr := deps.RunExisting(ctx, cfg.ProfileDir, summary.Binding, cfg.Mode == ModeTwoWay)
-		r.Counts = result
 		r.AttemptFinishedAt = now()
-		switch {
-		case runErr == nil:
-			r.Outcome = "completed"
-			r.Reason = ""
-		case ctx.Err() != nil && cancellationOnly(runErr, context.Cause(ctx)):
-			r.Outcome = "cancelled"
-			r.Reason = "cancelled"
-		case errors.Is(runErr, privatefs.ErrLocked):
-			r.Outcome = "busy"
-			r.Reason = "resource_busy"
-		default:
-			r.Outcome = "failed"
-			r.Reason = "sync_failed"
-		}
+		recordAttempt(&r, result, runErr, context.Cause(ctx))
 		if ctx.Err() != nil {
 			stopErr := stop()
 			if runErr != nil && !cancellationOnly(runErr, context.Cause(ctx)) && !errors.Is(runErr, privatefs.ErrLocked) {

@@ -795,3 +795,9 @@ existing x/sys. Native and daemon race tests pass, including overflow repair,
 repeated directory replacement, symlink exclusion, root identity, and reader
 shutdown. Registration requires /proc/self/fd. Event hints never resolve paths
 for engine operations; full engine scans remain authoritative.
+
+Task 4 connects watch hints to one sequential shared-engine worker while the
+scheduler continues draining events. Daemon/CLI/process race tests pass, covering
+completion-boundary edits, retry limits, historical deadlines, cancellation,
+watcher errors, and cleanup-before-lease-release ordering. Periodic-only behavior
+retains its original wait path and shares attempt classification.

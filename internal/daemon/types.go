@@ -30,6 +30,7 @@ type Record struct {
 }
 
 type Dependencies struct {
+	OpenWatcher    func(context.Context, string, Clock) (Watcher, error)
 	InspectProfile func(context.Context, string) (syncengine.ProfileSummary, error)
 	RunExisting    func(context.Context, string, syncengine.Binding, bool) (syncengine.Result, error)
 	Clock          Clock
