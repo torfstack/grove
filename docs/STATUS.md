@@ -751,6 +751,8 @@ directories after daemon-reload. The actual command was verified with matching
 and deliberately mismatched shell XDG_CONFIG_HOME; installed systemd docs confirm
 the distinction. No unit or Go behavior changed. Documentation checks pass.
 Linux CI, dependency review, and CodeQL Go/Actions passed on the reviewed head;
-fresh CI for the documentation fix is pending. The original thread remains open;
-no reply or manual thread-resolution action was posted. Per decision 0009, no
-second CodeRabbit review is requested or awaited. No merge is authorized.
+fresh Linux CI, dependency review, and CodeQL Go/Actions all passed on the
+documentation fix `a5c7d03`. The original thread is now outdated but remains open;
+no reply or manual thread-resolution action was posted. All actionable findings
+are addressed. Per decision 0009, no second CodeRabbit review is requested or
+awaited. This follow-up records results only. No merge is authorized.
