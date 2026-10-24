@@ -619,3 +619,14 @@ token live results above remain the implementation verification. CI and
 CodeRabbit review of the published branch are pending. Retrieve the summary,
 inline comments, and review threads for the latest head before declaring ready;
 fix valid findings and wait for fresh checks. Merging remains unauthorized.
+
+[PR #15](https://github.com/torfstack/grove/pull/15) is open against `main`.
+CodeRabbit explicitly skipped automatic review of `e852743`, stating that the
+repository has fewer than 10 stars. Its successful status therefore does not
+mean a review occurred. The summary was retrieved through GitHub; reviews,
+inline comments, and GraphQL review threads are all empty. A manual review
+trigger requires posting a PR comment, for which separate authorization is
+required by this repository's feedback rules. Next: obtain that authorization,
+trigger manual review, assess any findings, and verify the latest checks. CI
+and CodeQL Go were still running during this inspection; dependency review
+and CodeQL Actions passed. No merge is authorized.
