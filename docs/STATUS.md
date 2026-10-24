@@ -836,3 +836,36 @@ network filesystems, non-Linux runtime, and adversarial transient reparenting
 are not claimed. Event hints never become mutation paths or deletion authority.
 The user authorized PR publication, completed CodeRabbit review, fixes, passing
 CI, and merge; publication and hosted review/checks are next.
+
+## Local watching PR and dependency maintenance
+
+[PR #17](https://github.com/torfstack/grove/pull/17) is published. Linux CI,
+CodeQL Go/Actions, and dependency review passed on implementation head `9fb0c84`.
+CodeRabbit skipped automatic review for the repository's star count; the manual
+request at 14:28 UTC was rate-limited. The retry at 17:09 UTC was accepted and
+is processing its initial full review of `23c583b..9fb0c84`. A successful skipped
+status is not review evidence; retrieve the completed summary, inline comments,
+and review threads before merging. The user has authorized that workflow and
+merge after fixes and fresh CI; no second completed review is required.
+
+The next bounded maintenance work is completed: PR #11 merged at `002a20e`
+(x/sys v0.49.0) and PR #14 at `750ba2a` (immutable mise/CodeQL action updates).
+Their completed CodeRabbit summaries were retrieved and assessed: PR #11 reviewed
+`1d5f7ded` with unchanged go.mod/go.sum in the later pre-update head; PR #14
+reviewed `c974994`. Both selected the changed reviewable source files and reported
+no actionable findings. Submitted reviews, inline-comment APIs, and GraphQL
+review threads were retrieved and empty; comment-based completed summaries,
+not successful status checks, establish the reviews. No re-review was requested.
+Both branches were refreshed against main, all hosted CI/security checks passed,
+and each merge used the verified head. Upstream release tags resolve to the
+pinned action commits, with CodeQL init/analyze aligned.
+
+Combined local validation of the dependency updates with watching passes module
+verification, fmt, lint, full offline/race suites, both Linux builds, and macOS
+arm64 cross-builds. The watcher branch now includes both dependency merges.
+A further regression reproduced attempt-local timeout/cancellation being labelled
+as daemon cancellation after attempt-classification extraction; classification
+now requires an actual daemon cancellation cause. The regression, daemon race
+suite, and fresh full integrated fmt/lint/offline/race/build checks pass.
+This fix is local pending the initial CodeRabbit review, then push and fresh CI.
+Authenticated watching remains gated and unrun.

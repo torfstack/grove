@@ -21,7 +21,7 @@ func recordAttempt(r *Record, result syncengine.Result, err error, cancellationC
 	case err == nil:
 		r.Outcome = "completed"
 		r.Reason = ""
-	case cancellationOnly(err, cancellationCause):
+	case cancellationCause != nil && cancellationOnly(err, cancellationCause):
 		r.Outcome = "cancelled"
 		r.Reason = "cancelled"
 	case errors.Is(err, privatefs.ErrLocked):

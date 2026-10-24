@@ -377,3 +377,23 @@ func TestDaemonWatchFailureDuringReaderCleanup(t *testing.T) {
 		t.Fatalf("reader cleanup lost fault: %v", err)
 	}
 }
+
+func TestDaemonAttemptCancellationClassification(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		err, cause error
+		want       string
+	}{
+		{"attempt-cancelled", context.Canceled, nil, "failed"},
+		{"attempt-timeout", context.DeadlineExceeded, nil, "failed"},
+		{"daemon-cancelled", context.Canceled, context.Canceled, "cancelled"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := Record{}
+			recordAttempt(&r, syncengine.Result{}, tc.err, tc.cause)
+			if r.Outcome != tc.want {
+				t.Fatalf("outcome=%s want=%s", r.Outcome, tc.want)
+			}
+		})
+	}
+}
