@@ -66,6 +66,7 @@ func humanStatus(r daemon.StatusReport) string {
 		lines = append(lines, "Last recorded daemon observation: none")
 	} else {
 		r := r.LastRecorded
+		lines = append(lines, fmt.Sprintf("Last recorded local watching: %t", r.WatchLocal))
 		outcome := r.Outcome
 		if outcome == "never" {
 			outcome = "no result yet"

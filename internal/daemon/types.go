@@ -14,6 +14,7 @@ type Clock interface {
 }
 
 type Record struct {
+	WatchLocal        bool              `json:"watch_local"`
 	Version           int               `json:"version"`
 	SessionID         string            `json:"session_id"`
 	Mode              Mode              `json:"mode"`

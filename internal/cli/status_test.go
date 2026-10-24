@@ -73,3 +73,20 @@ func TestStatusCommandPartialError(t *testing.T) {
 		t.Fatalf("partial error ignored or exposed: %s %v", out.String(), err)
 	}
 }
+
+func TestWatchLocalStatusOutput(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		r := daemon.StatusReport{LastRecorded: &daemon.Observation{WatchLocal: enabled}}
+		want := "Last recorded local watching: false"
+		if enabled {
+			want = "Last recorded local watching: true"
+		}
+		if !strings.Contains(humanStatus(r), want) {
+			t.Fatal("watch configuration omitted")
+		}
+		data, err := json.Marshal(r)
+		if err != nil || !strings.Contains(string(data), `"watch_local":`) {
+			t.Fatal("JSON configuration omitted")
+		}
+	}
+}

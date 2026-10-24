@@ -780,3 +780,8 @@ documentation fix `a5c7d03`. The original thread is now outdated but remains ope
 no reply or manual thread-resolution action was posted. All actionable findings
 are addressed. Per decision 0009, no second CodeRabbit review is requested or
 awaited. This follow-up records results only. No merge is authorized.
+
+Local watching Task 1: strict optional watch_local configuration and offline
+historical status are implemented; daemon/CLI tests pass. Baseline full offline
+tests passed with filesystem/loopback access and a temporary Go cache. Watching
+runtime is not connected yet.
