@@ -9,8 +9,10 @@ reviews. [Spec 000009](spec/000009-linux-daemon-design.md) is implemented and
 verified on `feat/linux-daemon`: one-profile periodic sync through `groved`,
 a small config file, safe shutdown, and offline status. All seven plan tasks,
 full local/live checks, and the independent review's regression fixes are complete.
-Integration is next; subsequent daemon tickets can add systemd user integration
-or local file watching under a new bounded spec.
+PR #15 is merged into main at `63de937`. The next selected slice is a systemd
+user-service template and installation instructions, proposed in
+[spec 000010](spec/000010-systemd-user-service-design.md). Local file watching
+remains a later bounded ticket.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus

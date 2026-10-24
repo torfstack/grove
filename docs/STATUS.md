@@ -2,6 +2,28 @@
 
 Updated: 2026-10-24.
 
+## Current next task: systemd user integration
+
+PR #15 is merged into main at `63de937`; its review and verification history
+below is historical. The user selected a reusable systemd user-service template
+and installation instructions, following the conventional package-provided-unit
+approach rather than new CLI installation commands.
+[Spec 000010](spec/000010-systemd-user-service-design.md) proposes instance/config
+mapping, source-build overrides, explicit operator restart after fatal failures,
+and graceful shutdown without a forced timeout. The user approved the written
+design. The paired [implementation plan](implementation-plans/000010-systemd-user-service-plan.md)
+is prepared for review, retaining the existing native execution preference.
+It covers the template/operator guide, isolated systemd verification, and
+project records with one whole-change review. The independent read-only
+builder check reported "nothing important left". `git diff --check` passes.
+Task 1 is implemented on `feat/systemd-user-service`: the package-ready template
+and source/package operator guide are present, including explicit restart and
+unlimited graceful shutdown. The full offline suite passes outside the sandbox;
+initial sandbox attempts failed because filesystem inspection and loopback
+servers were blocked, not because of product regressions. Static systemd
+verification reaches the expected missing `/usr/bin/groved` diagnostic; source
+override and isolated manager acceptance remain next. No Go code changed.
+
 ## Release status
 
 Grove is `pre-release`, with zero deployed users. Earlier-release compatibility
