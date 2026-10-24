@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/spf13/cobra"
 	"github.com/torfstack/grove/internal/auth"
+	"github.com/torfstack/grove/internal/daemon"
 	"github.com/torfstack/grove/internal/fixture"
 	"github.com/torfstack/grove/internal/syncengine"
 )
@@ -12,6 +13,7 @@ import (
 type AuthenticateFunc func(context.Context, auth.Options) (string, error)
 type FixtureOptions struct{ Manifest, RunDir, LocalDir, TokenFile string }
 type Services struct {
+	Status            func(context.Context, string) (daemon.StatusReport, error)
 	InspectRecovery   func(context.Context, syncengine.Options) (syncengine.RecoveryReport, error)
 	RetryRecovery     func(context.Context, syncengine.Options) (syncengine.RecoveryReport, error)
 	ExportRecovery    func(context.Context, syncengine.Options, syncengine.RecoveryExportOptions) error
@@ -34,7 +36,7 @@ func NewRoot(services Services) *cobra.Command {
 			return "", errors.New("authentication service unavailable")
 		}
 	}
-	root.AddCommand(newAuth(services.Authenticate), newFixture(services), newSync(services.Sync), newConfig(services), newConflicts(services), newRecovery(services))
+	root.AddCommand(newAuth(services.Authenticate), newFixture(services), newSync(services.Sync), newConfig(services), newConflicts(services), newRecovery(services), newStatus(services))
 	return root
 }
 func noArgs(_ *cobra.Command, args []string) error {

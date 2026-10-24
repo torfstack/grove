@@ -1,6 +1,43 @@
 # Project status
 
-Updated: 2026-10-22.
+Updated: 2026-10-24.
+
+## Systemd user integration
+
+PR #15 is merged into main at `63de937`; its review and verification history
+below is historical. The user approved spec and plan 000010 for native execution.
+The template and guide are implemented on `feat/systemd-user-service`:
+[operator guide](../contrib/systemd/README.md),
+[spec](spec/000010-systemd-user-service-design.md),
+[plan](implementation-plans/000010-systemd-user-service-plan.md), and
+[decision 0010](decisions/0010-systemd-user-service.md).
+
+Full offline tests and both native builds pass. Systemd 262.1 validates the
+copied template plus executable override without diagnostics; the unmodified
+vendor command reports the expected missing `/usr/bin/groved` in this source
+checkout. Runtime-only helper units verified path quoting, literal escaped
+instances, journal output, effective lifecycle settings, delayed graceful stop,
+and no automatic restart after failure. Actual groved rejected a disposable
+invalid config with a sanitized journal error and stayed failed without token
+or network access. The exact guide setup refused a second installation without
+changing existing files; real-daemon signal/exclusion process tests also pass.
+All acceptance units/state were removed, no service was enabled, and lingering
+was untouched. See [TESTBED](TESTBED.md#systemd-user-service-acceptance) for details.
+
+Initial sandbox test attempts failed because cache writes, filesystem inspection,
+and loopback listeners were blocked. Successful verification used a temporary
+Go cache and approved escalation. No Go code changed. Authenticated sync under
+systemd and logout/boot/linger behavior were not tested. The independent
+whole-change review found one Important issue: unit installation ignored custom
+XDG_CONFIG_HOME. The guide now uses the effective user-unit directory while
+retaining the approved fixed Grove JSON location. A reproduced failing guide
+check passes after the fix for default/custom config homes with spaces, and
+repeat setup preserves files. No Critical/Minor findings remain. Review accepted
+the recorded synthetic-home, in-place-branch, and configuration-validation
+choices. Live systemd sync, real boot/logout/linger, a separate account with
+spaces in its home, distribution packaging, and non-Linux integration remain
+explicit verification/scope limits. PR #16 publication and hosted-review progress
+are recorded below; no merge is authorized.
 
 ## Release status
 
@@ -483,3 +520,239 @@ Documentation-only follow-ups record the fresh local-token acceptance and
 review outcome. No Go code changed after the reviewed implementation. The PR
 remains open for the user's integration decision; check the latest CI and
 CodeRabbit status before merging.
+
+## Minimal Linux daemon design
+
+[PR #13](https://github.com/torfstack/grove/pull/13) merged into `main` at
+`ccfa67e` on 2026-10-22. Its final checks passed; CodeRabbit found no actionable
+implementation findings and skipped re-reviewing the documentation-only changes
+as similar. The earlier PR-open narrative above records that session's state.
+
+The user selected periodic background sync for one profile as the next feature
+and chose a small config file over command-line settings. Approved
+[spec 000009](spec/000009-linux-daemon-design.md) and
+[decision 0008](decisions/0008-linux-daemon-proposal.md) are on
+`feat/linux-daemon`. Agreed details include JSON config, an existing-profile
+reference, explicit mode, a five-minute default interval, sequential scheduling,
+safe signal cancellation, lifetime daemon exclusion, and offline status using
+lock-observed ownership plus historical records. File watching and systemd
+installation remain follow-ups. A fresh read-only builder check reported
+"nothing important left"; self-review clarified startup guard-file ordering,
+startup contention, and comparison against the original validated binding.
+The paired [implementation plan](implementation-plans/000009-linux-daemon-plan.md)
+is prepared for review with seven tasks covering leases, the locked existing-
+profile API, config, scheduling, offline status, process lifecycle, and live
+acceptance. Native execution is retained as the user's existing preference.
+Next: review the plan before implementation. No Go code changed or tests ran
+while preparing the spec and plan.
+
+The user approved plan 000009 for native execution. Task 1 adds typed lock
+contention and exclusive/shared-probe lifetime leases. Focused privatefs tests
+and race tests pass, including a separate process and canonical parent aliases.
+The remaining six tasks and full/local live verification are pending.
+
+Task 2 adds locked existing-profile execution and offline inspection. Full
+syncengine and race suites pass, including missing/rebound state rejection,
+held-lock checks, incomplete download versus two-way validation, conflict
+counts, uncertain upload preservation, and read-only Trash outcome recovery.
+Normal one-shot execution shares the same engine body and remains covered.
+
+Task 3 implements strict descriptor-validated Linux JSON configuration with
+owner-only permissions, explicit modes, duration limits, duplicate/unknown-field
+rejection, canonical profiles, and config/destination/reserved-record exclusion.
+Focused config tests pass. Scheduling, status, binary/process, and live work
+remain pending.
+
+Task 4 implements the sequential loop, lifetime ownership, elapsed waits,
+private advisory records, and safe cancellation/cleanup. Daemon/privatefs test
+and race suites pass. Status cannot recreate a deleted profile: the shared
+atomic writer now has an existing-parent-only entrypoint. Contradictory counts
+before a recorded attempt completes are rejected by a reproduced regression.
+Offline status, binary/process verification, and live acceptance remain pending.
+
+Task 5 implements offline status and CLI wiring. Daemon, CLI, and command test
+and race suites pass, covering stale records, invalid inspection, concurrent
+readers, busy summaries, private-data redaction, partial errors, and faithful
+operation counts. Status works without a token file or Drive access. Binary/
+process acceptance and the dedicated-account live scenarios remain next.
+
+Task 6 adds the foreground Linux binary and builds both commands. Real-process
+acceptance passes SIGINT/SIGTERM during transfer and wait, forced-death restart,
+profile aliases, manual sync/recovery exclusion, and shared-token contention.
+Cancellation retains its identity through private Drive errors, including Go's
+signal-specific cancellation cause. Formatting, lint (0 issues), full offline/
+race suites, and both native builds pass. Live daemon acceptance remains next.
+
+Task 7 adds gated actual-binary live download/upload scenarios and operator docs.
+The first focused download passed in 76.96s. Upload independently verified Drive
+bytes but its no-op snapshot preceded a later metadata reconciliation, changing
+a directory mtime. The corrected test first establishes a zero-operation cycle;
+focused upload then passed in 46.14s. The failed process was stopped and its
+recorded owned fixture was subsequently cleaned with ownership checks. No
+uncertain mutation was retried. No-op acceptance now checks all local file hashes
+and file/directory mtimes across a subsequent cycle.
+
+A shared-engine regression also proved cancellation could hide a cleanup failure;
+close failures now join the original error through a sanitized message. Extended
+Drive regressions preserve cancellation through folder/pin response decoding,
+revision downloads, and upload initiation/transfer/completion. Focused tests pass.
+The full enabled live aggregate and final independent review are pending.
+
+The full enabled Linux live aggregate passed in 398.704s, including daemon
+download (71.37s), daemon upload (46.57s), deletion, incremental/initial sync,
+revision pinning, conditional-write probing, and upload/concurrent revision
+recovery. Every scenario completed fixture-owned cleanup. The probe again showed
+Drive accepting a stale version condition; existing documented race limits stand.
+
+Independent read-only review of `ccfa67e..2040386` found one Important issue:
+several shared engine and OAuth boundaries still discarded cancellation causes
+above the fixed Drive client. No Critical/Minor findings or declined judgments
+were reported; the reviewer accepted the plan and recorded implementation choices.
+Regression tests reproduced cause loss in RunExisting uploads/file/folder creates,
+upload staging and private-stage verification, conflict checks/downloads, Trash
+descendant verification, and actual OAuth refresh. Fixed-message wrappers retain
+those causes and genuine joined close failures while preserving uncertain intent,
+verified stages, credentials, and no-blind-retry rules. A real SIGTERM subprocess
+regression also covers a blocked folder creation with a retained create-intent.
+Its fake HTTP handler initially hung on an unread request body; consuming that
+body before blocking fixed the test server's cancellation detection. No production
+endpoint or mutation behavior was changed for the test. Fresh full checks and a
+second enabled live aggregate on the final fixes are pending.
+
+## Minimal Linux daemon complete
+
+All seven tasks of spec/plan 000009 are implemented on `feat/linux-daemon`.
+The independent review's one Important finding is fixed with the regressions
+listed above; no Critical, deferred Minor, or declined findings remain. The
+single fix pass preserved cancellation causes throughout engine/authentication
+boundaries and retains uncertain journals/stages without repeating mutations.
+
+Final formatting, lint (0 issues), all 11 offline and race-tested packages, and
+both native Linux builds pass on `e3b1d26`. The final explicitly enabled full
+live suite passed in 410.947s using the dedicated local token: daemon download
+76.08s, daemon upload 48.33s, deletion 47.49s, incremental 78.14s, initial 39.66s,
+revision pinning 24.93s, conditional-write probe 33.59s, and upload/concurrent
+revision recovery 62.71s. Every scenario completed fixture-owned cleanup. A
+macOS arm64 cross-build passed before the final cancellation-only fixes; no
+non-Linux daemon runtime acceptance is claimed. Credentials, generated IDs, and
+synced contents were neither printed nor committed. README documents private
+config, foreground lifecycle, historical status, modes, and operator actions.
+
+The changes are committed locally; no PR, push, or merge has been requested for
+this daemon branch. Next: choose integration, then a bounded systemd-user-service
+or file-watching ticket. Runtime remains Linux-only, config changes require a
+restart, and existing Drive conditional-write/revision-pin limitations remain.
+
+Environment note: an early mise invocation reported removing older globally
+installed Bun, Node, and Java versions. This was not requested; subsequent
+commands used non-login shells and did not repeat it. Its cause was not
+established. No unrelated repository changes were made.
+
+## Linux daemon pull request
+
+2026-10-24: the user authorized pushing `feat/linux-daemon` and opening a PR to
+`main`. Fresh offline tests pass; the full offline/race/build/lint and dedicated-
+token live results above remain the implementation verification. CI and
+CodeRabbit review of the published branch are pending. Retrieve the summary,
+inline comments, and review threads for the latest head before declaring ready;
+fix valid findings and wait for fresh checks. Merging remains unauthorized.
+
+[PR #15](https://github.com/torfstack/grove/pull/15) is open against `main`.
+CodeRabbit explicitly skipped automatic review of `e852743`, stating that the
+repository has fewer than 10 stars. Its successful status therefore does not
+mean a review occurred. The summary was retrieved through GitHub; reviews,
+inline comments, and GraphQL review threads are all empty. A manual review
+trigger requires posting a PR comment, for which separate authorization is
+required by this repository's feedback rules. Next: obtain that authorization,
+trigger manual review, assess any findings, and verify the latest checks. CI
+and CodeQL Go were still running during this inspection; dependency review
+and CodeQL Actions passed. No merge is authorized.
+
+
+2026-10-24: the user authorized the manual CodeRabbit trigger. The full review
+of `ccfa67e..43e724b` completed at 12:17 UTC, selected all 56 changed files, and
+reported low merge risk with no confirmed functional problems. Its three inline
+findings are valid documentation corrections: remove local watching from current
+daemon capabilities, replace unfinalized status/daemon command wording, and
+advance this document's update date. All three are corrected, including adjacent
+stale daemon-design/future-tense statements. No Go code changed. The complete
+summary, submitted review, inline comments, and review threads were retrieved;
+there are no additional findings to decline or defer. CI and security checks
+passed on the reviewed head. Documentation validation passes; fresh CI and
+CodeRabbit feedback for the documentation fix are the next check. The service
+also reports that its one included review per hour has been consumed; verify
+actual follow-up availability rather than treating a skipped check as review.
+
+The three CodeRabbit documentation corrections are pushed in `3fc6d06`.
+An authorized incremental review trigger was accepted, but the latest-head
+summary then explicitly reported the hourly free OSS review limit: the next
+included review is available around 13:10 UTC on 2026-10-24 (the bot reported
+50 minutes remaining at approximately 12:20 UTC). This is a rate-limited skip,
+not a completed re-review, despite its successful check status. The original
+full review remains applicable to unchanged Go code; only documentation changed
+after it. No new submitted review or additional findings have appeared. The
+three original threads remain open; fixes are pushed, with no replies or thread
+resolutions posted. Next: after the allowance resets, trigger an incremental
+review on the current head, inspect its summary/comments/threads, and handle any
+new findings. CI for the documentation follow-up is checked independently.
+No merge is authorized.
+
+A subsequent GitHub inspection of `20392df` reports all three original review
+threads resolved; no thread-resolution API call or reply was made by this agent.
+Linux CI, CodeQL Go/Actions, and dependency review all passed on that head. The
+only submitted CodeRabbit review still covers `43e724b`; subsequent changes are
+documentation-only. The latest automatic review is again skipped by the OSS
+manual-trigger policy, and the attempted incremental review was explicitly
+rate-limited as recorded above. No functional findings or unresolved actionable
+comments remain; the remaining limitation is confirmation of the doc-only fixes
+by a fresh manual review after the allowance resets.
+
+2026-10-24: the user changed the workflow to one completed CodeRabbit review per
+PR. [Decision 0009](decisions/0009-single-coderabbit-review.md) and AGENTS.md now
+record this rule: assess and fix the initial findings, verify, and wait for CI;
+do not request or wait for CodeRabbit re-review unless explicitly asked. This
+supersedes the quota-reset/re-review next steps above. PR #15 has already received
+its one full review; all three findings are fixed and its threads are resolved.
+The user also requested a fresh actual-groved live test, so both dedicated-token
+periodic download/upload scenarios are running. No merge is authorized.
+
+The fresh user-requested actual-groved live run passed in 117.606s on 2026-10-24:
+`TestDaemonPeriodicDownloadLive` 72.25s and `TestDaemonPeriodicUploadLive` 45.35s.
+Both built and launched the actual binaries with private disposable profiles and
+the dedicated test token, independently verified content and subsequent no-op
+cycles, checked offline status and SIGTERM shutdown, and completed fixture-owned
+cleanup. The download scenario also verified busy token exclusion during an
+owned remote mutation. No credentials, generated remote IDs, or synced contents
+were printed. No Go code changed. CI/security checks passed on `af062da`; this
+follow-up records results only. Under decision 0009, no additional CodeRabbit
+review is requested or awaited.
+
+## Systemd user-service pull request
+
+2026-10-24: the user authorized pushing `feat/systemd-user-service` and opening
+[PR #16](https://github.com/torfstack/grove/pull/16) against `main`. Published
+implementation head is `f5c2f42`. The initial push was rejected by automatic
+approval review as private/unverified egress; read-only checks established that
+origin exactly matched the recorded `git@github.com:torfstack/grove.git` and
+GitHub reported the repository public. The reviewed retry succeeded.
+
+CodeRabbit skipped automatic review because the repository has fewer than ten
+stars. The user explicitly authorized the manual `@coderabbitai review` comment,
+which was posted. The initial full review completed at 13:47 UTC on `f5c2f42`,
+selected all 11 changed files, and reported low merge risk with one actionable
+Minor finding. The completed summary, submitted review, inline comment, and
+all review threads were retrieved; no additional findings appeared.
+
+The finding is valid: the guide's unit-path check used systemd-analyze's local
+path list instead of the running manager's UnitPath. It now recommends
+`systemctl --user show -p UnitPath --value`, requires the shell-derived install
+directory to match a reported path, and explains rechecking newly created
+directories after daemon-reload. The actual command was verified with matching
+and deliberately mismatched shell XDG_CONFIG_HOME; installed systemd docs confirm
+the distinction. No unit or Go behavior changed. Documentation checks pass.
+Linux CI, dependency review, and CodeQL Go/Actions passed on the reviewed head;
+fresh Linux CI, dependency review, and CodeQL Go/Actions all passed on the
+documentation fix `a5c7d03`. The original thread is now outdated but remains open;
+no reply or manual thread-resolution action was posted. All actionable findings
+are addressed. Per decision 0009, no second CodeRabbit review is requested or
+awaited. This follow-up records results only. No merge is authorized.

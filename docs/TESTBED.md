@@ -163,3 +163,76 @@ Crash recovery is tested deterministically
 with real local files and journal-save faults; kernel fsync failure is not
 independently injected at every transition. Linux runtime evidence comes from
 Linux execution/CI, not the cross-build.
+
+## Daemon acceptance on Linux
+
+The opt-in live suite includes `TestDaemonPeriodicDownloadLive` and
+`TestDaemonPeriodicUploadLive`. Each passes the dedicated-token gate before
+building actual binaries, seeds its own fixture, initializes a disposable profile,
+and runs `groved` in the foreground with an isolated destination registry.
+Download acceptance coordinates a fixture mutation through the same token lease
+and observes a busy daemon attempt. Upload acceptance independently reads Drive
+bytes after a local edit. Both verify a later no-op cycle, unchanged local mtimes,
+offline command status, SIGTERM exit, inactive ownership, and owned cleanup.
+Bounded token-acquisition retries stop once fixture work begins; uncertain
+mutations are never retried. Failed runs retain private process/status/fixture
+records. Stop the process before inspecting or cleaning its recorded fixture.
+
+Offline process tests use a test-only fake HTTP Drive with real token/profile/
+destination leases. They exercise active and idle signal cancellation, a second
+owner through an alias, manual sync/recovery contention, shared-token profiles,
+forced process death, and restart recovery. Production has no fake endpoint flag.
+
+## Systemd user-service acceptance
+
+Spec 000010 acceptance ran on Linux with systemd 262.1 on 2026-10-24.
+`mise run build` and the complete offline `mise run test` passed. Sandbox-only
+attempts could not create Go cache entries, inspect some filesystem paths, or
+open loopback listeners; the successful offline run used a temporary Go cache
+and approved execution outside the sandbox. No Go code changed.
+
+`systemd-analyze --user verify contrib/systemd/groved@.service` reported only
+the expected absent `/usr/bin/groved` on this source-build machine. Validation
+of a temporary copy of the template with a real executable override passed
+without diagnostics. The copied template retained its shipped lifecycle options.
+
+Isolated, uniquely named runtime-only user units exercised a harmless Python
+helper. Manager properties confirmed Type=exec, Restart=no, SIGTERM,
+KillMode=control-group, unlimited stop timeout, umask 0077, and journal output.
+Actual argv checks verified home/config expansion, executable and config paths
+with spaces, and a literal escaped instance containing `\\x2f` without converting
+it to a directory separator. A journal marker was observed. A delayed SIGTERM
+handler completed before clean service inactivity; a deliberate helper failure
+remained failed with zero automatic restarts.
+
+A separate runtime unit launched the built actual `groved` against a private
+disposable `{}` config. It exited 1, reported the fixed invalid-version error in
+the journal, and stayed failed with zero automatic restarts. Validation stopped
+before profile, token, or network access. Every test-owned unit, runtime link,
+drop-in, and disposable state directory was removed; no unit was enabled and
+lingering was not changed.
+
+The exact source-install shell block ran in a temporary synthetic home containing
+spaces. The JSON was mode 0600; a second run refused existing files and preserved
+all file hashes. Existing real-daemon tests passed with `-count=1`:
+`TestGrovedProcessOwnershipAndSignals`, `TestGrovedProcessesShareToken`, and
+`TestGrovedSignalDuringFolderCreation`. These use fake HTTP and actual process
+signals/locks. Helper tests establish manager mechanics, not real sync;
+authenticated daemon sync under systemd and logout/boot/linger behavior were
+not tested. Existing opt-in foreground live acceptance remains separate.
+
+The independent review found a valid custom-XDG_CONFIG_HOME installation issue:
+the original guide copied units to ~/.config/systemd/user even when that path
+was absent from the manager's search path. An executable guide-block check
+reproduced the missing unit under a custom config home before the fix. The guide
+now uses `${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user` consistently for units
+and overrides, while keeping Grove JSON at the approved fixed home-relative
+path. Default and custom config-home setup/repeat checks both pass after the
+fix, including spaces in both paths. The shell and user-manager XDG environment
+must agree. PR #16's completed CodeRabbit review identified that the inspection
+must query the running manager, rather than systemd-analyze's local path list.
+The guide now uses `systemctl --user show -p UnitPath --value` and requires the
+shell-derived unit directory to match a reported path. The command succeeded
+both normally and with a shell-only custom XDG_CONFIG_HOME, reporting the same
+running-manager paths; installed systemd-analyze documentation confirms this
+distinction. New directories require daemon-reload before rechecking.

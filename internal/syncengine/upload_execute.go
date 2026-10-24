@@ -40,7 +40,7 @@ func (e *executor) recordConflict(ctx context.Context, op Operation) error {
 	}
 	if conflict.Baseline.RemoteID != "" {
 		if err := e.requireFile(ctx, conflict.Path, Completed{Kind: "file", Size: conflict.LocalSize, SHA256: conflict.LocalSHA256}); err != nil {
-			return errors.New("local conflict candidate changed")
+			return failedPrivately("local conflict candidate changed", err)
 		}
 	}
 	for _, existing := range e.state.Conflicts {
@@ -93,7 +93,7 @@ func (e *executor) recordConflict(ctx context.Context, op Operation) error {
 	cloudSHA := hex.EncodeToString(sha.Sum(nil))
 	cloudMD5 := hex.EncodeToString(md5sum.Sum(nil))
 	if err != nil || syncErr != nil || closeErr != nil || rootSyncErr != nil || rootCloseErr != nil || count.count != conflict.RemoteSize || cloudMD5 != conflict.RemoteMD5 {
-		return errors.New("cannot verify cloud conflict candidate")
+		return failedPrivately("cannot verify cloud conflict candidate", err, syncErr, closeErr, rootSyncErr, rootCloseErr)
 	}
 	conflict.CloudStagePath = cloudPath
 	conflict.CloudStageIdentity = &identity
@@ -224,7 +224,7 @@ func (e *executor) upload(ctx context.Context, op Operation) error {
 		stageCloseErr := stage.Close()
 		rootCloseErr := stageRoot.Close()
 		if err != nil || stageCloseErr != nil || rootCloseErr != nil {
-			return errors.New("remote upload outcome is uncertain")
+			return failedPrivately("remote upload outcome is uncertain", err, stageCloseErr, rootCloseErr)
 		}
 	} else {
 		j.Phase = "create-intent"
@@ -233,7 +233,7 @@ func (e *executor) upload(ctx context.Context, op Operation) error {
 		}
 		created, createErr := e.mutation.CreateWithID(ctx, j.AllocatedID, input, nil, 0)
 		if createErr != nil {
-			return errors.New("remote folder creation outcome is uncertain")
+			return failedPrivately("remote folder creation outcome is uncertain", createErr)
 		}
 		result = created
 	}
@@ -681,7 +681,7 @@ func (e *executor) installCloudCandidate(ctx context.Context, conflict Conflict,
 	if err != nil {
 		cloudPresent, cloudErr := e.inspectFile(ctx, conflict.Path, Completed{Kind: "file", Size: cloudSize, SHA256: candidate.SHA256})
 		if cloudErr != nil || !cloudPresent {
-			return errors.New("local conflict candidate changed")
+			return failedPrivately("local conflict candidate changed", err)
 		}
 	} else if !current {
 		return errors.New("local conflict candidate is missing")

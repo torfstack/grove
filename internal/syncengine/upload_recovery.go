@@ -360,7 +360,7 @@ func verifyPrivateStageContext(ctx context.Context, profileDir, path string, ide
 	}
 	closeErr := f.Close()
 	if readErr != nil || closeErr != nil || (shaExpected != "" && hex.EncodeToString(sha.Sum(nil)) != shaExpected) || (md5Expected != "" && hex.EncodeToString(md5sum.Sum(nil)) != md5Expected) {
-		return errors.New("private upload stage content changed")
+		return failedPrivately("private upload stage content changed", readErr, closeErr)
 	}
 	return nil
 }
