@@ -1,0 +1,15 @@
+[Unit]
+Description=Grove periodic sync (%i)
+
+[Service]
+Type=exec
+ExecStart="/usr/bin/groved" --config "%h/.config/grove/daemons/%i.json"
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+Restart=no
+KillSignal=SIGTERM
+TimeoutStopSec=infinity
+
+[Install]
+WantedBy=default.target

@@ -4,11 +4,11 @@ A Google Drive sync client written in Go. Linux is the first supported
 platform; Windows and macOS are planned.
 
 The `grove` CLI performs individual operations such as authentication, sync, and
-status. A later `groved` daemon schedules the same shared sync engine.
+status. The Linux `groved` daemon schedules the same shared sync engine.
 Authentication, disposable fixture tooling, incremental downloads, explicit
 two-way uploads, safe deletion propagation, conflict controls, and upload
-recovery commands are implemented. General status reporting and the daemon are
-planned.
+recovery commands, periodic scheduling, and offline daemon/profile status are
+implemented.
 
 Development tools are pinned in [mise.toml](mise.toml). Install them with
 `mise install`.
@@ -293,5 +293,6 @@ existing safety rules. Inspect status and the existing conflict/recovery command
 stop the daemon before making operator repairs, reauthenticate when necessary,
 and restart. The daemon waits a full interval after busy or failed attempts; it
 does not resolve conflicts implicitly. Ownership/record/cleanup failures stop
-it with a nonzero exit. File watching, systemd installation, hot reload, and
-non-Linux daemon runtime are future work.
+it with a nonzero exit. A [systemd user-service template and installation
+guide](contrib/systemd/README.md) supports background operation of existing
+profiles. File watching, hot reload, and non-Linux daemon runtime are future work.

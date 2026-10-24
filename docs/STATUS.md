@@ -2,6 +2,43 @@
 
 Updated: 2026-10-24.
 
+## Systemd user integration
+
+PR #15 is merged into main at `63de937`; its review and verification history
+below is historical. The user approved spec and plan 000010 for native execution.
+The template and guide are implemented on `feat/systemd-user-service`:
+[operator guide](../contrib/systemd/README.md),
+[spec](spec/000010-systemd-user-service-design.md),
+[plan](implementation-plans/000010-systemd-user-service-plan.md), and
+[decision 0010](decisions/0010-systemd-user-service.md).
+
+Full offline tests and both native builds pass. Systemd 262.1 validates the
+copied template plus executable override without diagnostics; the unmodified
+vendor command reports the expected missing `/usr/bin/groved` in this source
+checkout. Runtime-only helper units verified path quoting, literal escaped
+instances, journal output, effective lifecycle settings, delayed graceful stop,
+and no automatic restart after failure. Actual groved rejected a disposable
+invalid config with a sanitized journal error and stayed failed without token
+or network access. The exact guide setup refused a second installation without
+changing existing files; real-daemon signal/exclusion process tests also pass.
+All acceptance units/state were removed, no service was enabled, and lingering
+was untouched. See [TESTBED](TESTBED.md#systemd-user-service-acceptance) for details.
+
+Initial sandbox test attempts failed because cache writes, filesystem inspection,
+and loopback listeners were blocked. Successful verification used a temporary
+Go cache and approved escalation. No Go code changed. Authenticated sync under
+systemd and logout/boot/linger behavior were not tested. The independent
+whole-change review found one Important issue: unit installation ignored custom
+XDG_CONFIG_HOME. The guide now uses the effective user-unit directory while
+retaining the approved fixed Grove JSON location. A reproduced failing guide
+check passes after the fix for default/custom config homes with spaces, and
+repeat setup preserves files. No Critical/Minor findings remain. Review accepted
+the recorded synthetic-home, in-place-branch, and configuration-validation
+choices. Live systemd sync, real boot/logout/linger, a separate account with
+spaces in its home, distribution packaging, and non-Linux integration remain
+explicit verification/scope limits. PR #16 publication and hosted-review progress
+are recorded below; no merge is authorized.
+
 ## Release status
 
 Grove is `pre-release`, with zero deployed users. Earlier-release compatibility
@@ -689,3 +726,33 @@ owned remote mutation. No credentials, generated remote IDs, or synced contents
 were printed. No Go code changed. CI/security checks passed on `af062da`; this
 follow-up records results only. Under decision 0009, no additional CodeRabbit
 review is requested or awaited.
+
+## Systemd user-service pull request
+
+2026-10-24: the user authorized pushing `feat/systemd-user-service` and opening
+[PR #16](https://github.com/torfstack/grove/pull/16) against `main`. Published
+implementation head is `f5c2f42`. The initial push was rejected by automatic
+approval review as private/unverified egress; read-only checks established that
+origin exactly matched the recorded `git@github.com:torfstack/grove.git` and
+GitHub reported the repository public. The reviewed retry succeeded.
+
+CodeRabbit skipped automatic review because the repository has fewer than ten
+stars. The user explicitly authorized the manual `@coderabbitai review` comment,
+which was posted. The initial full review completed at 13:47 UTC on `f5c2f42`,
+selected all 11 changed files, and reported low merge risk with one actionable
+Minor finding. The completed summary, submitted review, inline comment, and
+all review threads were retrieved; no additional findings appeared.
+
+The finding is valid: the guide's unit-path check used systemd-analyze's local
+path list instead of the running manager's UnitPath. It now recommends
+`systemctl --user show -p UnitPath --value`, requires the shell-derived install
+directory to match a reported path, and explains rechecking newly created
+directories after daemon-reload. The actual command was verified with matching
+and deliberately mismatched shell XDG_CONFIG_HOME; installed systemd docs confirm
+the distinction. No unit or Go behavior changed. Documentation checks pass.
+Linux CI, dependency review, and CodeQL Go/Actions passed on the reviewed head;
+fresh Linux CI, dependency review, and CodeQL Go/Actions all passed on the
+documentation fix `a5c7d03`. The original thread is now outdated but remains open;
+no reply or manual thread-resolution action was posted. All actionable findings
+are addressed. Per decision 0009, no second CodeRabbit review is requested or
+awaited. This follow-up records results only. No merge is authorized.

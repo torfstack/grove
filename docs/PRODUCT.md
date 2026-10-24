@@ -105,6 +105,10 @@ explicit download or two-way mode and defaults to five minutes between completed
 attempts. Configuration changes require restart. Status separates lock-observed
 ownership from historical attempts and unavailable/busy profile summaries.
 Signal shutdown preserves the shared engine's recovery obligations; conflicts
-and uncertain mutations keep their existing operator workflow. File watching,
-systemd installation, multiple profiles per process, and other native platform
-lifecycles remain follow-ups.
+and uncertain mutations keep their existing operator workflow.
+[Spec 000010](spec/000010-systemd-user-service-design.md) supplies a systemd
+user-service template and installation instructions for named config instances.
+Users explicitly start/enable services; operation after logout is an optional
+linger setting. Fatal failures stay stopped for inspection and graceful stop
+waits for cleanup without a forced timeout. File watching, multiple profiles
+per process, and other native platform lifecycles remain follow-ups.
