@@ -9,10 +9,12 @@ reviews. [Spec 000009](spec/000009-linux-daemon-design.md) is implemented and
 verified on `feat/linux-daemon`: one-profile periodic sync through `groved`,
 a small config file, safe shutdown, and offline status. All seven plan tasks,
 full local/live checks, and the independent review's regression fixes are complete.
-PR #15 is merged into main at `63de937`. The next selected slice is a systemd
-user-service template and installation instructions, proposed in
-[spec 000010](spec/000010-systemd-user-service-design.md). Local file watching
-remains a later bounded ticket.
+PR #15 is merged into main at `63de937`.
+[Spec 000010](spec/000010-systemd-user-service-design.md) adds a systemd
+user-service template and installation instructions on `feat/systemd-user-service`.
+Static validation, isolated manager lifecycle checks, actual-daemon invalid-config
+rejection, and existing daemon process tests pass; authenticated sync under
+systemd is not claimed. Local file watching remains a later bounded ticket.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus
@@ -42,7 +44,8 @@ remains a later bounded ticket.
 4. **Linux daemon**: the first implemented slice is spec 000009: a foreground
    process periodically syncing one existing profile through the shared engine,
    with lifetime exclusion, cancellation, and offline status. Local file
-   watching, richer remote polling, and systemd user service integration follow.
+   watching and richer remote polling follow. Systemd user-service integration
+   is implemented in spec 000010 with manual installation instructions.
 5. **Windows and macOS**: native lifecycle integration and platform-specific
    filesystem and credential behavior, backed by tests on each platform.
 

@@ -36,8 +36,9 @@ token; persistence failures fail the request. Windows auth remains deferred.
 
 - `grove`: one-shot commands, including interactive authentication.
 - `groved`: foreground periodic sync of one existing Linux profile, sequential
-  attempts, cancellation, and graceful shutdown. Local watching and systemd
-  integration remain planned follow-ups.
+  attempts, cancellation, and graceful shutdown. A distributed systemd user
+  template supplies optional Linux background lifecycle; local watching remains
+  a follow-up.
 - Shared Go packages: Drive access, local scanning, persisted sync state,
   deterministic planning, and operation execution.
 
@@ -54,8 +55,12 @@ Only one writer may operate on a sync profile at a time. A per-profile lock is
 the initial proposed mechanism. Local IPC may later let the CLI trigger work
 through a running daemon.
 
-Linux background integration is planned as a systemd user service. Other
-platforms will supply their own process lifecycle integration.
+Linux background integration uses the optional
+[systemd user-service template](../contrib/systemd/README.md), one instance per
+daemon config. The unit launches the foreground binary directly, leaves fatal
+exits stopped for operator inspection, and waits without a forced shutdown
+timeout. It does not change engine scheduling, exclusion, or recovery.
+Other platforms will supply their own process lifecycle integration.
 
 ## Initial sync and fixture implementation
 

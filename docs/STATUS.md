@@ -2,27 +2,33 @@
 
 Updated: 2026-10-24.
 
-## Current next task: systemd user integration
+## Systemd user integration
 
 PR #15 is merged into main at `63de937`; its review and verification history
-below is historical. The user selected a reusable systemd user-service template
-and installation instructions, following the conventional package-provided-unit
-approach rather than new CLI installation commands.
-[Spec 000010](spec/000010-systemd-user-service-design.md) proposes instance/config
-mapping, source-build overrides, explicit operator restart after fatal failures,
-and graceful shutdown without a forced timeout. The user approved the written
-design. The paired [implementation plan](implementation-plans/000010-systemd-user-service-plan.md)
-is prepared for review, retaining the existing native execution preference.
-It covers the template/operator guide, isolated systemd verification, and
-project records with one whole-change review. The independent read-only
-builder check reported "nothing important left". `git diff --check` passes.
-Task 1 is implemented on `feat/systemd-user-service`: the package-ready template
-and source/package operator guide are present, including explicit restart and
-unlimited graceful shutdown. The full offline suite passes outside the sandbox;
-initial sandbox attempts failed because filesystem inspection and loopback
-servers were blocked, not because of product regressions. Static systemd
-verification reaches the expected missing `/usr/bin/groved` diagnostic; source
-override and isolated manager acceptance remain next. No Go code changed.
+below is historical. The user approved spec and plan 000010 for native execution.
+The template and guide are implemented on `feat/systemd-user-service`:
+[operator guide](../contrib/systemd/README.md),
+[spec](spec/000010-systemd-user-service-design.md),
+[plan](implementation-plans/000010-systemd-user-service-plan.md), and
+[decision 0010](decisions/0010-systemd-user-service.md).
+
+Full offline tests and both native builds pass. Systemd 262.1 validates the
+copied template plus executable override without diagnostics; the unmodified
+vendor command reports the expected missing `/usr/bin/groved` in this source
+checkout. Runtime-only helper units verified path quoting, literal escaped
+instances, journal output, effective lifecycle settings, delayed graceful stop,
+and no automatic restart after failure. Actual groved rejected a disposable
+invalid config with a sanitized journal error and stayed failed without token
+or network access. The exact guide setup refused a second installation without
+changing existing files; real-daemon signal/exclusion process tests also pass.
+All acceptance units/state were removed, no service was enabled, and lingering
+was untouched. See [TESTBED](TESTBED.md#systemd-user-service-acceptance) for details.
+
+Initial sandbox test attempts failed because cache writes, filesystem inspection,
+and loopback listeners were blocked. Successful verification used a temporary
+Go cache and approved escalation. No Go code changed. Authenticated sync under
+systemd and logout/boot/linger behavior were not tested. Independent whole-change
+review and final documentation validation are next; no PR/push/merge requested.
 
 ## Release status
 

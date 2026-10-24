@@ -182,3 +182,41 @@ Offline process tests use a test-only fake HTTP Drive with real token/profile/
 destination leases. They exercise active and idle signal cancellation, a second
 owner through an alias, manual sync/recovery contention, shared-token profiles,
 forced process death, and restart recovery. Production has no fake endpoint flag.
+
+## Systemd user-service acceptance
+
+Spec 000010 acceptance ran on Linux with systemd 262.1 on 2026-10-24.
+`mise run build` and the complete offline `mise run test` passed. Sandbox-only
+attempts could not create Go cache entries, inspect some filesystem paths, or
+open loopback listeners; the successful offline run used a temporary Go cache
+and approved execution outside the sandbox. No Go code changed.
+
+`systemd-analyze --user verify contrib/systemd/groved@.service` reported only
+the expected absent `/usr/bin/groved` on this source-build machine. Validation
+of a temporary copy of the template with a real executable override passed
+without diagnostics. The copied template retained its shipped lifecycle options.
+
+Isolated, uniquely named runtime-only user units exercised a harmless Python
+helper. Manager properties confirmed Type=exec, Restart=no, SIGTERM,
+KillMode=control-group, unlimited stop timeout, umask 0077, and journal output.
+Actual argv checks verified home/config expansion, executable and config paths
+with spaces, and a literal escaped instance containing `\\x2f` without converting
+it to a directory separator. A journal marker was observed. A delayed SIGTERM
+handler completed before clean service inactivity; a deliberate helper failure
+remained failed with zero automatic restarts.
+
+A separate runtime unit launched the built actual `groved` against a private
+disposable `{}` config. It exited 1, reported the fixed invalid-version error in
+the journal, and stayed failed with zero automatic restarts. Validation stopped
+before profile, token, or network access. Every test-owned unit, runtime link,
+drop-in, and disposable state directory was removed; no unit was enabled and
+lingering was not changed.
+
+The exact source-install shell block ran in a temporary synthetic home containing
+spaces. The JSON was mode 0600; a second run refused existing files and preserved
+all file hashes. Existing real-daemon tests passed with `-count=1`:
+`TestGrovedProcessOwnershipAndSignals`, `TestGrovedProcessesShareToken`, and
+`TestGrovedSignalDuringFolderCreation`. These use fake HTTP and actual process
+signals/locks. Helper tests establish manager mechanics, not real sync;
+authenticated daemon sync under systemd and logout/boot/linger behavior were
+not tested. Existing opt-in foreground live acceptance remains separate.

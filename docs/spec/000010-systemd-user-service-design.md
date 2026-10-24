@@ -1,6 +1,7 @@
 # Systemd user-service integration
 
-Date: 2026-10-24. Status: approved by the user; implementation pending.
+Date: 2026-10-24. Status: approved by the user; implemented on
+`feat/systemd-user-service`. See TESTBED for actual verification and limits.
 
 Independent builder check: "nothing important left"; no consequential unanswered
 questions were identified.
@@ -114,7 +115,10 @@ Any authenticated systemd acceptance remains opt-in with dedicated fixtures.
 
 Update README, architecture, product, roadmap, and status to distinguish shipped
 integration from verified runtime behavior. Record actual commands and limits.
-Implementation follows a paired plan after approval of this design.
+Implementation follows the approved
+[paired plan](../implementation-plans/000010-systemd-user-service-plan.md).
+See [TESTBED](../TESTBED.md#systemd-user-service-acceptance) for actual results;
+authenticated sync under systemd and boot/logout/linger behavior remain untested.
 
 ## References
 
