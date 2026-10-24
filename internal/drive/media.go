@@ -2,7 +2,6 @@ package drive
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net/url"
 )
@@ -14,7 +13,7 @@ func (c *Client) Download(ctx context.Context, id string, dst io.Writer) error {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if _, err = io.Copy(dst, resp.Body); err != nil {
-		return errors.New("drive download failed")
+		return privateError{"drive download failed", err}
 	}
 	return nil
 }

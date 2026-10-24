@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"golang.org/x/oauth2"
 	"io"
 	"net/http"
@@ -163,4 +164,44 @@ func TestRefreshRedirectNeverForwardsCredentials(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRefreshCancellationPreservesCause(t *testing.T) {
+	scope, _ := Scope("read-only")
+	path, record := sessionRecord(t, scope)
+	record.Token.Expiry = time.Now().Add(-time.Hour)
+	if err := SaveRecord(path, record); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancelCause(context.Background())
+	defer cancel(nil)
+	cause := errors.New("private refresh cancellation detail")
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{Transport: cancelRefreshTransport{cancel: cancel, cause: cause}})
+	session, err := openSession(ctx, path, "read-only", oauth2.Endpoint{TokenURL: "https://private.invalid/refresh"}, SaveRecord)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = session.Close() }()
+	transport, ok := session.HTTPClient.Transport.(*oauth2.Transport)
+	if !ok {
+		t.Fatal("missing OAuth transport")
+	}
+	_, err = transport.Source.Token()
+	if !errors.Is(err, cause) || strings.Contains(err.Error(), "private") {
+		t.Fatal("refresh cancellation identity lost or private detail exposed")
+	}
+	got, err := LoadRecord(path)
+	if err != nil || got.Token.AccessToken != record.Token.AccessToken || got.Token.RefreshToken != record.Token.RefreshToken {
+		t.Fatal("failed refresh changed saved credentials")
+	}
+}
+
+type cancelRefreshTransport struct {
+	cancel context.CancelCauseFunc
+	cause  error
+}
+
+func (t cancelRefreshTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	t.cancel(t.cause)
+	return nil, t.cause
 }

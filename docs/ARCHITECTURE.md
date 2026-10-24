@@ -4,14 +4,14 @@ Authentication, the Drive fixture lifecycle, and initial/incremental download sy
 are implemented. Explicit local uploads, revision-aware conflict resolution, and
 safe local deletion propagation are implemented in the shared sync engine. The
 approved deletion contract is in
-[spec 000007](spec/000007-deletion-propagation-design.md); daemon orchestration
-remains to be designed.
+[spec 000007](spec/000007-deletion-propagation-design.md). Linux periodic daemon
+orchestration is implemented under [spec 000009](spec/000009-linux-daemon-design.md).
 
 [Spec 000004](spec/000004-local-upload-design.md) records the upload and
 conflict-recovery contract. The engine uses a guarded streaming Drive-write
 boundary, private immutable staging, version-3 upload journals, revision
 preservation, profile-scoped conflict state, and service methods consumed by the
-CLI and future daemon/UI. Drive does not provide conditional writes; see the spec
+CLI and daemon; a future UI can use the same boundary. Drive does not provide conditional writes; see the spec
 for revision-retention and quota limits.
 
 ## Current authentication implementation
@@ -35,15 +35,17 @@ token; persistence failures fail the request. Windows auth remains deferred.
 ## Binaries and shared engine
 
 - `grove`: one-shot commands, including interactive authentication.
-- `groved`: background scheduling, local watching, remote polling, retries,
-  cancellation, and graceful shutdown.
+- `groved`: foreground periodic sync of one existing Linux profile, sequential
+  attempts, cancellation, and graceful shutdown. A distributed systemd user
+  template supplies optional Linux background lifecycle; local watching remains
+  a follow-up.
 - Shared Go packages: Drive access, local scanning, persisted sync state,
   deterministic planning, and operation execution.
 
 The daemon calls shared packages directly rather than repeatedly spawning the
-CLI. Start with the CLI, then add the daemon.
+CLI. Both binaries use the same engine.
 
-The proposed planner takes local, remote, and previously recorded state and
+The planner takes local, remote, and previously recorded state and
 produces operations. Keep network access and filesystem mutations in execution
 so planning can be tested independently.
 
@@ -53,8 +55,12 @@ Only one writer may operate on a sync profile at a time. A per-profile lock is
 the initial proposed mechanism. Local IPC may later let the CLI trigger work
 through a running daemon.
 
-Linux background integration is planned as a systemd user service. Other
-platforms will supply their own process lifecycle integration.
+Linux background integration uses the optional
+[systemd user-service template](../contrib/systemd/README.md), one instance per
+daemon config. The unit launches the foreground binary directly, leaves fatal
+exits stopped for operator inspection, and waits without a forced shutdown
+timeout. It does not change engine scheduling, exclusion, or recovery.
+Other platforms will supply their own process lifecycle integration.
 
 ## Initial sync and fixture implementation
 
@@ -200,3 +206,26 @@ identities, retains the original stage and state, and never authenticates.
 CLI formatting uses only sanitized reports and safe error categories. See
 [spec 000005](spec/000005-operator-reconciliation-design.md) for the contract and
 indefinite-blocking limits.
+
+## Linux periodic daemon
+
+`cmd/groved` supplies signals and argument validation to `internal/daemon`.
+The scheduler directly calls the shared engine's locked existing-profile API;
+it never shells out to sync or creates a missing profile. Startup validates a
+strict private config and retains its binding, acquires a lifetime `daemon.lock`,
+and inspects the state under the per-attempt profile lock. Each attempt reloads
+state and compares the original binding before authentication. Attempts run
+sequentially with elapsed waits after completion. Existing profile, destination,
+and token locks coordinate all writers, including manual CLI commands.
+
+SIGINT/SIGTERM cancel the active context and await its return and cleanup before
+releasing lifetime ownership. Private Drive error wrappers retain cancellation
+causes without putting request URLs or response bodies in displayed errors.
+Shared engine and OAuth refresh boundaries preserve those causes as well, while
+joining genuine cleanup failures so cancellation cannot hide them.
+`daemon-status.json` is a private atomic advisory record, written only in an
+existing profile. Record failure stops scheduling. Offline `grove status` uses
+a non-mutating shared lock probe for ownership, maps history into a public DTO,
+and independently locks the profile for its summary. Neither history nor a PID
+is liveness evidence or authority to mutate data. See
+[spec 000009](spec/000009-linux-daemon-design.md).

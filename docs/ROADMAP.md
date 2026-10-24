@@ -3,10 +3,18 @@
 Milestones are ordered proposals; detailed implementation plans come before code.
 
 The download reliability fix in
-[spec 000008](spec/000008-download-metadata-version-design.md) is implemented
-on `fix/download-metadata-version`. Formatting, lint, offline/race checks, native
-Linux build, and full Linux live acceptance passed. Independent branch review
-found no actionable findings; integration remains before daemon orchestration.
+[spec 000008](spec/000008-download-metadata-version-design.md) is merged through
+PR #13 with local and full Linux live verification and clean implementation
+reviews. [Spec 000009](spec/000009-linux-daemon-design.md) is implemented and
+verified on `feat/linux-daemon`: one-profile periodic sync through `groved`,
+a small config file, safe shutdown, and offline status. All seven plan tasks,
+full local/live checks, and the independent review's regression fixes are complete.
+PR #15 is merged into main at `63de937`.
+[Spec 000010](spec/000010-systemd-user-service-design.md) adds a systemd
+user-service template and installation instructions on `feat/systemd-user-service`.
+Static validation, isolated manager lifecycle checks, actual-daemon invalid-config
+rejection, and existing daemon process tests pass; authenticated sync under
+systemd is not claimed. Local file watching remains a later bounded ticket.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus
@@ -31,11 +39,13 @@ found no actionable findings; integration remains before daemon orchestration.
    UI recovery, force-abandon, and automatic content merging follow later. Local
    deletion propagation is approved in
    [spec 000007](spec/000007-deletion-propagation-design.md) and is implemented
-   on `feat/deletion-propagation`, pending pull request review. Filesystem
-   watching and scheduled continuous sync remain part of the later `groved`
-   daemon milestone.
-4. **Linux daemon**: scheduling, watching, remote polling, profile locking,
-   observable status, and systemd user service integration.
+   on `feat/deletion-propagation`, pending pull request review. Periodic scheduling is
+   implemented in spec 000009; filesystem watching remains a follow-up.
+4. **Linux daemon**: the first implemented slice is spec 000009: a foreground
+   process periodically syncing one existing profile through the shared engine,
+   with lifetime exclusion, cancellation, and offline status. Local file
+   watching and richer remote polling follow. Systemd user-service integration
+   is implemented in spec 000010 with manual installation instructions.
 5. **Windows and macOS**: native lifecycle integration and platform-specific
    filesystem and credential behavior, backed by tests on each platform.
 

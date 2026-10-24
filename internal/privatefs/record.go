@@ -50,6 +50,12 @@ func regular(path string) error {
 }
 func WriteJSON(path string, value any) error { return writeJSON(path, value, os.Rename) }
 func writeJSON(path string, value any, rename func(string, string) error) error {
+	return writeRecord(path, value, rename, true)
+}
+func WriteExistingJSON(path string, value any) error {
+	return writeRecord(path, value, os.Rename, false)
+}
+func writeRecord(path string, value any, rename func(string, string) error, createParent bool) error {
 	data, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
 		return errors.New("cannot encode private state")
@@ -58,8 +64,10 @@ func writeJSON(path string, value any, rename func(string, string) error) error 
 		return err
 	}
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return errors.New("cannot create private directory")
+	if createParent {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			return errors.New("cannot create private directory")
+		}
 	}
 	f, err := os.CreateTemp(dir, ".grove-state-*")
 	if err != nil {

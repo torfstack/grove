@@ -19,7 +19,7 @@ func (s *persistentSource) Token() (*oauth2.Token, error) {
 	defer s.mu.Unlock()
 	token, err := s.source.Token()
 	if err != nil {
-		return nil, errors.New("cannot refresh authentication; run grove auth if authorization expired")
+		return nil, refreshError{cause: err}
 	}
 	copy := *token
 	if copy.RefreshToken == "" {
@@ -36,3 +36,10 @@ func (s *persistentSource) Token() (*oauth2.Token, error) {
 	}
 	return &copy, nil
 }
+
+type refreshError struct{ cause error }
+
+func (e refreshError) Error() string {
+	return "cannot refresh authentication; run grove auth if authorization expired"
+}
+func (e refreshError) Unwrap() error { return e.cause }

@@ -4,11 +4,11 @@ A Google Drive sync client written in Go. Linux is the first supported
 platform; Windows and macOS are planned.
 
 The `grove` CLI performs individual operations such as authentication, sync, and
-status. A later `groved` daemon schedules the same shared sync engine.
+status. The Linux `groved` daemon schedules the same shared sync engine.
 Authentication, disposable fixture tooling, incremental downloads, explicit
 two-way uploads, safe deletion propagation, conflict controls, and upload
-recovery commands are implemented. General status reporting and the daemon are
-planned.
+recovery commands, periodic scheduling, and offline daemon/profile status are
+implemented.
 
 Development tools are pinned in [mise.toml](mise.toml). Install them with
 `mise install`.
@@ -250,3 +250,49 @@ You can also seed manually with `fixture seed --manifest
 verify downloaded content with `fixture verify --manifest
  testdata/fixtures/baseline/manifest.json --local-dir PATH`. See command help for
 required flags. Cleanup refuses unrecorded descendants or changed ownership.
+
+## Periodic sync on Linux
+
+Build with `mise run build`. Initialize a profile with `grove sync` first; the
+daemon uses that profile's saved remote root, destination, and token binding.
+Save a private JSON file outside Git and the synced destination, using absolute
+paths (replace the example profile path):
+
+```json
+{
+  "version": 1,
+  "profile_dir": "/home/you/.local/state/grove/profiles/example",
+  "mode": "download",
+  "interval": "5m"
+}
+```
+
+```sh
+chmod 600 /absolute/path/daemon.json
+./bin/groved --config /absolute/path/daemon.json
+# In another terminal:
+./bin/grove status --profile-dir /absolute/path/profile
+./bin/grove status --profile-dir /absolute/path/profile --json
+```
+
+`groved` stays in the foreground. Ctrl-C or SIGTERM cancels active work, waits
+for cleanup, and releases ownership. It attempts sync immediately, then waits
+the full interval after each attempt finishes. Omit `interval` for five minutes;
+the minimum is one second. Restart to apply config changes. `mode` is required:
+`download` permits remote downloads; `two-way` explicitly enables the existing
+upload and deletion behavior and requires a fully populated profile.
+
+Status observes the lifetime lock independently of its **last recorded** phase,
+result, and schedule. History may be stale after a crash. A busy profile has no
+available summary. Status requires no credentials or network access. Another
+daemon for the profile is rejected; manual commands and other profiles sharing
+a token retain their normal per-attempt exclusion.
+
+Conflicts, expired authentication, and uncertain writes retain the engine's
+existing safety rules. Inspect status and the existing conflict/recovery commands;
+stop the daemon before making operator repairs, reauthenticate when necessary,
+and restart. The daemon waits a full interval after busy or failed attempts; it
+does not resolve conflicts implicitly. Ownership/record/cleanup failures stop
+it with a nonzero exit. A [systemd user-service template and installation
+guide](contrib/systemd/README.md) supports background operation of existing
+profiles. File watching, hot reload, and non-Linux daemon runtime are future work.
