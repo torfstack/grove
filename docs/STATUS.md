@@ -36,7 +36,8 @@ repeat setup preserves files. No Critical/Minor findings remain. Review accepted
 the recorded synthetic-home, in-place-branch, and configuration-validation
 choices. Live systemd sync, real boot/logout/linger, a separate account with
 spaces in its home, distribution packaging, and non-Linux integration remain
-explicit verification/scope limits. No PR/push/merge requested.
+explicit verification/scope limits. PR #16 publication and hosted-review progress
+are recorded below; no merge is authorized.
 
 ## Release status
 
@@ -725,3 +726,31 @@ owned remote mutation. No credentials, generated remote IDs, or synced contents
 were printed. No Go code changed. CI/security checks passed on `af062da`; this
 follow-up records results only. Under decision 0009, no additional CodeRabbit
 review is requested or awaited.
+
+## Systemd user-service pull request
+
+2026-10-24: the user authorized pushing `feat/systemd-user-service` and opening
+[PR #16](https://github.com/torfstack/grove/pull/16) against `main`. Published
+implementation head is `f5c2f42`. The initial push was rejected by automatic
+approval review as private/unverified egress; read-only checks established that
+origin exactly matched the recorded `git@github.com:torfstack/grove.git` and
+GitHub reported the repository public. The reviewed retry succeeded.
+
+CodeRabbit skipped automatic review because the repository has fewer than ten
+stars. The user explicitly authorized the manual `@coderabbitai review` comment,
+which was posted. The initial full review completed at 13:47 UTC on `f5c2f42`,
+selected all 11 changed files, and reported low merge risk with one actionable
+Minor finding. The completed summary, submitted review, inline comment, and
+all review threads were retrieved; no additional findings appeared.
+
+The finding is valid: the guide's unit-path check used systemd-analyze's local
+path list instead of the running manager's UnitPath. It now recommends
+`systemctl --user show -p UnitPath --value`, requires the shell-derived install
+directory to match a reported path, and explains rechecking newly created
+directories after daemon-reload. The actual command was verified with matching
+and deliberately mismatched shell XDG_CONFIG_HOME; installed systemd docs confirm
+the distinction. No unit or Go behavior changed. Documentation checks pass.
+Linux CI, dependency review, and CodeQL Go/Actions passed on the reviewed head;
+fresh CI for the documentation fix is pending. The original thread remains open;
+no reply or manual thread-resolution action was posted. Per decision 0009, no
+second CodeRabbit review is requested or awaited. No merge is authorized.

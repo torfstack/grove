@@ -23,9 +23,13 @@ refuses existing files, including symlinks: review an existing setup using
 `systemctl --user cat groved@personal.service` and follow the upgrade section.
 
 User units go beneath `${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user`, matching
-the user manager's configuration environment. The shell and manager must use
-the same XDG_CONFIG_HOME; check with `systemd-analyze --user unit-paths` if you
-customize it. This unit directory is separate from the fixed Grove JSON path.
+the user manager's configuration environment. Check the running manager with
+`systemctl --user show -p UnitPath --value`. The shell-derived `grove_unit_dir`
+below must match a directory in that output; align the shell's XDG_CONFIG_HOME
+with the manager before installing if they differ. For a newly created directory,
+run daemon-reload and check again before starting the service. Unlike this
+manager query, `systemd-analyze --user unit-paths` does not contact the running
+manager. The unit directory is separate from the fixed Grove JSON path.
 
 Run this block from the repository root in a POSIX shell. Replace `personal`
 consistently if you use a different label. The initial config is download-only;

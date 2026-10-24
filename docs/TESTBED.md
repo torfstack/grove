@@ -229,4 +229,10 @@ now uses `${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user` consistently for units
 and overrides, while keeping Grove JSON at the approved fixed home-relative
 path. Default and custom config-home setup/repeat checks both pass after the
 fix, including spaces in both paths. The shell and user-manager XDG environment
-must agree; the guide includes the unit-path inspection command.
+must agree. PR #16's completed CodeRabbit review identified that the inspection
+must query the running manager, rather than systemd-analyze's local path list.
+The guide now uses `systemctl --user show -p UnitPath --value` and requires the
+shell-derived unit directory to match a reported path. The command succeeded
+both normally and with a shell-only custom XDG_CONFIG_HOME, reporting the same
+running-manager paths; installed systemd-analyze documentation confirms this
+distinction. New directories require daemon-reload before rechecking.
