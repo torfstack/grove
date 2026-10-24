@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-23.
+Updated: 2026-10-24.
 
 ## Release status
 
@@ -630,3 +630,18 @@ required by this repository's feedback rules. Next: obtain that authorization,
 trigger manual review, assess any findings, and verify the latest checks. CI
 and CodeQL Go were still running during this inspection; dependency review
 and CodeQL Actions passed. No merge is authorized.
+
+
+2026-10-24: the user authorized the manual CodeRabbit trigger. The full review
+of `ccfa67e..43e724b` completed at 12:17 UTC, selected all 56 changed files, and
+reported low merge risk with no confirmed functional problems. Its three inline
+findings are valid documentation corrections: remove local watching from current
+daemon capabilities, replace unfinalized status/daemon command wording, and
+advance this document's update date. All three are corrected, including adjacent
+stale daemon-design/future-tense statements. No Go code changed. The complete
+summary, submitted review, inline comments, and review threads were retrieved;
+there are no additional findings to decline or defer. CI and security checks
+passed on the reviewed head. Documentation validation passes; fresh CI and
+CodeRabbit feedback for the documentation fix are the next check. The service
+also reports that its one included review per hour has been consumed; verify
+actual follow-up availability rather than treating a skipped check as review.

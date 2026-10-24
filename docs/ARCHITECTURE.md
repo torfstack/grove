@@ -4,14 +4,14 @@ Authentication, the Drive fixture lifecycle, and initial/incremental download sy
 are implemented. Explicit local uploads, revision-aware conflict resolution, and
 safe local deletion propagation are implemented in the shared sync engine. The
 approved deletion contract is in
-[spec 000007](spec/000007-deletion-propagation-design.md); daemon orchestration
-remains to be designed.
+[spec 000007](spec/000007-deletion-propagation-design.md). Linux periodic daemon
+orchestration is implemented under [spec 000009](spec/000009-linux-daemon-design.md).
 
 [Spec 000004](spec/000004-local-upload-design.md) records the upload and
 conflict-recovery contract. The engine uses a guarded streaming Drive-write
 boundary, private immutable staging, version-3 upload journals, revision
 preservation, profile-scoped conflict state, and service methods consumed by the
-CLI and future daemon/UI. Drive does not provide conditional writes; see the spec
+CLI and daemon; a future UI can use the same boundary. Drive does not provide conditional writes; see the spec
 for revision-retention and quota limits.
 
 ## Current authentication implementation
@@ -35,15 +35,16 @@ token; persistence failures fail the request. Windows auth remains deferred.
 ## Binaries and shared engine
 
 - `grove`: one-shot commands, including interactive authentication.
-- `groved`: background scheduling, local watching, remote polling, retries,
-  cancellation, and graceful shutdown.
+- `groved`: foreground periodic sync of one existing Linux profile, sequential
+  attempts, cancellation, and graceful shutdown. Local watching and systemd
+  integration remain planned follow-ups.
 - Shared Go packages: Drive access, local scanning, persisted sync state,
   deterministic planning, and operation execution.
 
 The daemon calls shared packages directly rather than repeatedly spawning the
-CLI. Start with the CLI, then add the daemon.
+CLI. Both binaries use the same engine.
 
-The proposed planner takes local, remote, and previously recorded state and
+The planner takes local, remote, and previously recorded state and
 produces operations. Keep network access and filesystem mutations in execution
 so planning can be tested independently.
 
