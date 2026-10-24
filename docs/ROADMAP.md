@@ -11,10 +11,13 @@ a small config file, safe shutdown, and offline status. All seven plan tasks,
 full local/live checks, and the independent review's regression fixes are complete.
 PR #15 is merged into main at `63de937`.
 [Spec 000010](spec/000010-systemd-user-service-design.md) adds a systemd
-user-service template and installation instructions on `feat/systemd-user-service`.
+user-service template and installation instructions, merged in PR #16 at `23c583b`.
 Static validation, isolated manager lifecycle checks, actual-daemon invalid-config
 rejection, and existing daemon process tests pass; authenticated sync under
-systemd is not claimed. Local file watching remains a later bounded ticket.
+systemd is not claimed. The user selected opt-in native local watching next;
+[approved spec 000011](spec/000011-local-watching-design.md) has a
+[paired plan](implementation-plans/000011-local-watching-plan.md) prepared for
+review before implementation.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus

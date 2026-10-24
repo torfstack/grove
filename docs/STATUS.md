@@ -4,6 +4,30 @@ Updated: 2026-10-24.
 
 ## Systemd user integration
 
+PR #16 is now merged into main at `23c583b` (2026-10-24); GitHub merge
+state was confirmed and origin/main refreshed. The implementation/review
+narrative below is historical and its no-merge-authorized wording is superseded
+by the user's completed merge.
+
+## Local watching design
+
+The user selected local watching next and chose opt-in native Linux events via
+`watch_local`, default false, with debounce, sequential shared-engine attempts,
+and periodic scans retained. The user approved the complete written
+[spec 000011](spec/000011-local-watching-design.md), including timing defaults,
+retry restrictions, watcher failure handling, and historical status changes.
+The fresh read-only builder check reported "nothing important left".
+The [paired plan](implementation-plans/000011-local-watching-plan.md) is prepared
+for review with six tasks: config/status, deterministic scheduling, recursive
+native watching, lifecycle integration, process acceptance, and live harness/docs.
+It selects the existing pinned x/sys inotify bindings without a new dependency.
+Native execution remains the recorded preference; next is plan review before
+implementation on an isolated feature branch/worktree from refreshed main.
+No Go code changed or tests ran during design/planning; git diff --check passes.
+Live acceptance remains explicitly gated and has not run for this feature.
+
+## Systemd implementation and verification history
+
 PR #15 is merged into main at `63de937`; its review and verification history
 below is historical. The user approved spec and plan 000010 for native execution.
 The template and guide are implemented on `feat/systemd-user-service`:
