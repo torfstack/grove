@@ -789,3 +789,9 @@ runtime is not connected yet.
 Task 2 adds deterministic debounce/periodic/retry scheduling. Scheduler tests
 and daemon race tests pass. Selectable timers extend the existing clock contract
 rather than replacing periodic-only test injection.
+
+Task 3 implements recursive descriptor-anchored Linux inotify watching using
+existing x/sys. Native and daemon race tests pass, including overflow repair,
+repeated directory replacement, symlink exclusion, root identity, and reader
+shutdown. Registration requires /proc/self/fd. Event hints never resolve paths
+for engine operations; full engine scans remain authoritative.
