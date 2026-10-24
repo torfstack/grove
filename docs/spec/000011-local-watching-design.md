@@ -1,6 +1,6 @@
 # Local watching for the Linux daemon
 
-Date: 2026-10-24. Status: approved by the user; implemented and locally verified; hosted review/checks pending.
+Date: 2026-10-24. Status: approved by the user; implemented and locally verified; CodeRabbit review complete, final CI pending.
 
 Fresh read-only builder check: "nothing important left"; remaining implementation
 choices are explicitly delegated below.

@@ -25,8 +25,10 @@ The user approved the plan for native execution and authorized publication,
 one completed CodeRabbit review per PR, fixes, passing CI, and merge, followed
 by continued bounded work. Implementation is in `/tmp/grove-local-watching` on
 `feat/local-watching` from refreshed main `23c583b`; original design changes were
-preserved in the starting checkout. Tasks 1–5 are verified below. Final checks,
-operator docs, and one independent whole-change review are in progress.
+preserved in the starting checkout. All six tasks and full local verification are complete below. The independent
+whole-change review's findings are fixed. PR #17's initial CodeRabbit review
+completed with no findings; final integrated-head CI is next before the
+authorized merge.
 Live acceptance remains explicitly gated and has not run for this feature.
 
 ## Systemd implementation and verification history
@@ -843,7 +845,7 @@ CI, and merge; publication and hosted review/checks are next.
 CodeQL Go/Actions, and dependency review passed on implementation head `9fb0c84`.
 CodeRabbit skipped automatic review for the repository's star count; the manual
 request at 14:28 UTC was rate-limited. The retry at 17:09 UTC was accepted and
-is processing its initial full review of `23c583b..9fb0c84`. A successful skipped
+completed its initial full review of `23c583b..9fb0c84` at 17:16 UTC. A successful skipped
 status is not review evidence; retrieve the completed summary, inline comments,
 and review threads before merging. The user has authorized that workflow and
 merge after fixes and fresh CI; no second completed review is required.
@@ -867,5 +869,22 @@ A further regression reproduced attempt-local timeout/cancellation being labelle
 as daemon cancellation after attempt-classification extraction; classification
 now requires an actual daemon cancellation cause. The regression, daemon race
 suite, and fresh full integrated fmt/lint/offline/race/build checks pass.
-This fix is local pending the initial CodeRabbit review, then push and fresh CI.
+This regression-backed fix follows the completed initial CodeRabbit review;
+push and fresh CI are next.
 Authenticated watching remains gated and unrun.
+
+PR #17's initial full CodeRabbit review completed at 17:16 UTC on `9fb0c84`,
+selected all 31 changed files, and reported minimal merge risk with no actionable
+findings. The entire summary, submitted-review API, inline comments, and GraphQL
+review threads were retrieved; the latter three are empty. There are no findings
+to decline or defer. The initial review covers the implementation; the narrow
+attempt-timeout classification regression/fix and already-reviewed dependency
+merges follow it. Full integrated local checks pass. Per decision 0009, no second
+CodeRabbit review is requested or awaited. Push and fresh integrated-head CI are
+next, then merge under the user's standing authorization.
+
+The primary checkout is now clean on main with both dependency merges. Its
+pre-implementation design-only drafts were preserved in the named Git stash
+`preserve local watching design drafts before implementation integration`;
+those approved files are also committed on the watcher branch. The implementation
+worktree remains `/tmp/grove-local-watching` until integration completes.

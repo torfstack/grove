@@ -17,8 +17,9 @@ rejection, and existing daemon process tests pass; authenticated sync under
 systemd is not claimed. The user selected opt-in native local watching next;
 [approved spec 000011](spec/000011-local-watching-design.md) is implemented following its
 [paired plan](implementation-plans/000011-local-watching-plan.md). Deterministic,
-native filesystem, and subprocess verification pass; final checks and independent
-review are in progress. Live watcher acceptance remains gated and unrun.
+native filesystem, and subprocess verification pass. Independent review findings
+are fixed and the initial CodeRabbit review found no actionable findings; final
+integrated-head CI precedes merge. Live watcher acceptance remains gated and unrun.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus
