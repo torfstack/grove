@@ -311,3 +311,16 @@ func TestWatchReadFailureDuringCancellation(t *testing.T) {
 		t.Fatal("cancellation hid genuine read failure", b.Err)
 	}
 }
+
+func TestWatchRepairFailureDuringCancellation(t *testing.T) {
+	_, watch := watchFixture(t)
+	w := watch.(*nativeWatcher)
+	fault := errors.New("private-repair-fault")
+	w.coverage.Lock()
+	w.readEntries = func(*os.File) ([]os.DirEntry, error) { w.cancel(); return nil, fault }
+	w.coverage.Unlock()
+	w.requestRepair()
+	if b := awaitWatch(t, w); !errors.Is(b.Err, fault) {
+		t.Fatalf("cancellation hid repair failure: %v", b.Err)
+	}
+}

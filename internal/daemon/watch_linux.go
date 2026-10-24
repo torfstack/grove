@@ -134,7 +134,7 @@ func (w *nativeWatcher) repairs() {
 			return
 		case <-w.repair:
 			if err := w.Reconcile(w.ctx); err != nil {
-				if w.ctx.Err() == nil {
+				if w.ctx.Err() == nil || !cancellationOnly(err, context.Cause(w.ctx)) {
 					w.mailbox.fail(err)
 				}
 				return

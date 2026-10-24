@@ -894,3 +894,13 @@ pre-implementation design-only drafts were preserved in the named Git stash
 `preserve local watching design drafts before implementation integration`;
 those approved files are also committed on the watcher branch. The implementation
 worktree remains `/tmp/grove-local-watching` until integration completes.
+
+All hosted CI/security checks passed on `7237fbb`, after the completed initial
+review. A final deterministic regression then reproduced a remaining native
+coverage-worker ordering: a genuine repair error returned concurrently with
+cancellation was discarded. The worker now suppresses cancellation-only errors
+and retains genuine faults for the scheduler's post-join drain. The failing
+`TestWatchRepairFailureDuringCancellation` passes with the fix. Fresh fmt, lint
+(0 issues), full offline/race suites, both Linux builds, both macOS arm64 cross-
+builds, and diff checks pass. This narrow shutdown fix is pushed for fresh CI;
+no additional CodeRabbit review is requested under decision 0009.
