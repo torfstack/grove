@@ -669,3 +669,12 @@ manual-trigger policy, and the attempted incremental review was explicitly
 rate-limited as recorded above. No functional findings or unresolved actionable
 comments remain; the remaining limitation is confirmation of the doc-only fixes
 by a fresh manual review after the allowance resets.
+
+2026-10-24: the user changed the workflow to one completed CodeRabbit review per
+PR. [Decision 0009](decisions/0009-single-coderabbit-review.md) and AGENTS.md now
+record this rule: assess and fix the initial findings, verify, and wait for CI;
+do not request or wait for CodeRabbit re-review unless explicitly asked. This
+supersedes the quota-reset/re-review next steps above. PR #15 has already received
+its one full review; all three findings are fixed and its threads are resolved.
+The user also requested a fresh actual-groved live test, so both dedicated-token
+periodic download/upload scenarios are running. No merge is authorized.
