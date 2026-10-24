@@ -610,3 +610,12 @@ Environment note: an early mise invocation reported removing older globally
 installed Bun, Node, and Java versions. This was not requested; subsequent
 commands used non-login shells and did not repeat it. Its cause was not
 established. No unrelated repository changes were made.
+
+## Linux daemon pull request
+
+2026-10-24: the user authorized pushing `feat/linux-daemon` and opening a PR to
+`main`. Fresh offline tests pass; the full offline/race/build/lint and dedicated-
+token live results above remain the implementation verification. CI and
+CodeRabbit review of the published branch are pending. Retrieve the summary,
+inline comments, and review threads for the latest head before declaring ready;
+fix valid findings and wait for fresh checks. Merging remains unauthorized.
