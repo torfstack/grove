@@ -659,3 +659,13 @@ resolutions posted. Next: after the allowance resets, trigger an incremental
 review on the current head, inspect its summary/comments/threads, and handle any
 new findings. CI for the documentation follow-up is checked independently.
 No merge is authorized.
+
+A subsequent GitHub inspection of `20392df` reports all three original review
+threads resolved; no thread-resolution API call or reply was made by this agent.
+Linux CI, CodeQL Go/Actions, and dependency review all passed on that head. The
+only submitted CodeRabbit review still covers `43e724b`; subsequent changes are
+documentation-only. The latest automatic review is again skipped by the OSS
+manual-trigger policy, and the attempted incremental review was explicitly
+rate-limited as recorded above. No functional findings or unresolved actionable
+comments remain; the remaining limitation is confirmation of the doc-only fixes
+by a fresh manual review after the allowance resets.
