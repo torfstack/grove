@@ -645,3 +645,17 @@ passed on the reviewed head. Documentation validation passes; fresh CI and
 CodeRabbit feedback for the documentation fix are the next check. The service
 also reports that its one included review per hour has been consumed; verify
 actual follow-up availability rather than treating a skipped check as review.
+
+The three CodeRabbit documentation corrections are pushed in `3fc6d06`.
+An authorized incremental review trigger was accepted, but the latest-head
+summary then explicitly reported the hourly free OSS review limit: the next
+included review is available around 13:10 UTC on 2026-10-24 (the bot reported
+50 minutes remaining at approximately 12:20 UTC). This is a rate-limited skip,
+not a completed re-review, despite its successful check status. The original
+full review remains applicable to unchanged Go code; only documentation changed
+after it. No new submitted review or additional findings have appeared. The
+three original threads remain open; fixes are pushed, with no replies or thread
+resolutions posted. Next: after the allowance resets, trigger an incremental
+review on the current head, inspect its summary/comments/threads, and handle any
+new findings. CI for the documentation follow-up is checked independently.
+No merge is authorized.
