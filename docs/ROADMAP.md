@@ -15,9 +15,10 @@ user-service template and installation instructions, merged in PR #16 at `23c583
 Static validation, isolated manager lifecycle checks, actual-daemon invalid-config
 rejection, and existing daemon process tests pass; authenticated sync under
 systemd is not claimed. The user selected opt-in native local watching next;
-[approved spec 000011](spec/000011-local-watching-design.md) has a
-[paired plan](implementation-plans/000011-local-watching-plan.md) prepared for
-review before implementation.
+[approved spec 000011](spec/000011-local-watching-design.md) is implemented following its
+[paired plan](implementation-plans/000011-local-watching-plan.md). Deterministic,
+native filesystem, and subprocess verification pass; final checks and independent
+review are in progress. Live watcher acceptance remains gated and unrun.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus
@@ -43,11 +44,11 @@ review before implementation.
    deletion propagation is approved in
    [spec 000007](spec/000007-deletion-propagation-design.md) and is implemented
    on `feat/deletion-propagation`, pending pull request review. Periodic scheduling is
-   implemented in spec 000009; filesystem watching remains a follow-up.
+   implemented in spec 000009; opt-in local watching is implemented in spec 000011.
 4. **Linux daemon**: the first implemented slice is spec 000009: a foreground
    process periodically syncing one existing profile through the shared engine,
-   with lifetime exclusion, cancellation, and offline status. Local file
-   watching and richer remote polling follow. Systemd user-service integration
+   with lifetime exclusion, cancellation, and offline status. Opt-in local
+   watching is implemented in spec 000011; richer remote polling follows. Systemd user-service integration
    is implemented in spec 000010 with manual installation instructions.
 5. **Windows and macOS**: native lifecycle integration and platform-specific
    filesystem and credential behavior, backed by tests on each platform.

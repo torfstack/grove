@@ -236,3 +236,28 @@ shell-derived unit directory to match a reported path. The command succeeded
 both normally and with a shell-only custom XDG_CONFIG_HOME, reporting the same
 running-manager paths; installed systemd-analyze documentation confirms this
 distinction. New directories require daemon-reload before rechecking.
+
+## Local watching acceptance
+
+Spec 000011 adds strict watch_local config and historical status. Deterministic
+clock tests cover debounce, five-second cap, periodic fairness, busy/failure retry
+limits, completion-boundary edits and historical deadlines. Native Linux tests
+cover nested/atomic saves, moved-in directories, metadata/removal hints, read-only
+silence, actual directory-to-symlink replacement, root identity loss, injected
+overflow, descriptor churn, transient enumeration loss, bounded hints and cleanup.
+
+Actual daemon subprocesses with fake Drive verify downloaded changes settle
+after a no-op follow-up, edits during blocked transfers survive and are observed,
+SIGINT/SIGTERM cancellation, fatal root replacement, and released lifetime locks.
+Repeated race-enabled watcher process tests pass. A real transient validation-
+probe directory disappearing during enumeration reproduced a coverage failure;
+a deterministic retry regression and the process scenario now pass.
+
+`TestDaemonLocalWatchUploadLive` is added behind the existing explicit dedicated-
+account gates. It runs actual binaries with watch_local=true and a ten-minute
+interval, observes local-edit upload before a 90-second observation timeout,
+independently verifies Drive content, requests metadata-triggered no-op cycles,
+checks stable content/mtimes and offline status, and cleans fixture-owned data.
+It has only been checked in disabled mode (explicit SKIP); authenticated watching
+has not been exercised. Native watcher evidence is local Linux filesystem
+coverage, not a guarantee for network filesystems or authenticated systemd sync.

@@ -37,8 +37,8 @@ token; persistence failures fail the request. Windows auth remains deferred.
 - `grove`: one-shot commands, including interactive authentication.
 - `groved`: foreground periodic sync of one existing Linux profile, sequential
   attempts, cancellation, and graceful shutdown. A distributed systemd user
-  template supplies optional Linux background lifecycle; local watching remains
-  a follow-up.
+  template supplies optional Linux background lifecycle; opt-in local watching
+  requests debounced sequential attempts while retaining periodic scans.
 - Shared Go packages: Drive access, local scanning, persisted sync state,
   deterministic planning, and operation execution.
 
@@ -229,3 +229,22 @@ a non-mutating shared lock probe for ownership, maps history into a public DTO,
 and independently locks the profile for its summary. Neither history nor a PID
 is liveness evidence or authority to mutate data. See
 [spec 000009](spec/000009-linux-daemon-design.md).
+
+## Linux local watching
+
+[Spec 000011](spec/000011-local-watching-design.md) adds a Linux inotify adapter
+behind `Watcher`, using pinned x/sys and `/proc/self/fd` to register anchored
+no-follow directory descriptors. A bounded mailbox preserves first/latest hint
+times and sticky failures; its reader drains concurrently with serialized
+coverage walks. Structural events and overflow request recursive repair, not
+path-based engine operations. Root identity loss or failed repair stops visibly.
+
+The scheduler keeps independent periodic, debounce, and retry deadlines. A single
+engine worker retains original binding and mode checks while the scheduler
+consumes hints during work. One-second quiet/five-second maximum debounce does
+not prove write completion. Failed/busy attempts restrict event retries for one
+interval. Watcher-generated hints from Grove's writes may cause a no-op follow-up;
+read/hash scans do not trigger events. Historical status exposes configured
+watching and earliest advisory deadline, not current watch health. Shutdown joins
+engine and native reader cleanup before releasing lifetime ownership. Periodic-
+only execution retains its original completion-based wait path.

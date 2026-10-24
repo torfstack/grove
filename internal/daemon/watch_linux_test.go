@@ -155,24 +155,32 @@ func TestWatchSymlinkRegistrationRace(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := w.Reconcile(context.Background()); err != nil {
-        t.Fatal(err)
-    }
-    native := w.(*nativeWatcher)
-    child := filepath.Join(root, "race")
-    if err := os.Mkdir(child,0700); err != nil { t.Fatal(err) }
-    swapped := false
-    native.coverage.Lock()
-    native.readEntries = func(f *os.File)([]os.DirEntry,error) {
-        entries,err := f.ReadDir(-1)
-        if !swapped {
-            swapped = true
-            if renameErr := os.Rename(child,filepath.Join(outside,"moved")); renameErr != nil { return nil,renameErr }
-            if linkErr := os.Symlink(outside,child); linkErr != nil { return nil,linkErr }
-        }
-        return entries,err
-    }
-    native.coverage.Unlock()
-    if err := w.Reconcile(context.Background()); err != nil { t.Fatal(err) }
+		t.Fatal(err)
+	}
+	native := w.(*nativeWatcher)
+	child := filepath.Join(root, "race")
+	if err := os.Mkdir(child, 0700); err != nil {
+		t.Fatal(err)
+	}
+	swapped := false
+	native.coverage.Lock()
+	native.readEntries = func(f *os.File) ([]os.DirEntry, error) {
+		entries, err := f.ReadDir(-1)
+		if !swapped {
+			swapped = true
+			if renameErr := os.Rename(child, filepath.Join(outside, "moved")); renameErr != nil {
+				return nil, renameErr
+			}
+			if linkErr := os.Symlink(outside, child); linkErr != nil {
+				return nil, linkErr
+			}
+		}
+		return entries, err
+	}
+	native.coverage.Unlock()
+	if err := w.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 	// A barrier drains kernel events before asserting that outside writes are ignored.
 	time.Sleep(50 * time.Millisecond)
 	_ = w.Take()

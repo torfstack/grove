@@ -26,7 +26,9 @@ import (
 func TestDaemonPeriodicDownloadLive(t *testing.T) { testDaemonLive(t, false) }
 func TestDaemonPeriodicUploadLive(t *testing.T)   { testDaemonLive(t, true) }
 
-func testDaemonLive(t *testing.T, upload bool) {
+func testDaemonLive(t *testing.T, upload bool) { testDaemonVariant(t, upload, false) }
+
+func testDaemonVariant(t *testing.T, upload, watching bool) {
 	cfg := testConfig(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	t.Cleanup(cancel)
@@ -63,6 +65,17 @@ func testDaemonLive(t *testing.T, upload bool) {
 	}); err != nil {
 		t.Fatal("cannot seed daemon fixture")
 	}
+	cleaned := false
+	t.Cleanup(func() {
+		if cleaned {
+			return
+		}
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cleanupCancel()
+		if err := fixtureAPI(cleanupCtx, cfg.Token, runDir, "read-write", func(api drive.API) error { return fixture.Cleanup(cleanupCtx, api, runDir) }); err != nil {
+			t.Error("owned daemon fixture cleanup failed; private run retained")
+		}
+	})
 	var rootID, targetID string
 	for _, o := range run.Objects {
 		if o.ParentID == "" {
@@ -88,8 +101,12 @@ func testDaemonLive(t *testing.T, upload bool) {
 	if upload {
 		mode = "two-way"
 	}
+	interval := "2s"
+	if watching {
+		interval = "10m"
+	}
 	config := filepath.Join(base, "daemon.json")
-	if err := privatefs.WriteJSON(config, map[string]any{"version": 1, "profile_dir": opts.ProfileDir, "mode": mode, "interval": "2s"}); err != nil {
+	if err := privatefs.WriteJSON(config, map[string]any{"version": 1, "profile_dir": opts.ProfileDir, "mode": mode, "interval": interval, "watch_local": watching}); err != nil {
 		t.Fatal(err)
 	}
 	log, err := os.OpenFile(filepath.Join(base, "process.log"), os.O_CREATE|os.O_WRONLY, 0600)
@@ -133,6 +150,8 @@ func testDaemonLive(t *testing.T, upload bool) {
 	t.Cleanup(stop)
 	wait := func(condition func() bool) {
 		t.Helper()
+		deadline := time.NewTimer(90 * time.Second)
+		defer deadline.Stop()
 		timer := time.NewTicker(100 * time.Millisecond)
 		defer timer.Stop()
 		for {
@@ -140,6 +159,8 @@ func testDaemonLive(t *testing.T, upload bool) {
 				return
 			}
 			select {
+			case <-deadline.C:
+				t.Fatal("daemon acceptance exceeded 90s observation window")
 			case <-ctx.Done():
 				t.Fatal("daemon acceptance timed out; private records retained")
 			case <-done:
@@ -160,7 +181,7 @@ func testDaemonLive(t *testing.T, upload bool) {
 		t.Helper()
 		output, err := exec.CommandContext(ctx, groveBin, "status", "--profile-dir", opts.ProfileDir, "--json").Output()
 		var report daemon.StatusReport
-		if err != nil || json.Unmarshal(output, &report) != nil || report.Owner != owner || report.LastRecorded == nil {
+		if err != nil || json.Unmarshal(output, &report) != nil || report.Owner != owner || report.LastRecorded == nil || report.LastRecorded.WatchLocal != watching {
 			t.Fatal("offline command status disagrees with process ownership")
 		}
 	}
@@ -205,6 +226,11 @@ func testDaemonLive(t *testing.T, upload bool) {
 		wait(func() bool { _, err := fixture.VerifyLocal(ctx, expected, opts.LocalDir); return err == nil })
 	}
 	settledAfter := time.Now()
+	if watching {
+		if err := os.Chmod(filepath.Join(opts.LocalDir, "nested", "hello.txt"), 0600); err != nil {
+			t.Fatal("cannot request owned metadata reconciliation")
+		}
+	}
 	wait(func() bool {
 		r := record()
 		c := r.Counts
@@ -232,6 +258,11 @@ func testDaemonLive(t *testing.T, upload bool) {
 		t.Fatal("cannot snapshot local mtimes")
 	}
 	after := time.Now()
+	if watching {
+		if err := os.Chmod(filepath.Join(opts.LocalDir, "nested", "hello.txt"), 0600); err != nil {
+			t.Fatal("cannot request owned no-op reconciliation")
+		}
+	}
 	wait(func() bool {
 		r := record()
 		c := r.Counts
@@ -265,6 +296,7 @@ func testDaemonLive(t *testing.T, upload bool) {
 	if err := fixtureAPI(ctx, cfg.Token, runDir, "read-write", func(api drive.API) error { return fixture.Cleanup(ctx, api, runDir) }); err != nil {
 		t.Fatal("owned daemon fixture cleanup failed")
 	}
+	cleaned = true
 	t.Log("Actual daemon scheduling, independent content, no-op cycle, offline status, shutdown and owned cleanup verified")
 }
 

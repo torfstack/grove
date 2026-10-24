@@ -21,9 +21,12 @@ The [paired plan](implementation-plans/000011-local-watching-plan.md) is prepare
 for review with six tasks: config/status, deterministic scheduling, recursive
 native watching, lifecycle integration, process acceptance, and live harness/docs.
 It selects the existing pinned x/sys inotify bindings without a new dependency.
-Native execution remains the recorded preference; next is plan review before
-implementation on an isolated feature branch/worktree from refreshed main.
-No Go code changed or tests ran during design/planning; git diff --check passes.
+The user approved the plan for native execution and authorized publication,
+one completed CodeRabbit review per PR, fixes, passing CI, and merge, followed
+by continued bounded work. Implementation is in `/tmp/grove-local-watching` on
+`feat/local-watching` from refreshed main `23c583b`; original design changes were
+preserved in the starting checkout. Tasks 1–5 are verified below. Final checks,
+operator docs, and one independent whole-change review are in progress.
 Live acceptance remains explicitly gated and has not run for this feature.
 
 ## Systemd implementation and verification history
@@ -809,3 +812,10 @@ visibly, and lifetime ownership is released. A reproduced transient-probe
 ENOENT during watcher enumeration now triggers coverage repair; deterministic
 and actual-directory-to-symlink swap regressions pass. No shared engine mutation
 semantics changed.
+
+Task 6 adds gated actual-binary watch-triggered upload acceptance and operator
+records. Disabled-mode acceptance reports an explicit SKIP without token/network
+use; authenticated local watching remains untested. Fresh fmt, lint (0 issues),
+all 11 offline/race packages, both Linux builds, and diff checks pass. Both
+binaries also cross-build for macOS arm64; no non-Linux runtime is claimed.
+The independent whole-change review and hosted PR review/checks are next.

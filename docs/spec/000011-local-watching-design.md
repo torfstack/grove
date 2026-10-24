@@ -1,6 +1,6 @@
 # Local watching for the Linux daemon
 
-Date: 2026-10-24. Status: approved by the user; implementation pending.
+Date: 2026-10-24. Status: approved by the user; implemented; verification/review in progress.
 
 Fresh read-only builder check: "nothing important left"; remaining implementation
 choices are explicitly delegated below.
@@ -164,4 +164,4 @@ semantics should not need changes for this feature.
   status to state implemented behavior and actual verification limits.
 
 The [paired implementation plan](../implementation-plans/000011-local-watching-plan.md)
-is prepared for review. No implementation is claimed yet.
+tracks completed implementation and actual verification/review limits.
