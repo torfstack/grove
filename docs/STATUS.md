@@ -9,27 +9,33 @@ state was confirmed and origin/main refreshed. The implementation/review
 narrative below is historical and its no-merge-authorized wording is superseded
 by the user's completed merge.
 
-## Local watching design
+## Local watching
 
-The user selected local watching next and chose opt-in native Linux events via
-`watch_local`, default false, with debounce, sequential shared-engine attempts,
-and periodic scans retained. The user approved the complete written
-[spec 000011](spec/000011-local-watching-design.md), including timing defaults,
-retry restrictions, watcher failure handling, and historical status changes.
-The fresh read-only builder check reported "nothing important left".
-The [paired plan](implementation-plans/000011-local-watching-plan.md) is prepared
-for review with six tasks: config/status, deterministic scheduling, recursive
-native watching, lifecycle integration, process acceptance, and live harness/docs.
-It selects the existing pinned x/sys inotify bindings without a new dependency.
-The user approved the plan for native execution and authorized publication,
-one completed CodeRabbit review per PR, fixes, passing CI, and merge, followed
-by continued bounded work. Implementation is in `/tmp/grove-local-watching` on
-`feat/local-watching` from refreshed main `23c583b`; original design changes were
-preserved in the starting checkout. All six tasks and full local verification are complete below. The independent
-whole-change review's findings are fixed. PR #17's initial CodeRabbit review
-completed with no findings; final integrated-head CI is next before the
-authorized merge.
-Live acceptance remains explicitly gated and has not run for this feature.
+[Spec 000011](spec/000011-local-watching-design.md) and its
+[implementation plan](implementation-plans/000011-local-watching-plan.md) are
+approved and implemented. Opt-in `watch_local` defaults false; Linux native
+hints request debounced sequential shared-engine attempts while periodic scans
+continue. Configuration/status, scheduling, recursive coverage, lifecycle,
+process acceptance, and gated live harness/operator docs are complete.
+
+All local fmt/lint/offline/race/build checks pass, including the dependency-
+integrated tree and regression-backed shutdown/attempt-classification fixes.
+Both binaries cross-build for macOS arm64. The independent review's two
+Important findings are fixed; CodeRabbit's completed initial review of `9fb0c84`
+selected all 31 files and found no actionable issues, comments, or threads.
+[PR #17](https://github.com/torfstack/grove/pull/17) tracks hosted checks and
+integration. The user authorized publication, one completed CodeRabbit review,
+fixes, passing CI, and merge, followed by continued bounded work.
+
+Authenticated local watching is gated and unrun. Native descriptor churn is
+covered without forcibly injecting kernel descriptor reuse. Network filesystem
+reliability and non-Linux daemon runtime are not claimed. Native registration
+requires `/proc/self/fd`; fatal watch/root errors stop visibly.
+
+Dependency maintenance is complete: PR #11 merged at `002a20e` and PR #14 at
+`750ba2a`, each after its completed review and fresh passing checks. The primary
+checkout is on main; original design-only drafts are preserved in a named stash.
+Detailed implementation, review, verification, and integration history follows.
 
 ## Systemd implementation and verification history
 
