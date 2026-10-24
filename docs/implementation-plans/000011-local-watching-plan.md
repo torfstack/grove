@@ -107,7 +107,7 @@
 - [x] Update README/config and systemd guide examples with opt-in flag, one/five-second timing, existing-root prerequisite, cooldown, advisory deadlines, fatal watcher failures, limits on network/unsupported filesystems and proc availability if used. Retain restart-required config behavior and unchanged service settings.
 - [x] Record accepted decision 0011 for native hints plus periodic reconciliation; identify implementation-specific choices as such. Update product/architecture/roadmap/testbed/status, paired spec, and this plan with actual behavior, checks, and remaining limits.
 - [x] Run `mise run fmt`, `mise run lint`, `mise run test`, `mise run test-race`, `mise run build`, and `git diff --check`; require success before reporting readiness. Cross-build both binaries for macOS with temporary outputs to ensure Linux-specific APIs stay behind platform boundaries; compilation is not runtime acceptance.
-- [ ] Perform one fresh read-only whole-change review under the native execution workflow. Assess findings against approved scope, fix valid issues, rerun affected checks, and record unresolved limits. Commit completed code/docs. Push/PR/comment/merge are not authorized by this plan.
+- [x] Perform one fresh read-only whole-change review under the native execution workflow. Assess findings against approved scope, fix valid issues, rerun affected checks, and record unresolved limits. Commit completed code/docs. Push/PR/comment/merge are not authorized by this plan.
 
 ## Self-review and handoff
 
@@ -115,12 +115,16 @@ Spec coverage: configuration/status => Task 1; scheduling and elapsed timing =>
 Task 2; recursive coverage, overflow, identity and bounded hints => Task 3;
 engine integration, record deadlines and cleanup => Task 4; real filesystem and
 process acceptance => Task 5; live harness, docs and final verification => Task 6.
-All five Review Focus cases have explicit tests. Interface names are consistent
+Review Focus has targeted coverage, including cancellation during repair and
+failure concurrent with signals. Descriptor churn is exercised but kernel
+watch-descriptor reuse/stale-event ordering is not forcibly injected; retain
+that verification limit. Interface names are consistent
 across tasks; the shared engine's planner/mutation API is unchanged.
 
 Implementation tasks 1–5 and Task 6 verification/docs are complete in the isolated
 `/tmp/grove-local-watching` worktree on `feat/local-watching` from `23c583b`.
-The initial checkout's documents remain preserved. Final independent review and
-hosted PR checks follow. Live watching acceptance is added but explicitly gated
+The initial checkout's documents remain preserved. Final independent review found two Important shutdown-ordering issues; both
+have reproduced failing regressions and passing fixes. Full local checks pass;
+hosted PR review/checks follow. Live watching acceptance is added but explicitly gated
 and unrun. Clock compatibility and native coverage repair rulings are recorded
 in decision 0011 and STATUS.

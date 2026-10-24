@@ -1,6 +1,6 @@
 # 0011: Opt-in native Linux local watching
 
-Date: 2026-10-24. Status: accepted by the user; implementation under verification.
+Date: 2026-10-24. Status: accepted by the user; implemented and locally verified.
 
 The user approved [spec 000011](../spec/000011-local-watching-design.md) and its
 paired implementation plan after systemd integration merged. Add strict boolean

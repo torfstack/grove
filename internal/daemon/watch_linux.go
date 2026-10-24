@@ -82,9 +82,7 @@ func (w *nativeWatcher) read() {
 	for {
 		n, err := w.file.Read(buf)
 		if err != nil {
-			if w.ctx.Err() == nil {
-				w.mailbox.fail(failed("watch_read_failed", err))
-			}
+			w.readError(err)
 			return
 		}
 		if err := w.events(buf[:n]); err != nil {
@@ -93,6 +91,12 @@ func (w *nativeWatcher) read() {
 		}
 	}
 }
+func (w *nativeWatcher) readError(err error) {
+	if w.ctx.Err() == nil || !errors.Is(err, os.ErrClosed) {
+		w.mailbox.fail(failed("watch_read_failed", err))
+	}
+}
+
 func (w *nativeWatcher) events(data []byte) error {
 	for len(data) > 0 {
 		if len(data) < unix.SizeofInotifyEvent {

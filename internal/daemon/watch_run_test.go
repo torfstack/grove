@@ -300,3 +300,80 @@ func TestDaemonWatchCompletionBoundary(t *testing.T) {
 		t.Fatal("lost completion event")
 	}
 }
+
+func TestDaemonWatchFailureSurvivesSignal(t *testing.T) {
+	path := watchConfig(t)
+	w := newFakeWatcher()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	fault := errors.New("private-watch-failure")
+	err := Run(ctx, path, Dependencies{OpenWatcher: func(context.Context, string, Clock) (Watcher, error) { return w, nil }, SaveRecord: func(_ string, r Record) error {
+		if r.Phase == "starting" {
+			w.box.fail(fault)
+			cancel()
+		}
+		return nil
+	}, RunExisting: func(context.Context, string, syncengine.Binding, bool) (syncengine.Result, error) {
+		t.Fatal("cancelled startup ran engine")
+		return syncengine.Result{}, nil
+	}})
+	if !errors.Is(err, fault) || strings.Contains(err.Error(), "private-watch-failure") {
+		t.Fatalf("signal masked watcher fault: %v", err)
+	}
+}
+
+type reconcileWatcher struct {
+	*fakeWatcher
+	reconcile func(context.Context) error
+}
+
+func (w *reconcileWatcher) Reconcile(ctx context.Context) error { return w.reconcile(ctx) }
+func TestDaemonWatchSignalDuringReconcile(t *testing.T) {
+	path := watchConfig(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	w := &reconcileWatcher{fakeWatcher: newFakeWatcher(), reconcile: func(ctx context.Context) error { cancel(); return ctx.Err() }}
+	err := Run(ctx, path, Dependencies{OpenWatcher: func(context.Context, string, Clock) (Watcher, error) { return w, nil }, RunExisting: func(context.Context, string, syncengine.Binding, bool) (syncengine.Result, error) {
+		return syncengine.Result{}, nil
+	}})
+	if err != nil {
+		t.Fatalf("graceful signal became coverage failure: %v", err)
+	}
+}
+
+func TestDaemonWatchSignalPreservesCompletionCleanupError(t *testing.T) {
+	path := watchConfig(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cleanupErr := errors.New("private-engine-cleanup")
+	w := &reconcileWatcher{fakeWatcher: newFakeWatcher(), reconcile: func(ctx context.Context) error { cancel(); return ctx.Err() }}
+	err := Run(ctx, path, Dependencies{OpenWatcher: func(context.Context, string, Clock) (Watcher, error) { return w, nil }, RunExisting: func(context.Context, string, syncengine.Binding, bool) (syncengine.Result, error) {
+		return syncengine.Result{}, errors.Join(context.Canceled, cleanupErr)
+	}})
+	if !errors.Is(err, cleanupErr) || strings.Contains(err.Error(), "private-engine-cleanup") {
+		t.Fatalf("completion lost cleanup error: %v", err)
+	}
+}
+
+type lateFailureWatcher struct {
+	*fakeWatcher
+	fault error
+}
+
+func (w *lateFailureWatcher) Close() error { w.box.fail(w.fault); return w.fakeWatcher.Close() }
+func TestDaemonWatchFailureDuringReaderCleanup(t *testing.T) {
+	path := watchConfig(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	fault := errors.New("private-reader-fault")
+	w := &lateFailureWatcher{newFakeWatcher(), fault}
+	err := Run(ctx, path, Dependencies{OpenWatcher: func(context.Context, string, Clock) (Watcher, error) { return w, nil }, SaveRecord: func(_ string, r Record) error {
+		if r.Phase == "starting" {
+			cancel()
+		}
+		return nil
+	}})
+	if !errors.Is(err, fault) || strings.Contains(err.Error(), "private-reader-fault") {
+		t.Fatalf("reader cleanup lost fault: %v", err)
+	}
+}

@@ -1,6 +1,6 @@
 # Local watching for the Linux daemon
 
-Date: 2026-10-24. Status: approved by the user; implemented; verification/review in progress.
+Date: 2026-10-24. Status: approved by the user; implemented and locally verified; hosted review/checks pending.
 
 Fresh read-only builder check: "nothing important left"; remaining implementation
 choices are explicitly delegated below.

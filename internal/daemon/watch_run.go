@@ -52,6 +52,9 @@ func runWatching(ctx context.Context, cfg Config, deps Dependencies, binding syn
 		if closeErr := w.Close(); closeErr != nil {
 			err = errors.Join(err, failed("watch_cleanup_failed", closeErr))
 		}
+		if fault := w.Take().Err; fault != nil && !errors.Is(err, fault) {
+			err = errors.Join(err, failed("watch_failed", fault))
+		}
 	}()
 	if err := save("starting"); err != nil {
 		return err
@@ -165,8 +168,20 @@ func runWatching(ctx context.Context, cfg Config, deps Dependencies, binding syn
 		case out := <-results:
 			active = false
 			finish(out)
-			if err := w.Reconcile(life); err != nil {
-				return failed("watch_coverage_failed", err)
+			repairErr := w.Reconcile(life)
+			if ctx.Err() != nil {
+				var faults []error
+				if out.err != nil && !cancellationOnly(out.err, context.Cause(ctx)) && !errors.Is(out.err, privatefs.ErrLocked) {
+					faults = append(faults, failed("sync_failed", out.err))
+				}
+				if repairErr != nil && !cancellationOnly(repairErr, context.Cause(ctx)) {
+					faults = append(faults, failed("watch_coverage_failed", repairErr))
+				}
+				faults = append(faults, stop())
+				return errors.Join(faults...)
+			}
+			if repairErr != nil {
+				return failed("watch_coverage_failed", repairErr)
 			}
 		}
 	}

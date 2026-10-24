@@ -5,6 +5,7 @@ package daemon
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"golang.org/x/sys/unix"
 	"os"
 	"path/filepath"
@@ -297,5 +298,16 @@ func TestWatchRemovedDuringEnumeration(t *testing.T) {
 	}
 	if calls < 2 {
 		t.Fatal("incomplete enumeration accepted")
+	}
+}
+
+func TestWatchReadFailureDuringCancellation(t *testing.T) {
+	_, watch := watchFixture(t)
+	w := watch.(*nativeWatcher)
+	w.cancel()
+	fault := errors.New("private-native-read")
+	w.readError(fault)
+	if b := w.Take(); !errors.Is(b.Err, fault) {
+		t.Fatal("cancellation hid genuine read failure", b.Err)
 	}
 }

@@ -819,3 +819,20 @@ use; authenticated local watching remains untested. Fresh fmt, lint (0 issues),
 all 11 offline/race packages, both Linux builds, and diff checks pass. Both
 binaries also cross-build for macOS arm64; no non-Linux runtime is claimed.
 The independent whole-change review and hosted PR review/checks are next.
+
+Independent whole-change review of `23c583b..dc8cb58` found two Important
+shutdown-ordering defects and no Critical findings. Deterministic regressions
+reproduced both: SIGTERM masked queued/late watcher failures, and cancellation
+during reconciliation became fatal while genuine completion cleanup errors
+could be lost. The single fix pass preserves sticky reader errors after join,
+suppresses only expected closed-reader cancellation, and distinguishes graceful
+repair cancellation from genuine engine/repair faults. All five new shutdown/
+read-error regressions pass. Fresh fmt, lint (0 issues), full offline/race suites,
+both Linux builds, both macOS arm64 cross-builds, and diff checks pass on the fixes.
+The reviewer also identified an overstated verification sentence: the plan now
+explicitly records that directory churn does not forcibly inject kernel watch-
+descriptor reuse/stale-event ordering. Authenticated watching remains gated/unrun;
+network filesystems, non-Linux runtime, and adversarial transient reparenting
+are not claimed. Event hints never become mutation paths or deletion authority.
+The user authorized PR publication, completed CodeRabbit review, fixes, passing
+CI, and merge; publication and hosted review/checks are next.
