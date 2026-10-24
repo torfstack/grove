@@ -27,8 +27,16 @@ was untouched. See [TESTBED](TESTBED.md#systemd-user-service-acceptance) for det
 Initial sandbox test attempts failed because cache writes, filesystem inspection,
 and loopback listeners were blocked. Successful verification used a temporary
 Go cache and approved escalation. No Go code changed. Authenticated sync under
-systemd and logout/boot/linger behavior were not tested. Independent whole-change
-review and final documentation validation are next; no PR/push/merge requested.
+systemd and logout/boot/linger behavior were not tested. The independent
+whole-change review found one Important issue: unit installation ignored custom
+XDG_CONFIG_HOME. The guide now uses the effective user-unit directory while
+retaining the approved fixed Grove JSON location. A reproduced failing guide
+check passes after the fix for default/custom config homes with spaces, and
+repeat setup preserves files. No Critical/Minor findings remain. Review accepted
+the recorded synthetic-home, in-place-branch, and configuration-validation
+choices. Live systemd sync, real boot/logout/linger, a separate account with
+spaces in its home, distribution packaging, and non-Linux integration remain
+explicit verification/scope limits. No PR/push/merge requested.
 
 ## Release status
 

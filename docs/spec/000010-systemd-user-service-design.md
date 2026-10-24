@@ -74,6 +74,10 @@ the existing periodic loop handles unavailable networking.
 
 ## Operator documentation
 
+Install user units under `${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user`,
+matching the user manager environment. This differs from the intentionally fixed
+Grove JSON location; use the same effective unit directory during removal.
+
 Document prerequisites: Linux with a running systemd user manager, built or
 installed binaries, successful authentication and initial profile sync, and
 private config outside Git and the synced destination. Build tools are not

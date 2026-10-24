@@ -1,6 +1,6 @@
 # Systemd User-Service Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Preserve the user's native execution preference.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking. Preserve the user's native execution preference.
 
 **Goal:** Ship a reusable systemd user-service template and complete installation/lifecycle instructions for the existing Linux daemon.
 
@@ -69,11 +69,11 @@
 
 **Interfaces:** Consumes Task 2 evidence. Produces an accurate implemented/verified boundary across project docs.
 
-- [ ] Add accepted decision 0010 covering package/template distribution, fixed config convention, source override, explicit restart, and unlimited graceful stop; identify these as the user's approved spec choices.
-- [ ] Update architecture/product/roadmap to describe the shipped template while retaining watching and other deferred features. Update spec and plan completion only to the extent verified; preserve historical decision 0008's original scope.
-- [ ] Run `git diff --check`, check all touched relative documentation links, and inspect the complete diff against spec 000010. Confirm no accidental installed service, enabled linger, credential access, generated IDs, synced data, or temporary acceptance artifacts remain in the worktree.
-- [ ] Request one fresh read-only whole-change review under the native execution workflow. Assess findings against the approved scope, fix valid issues, rerun affected verification, and record outcomes/limits in STATUS. No PR, external comment, push, or merge is implied by this plan.
-- [ ] Commit the completed verification/docs changes in the implementation branch and report the shipped behavior, actual results, and runtime limits.
+- [x] Add accepted decision 0010 covering package/template distribution, fixed config convention, source override, explicit restart, and unlimited graceful stop; identify these as the user's approved spec choices.
+- [x] Update architecture/product/roadmap to describe the shipped template while retaining watching and other deferred features. Update spec and plan completion only to the extent verified; preserve historical decision 0008's original scope.
+- [x] Run `git diff --check`, check all touched relative documentation links, and inspect the complete diff against spec 000010. Confirm no accidental installed service, enabled linger, credential access, generated IDs, synced data, or temporary acceptance artifacts remain in the worktree.
+- [x] Request one fresh read-only whole-change review under the native execution workflow. Assess findings against the approved scope, fix valid issues, rerun affected verification, and record outcomes/limits in STATUS. No PR, external comment, push, or merge is implied by this plan.
+- [x] Commit the completed verification/docs changes in the implementation branch and report the shipped behavior, actual results, and runtime limits.
 
 ## Self-review and handoff
 
@@ -83,5 +83,8 @@ dependencies. Runtime-manager tests remain conditional on availability and do
 not substitute helper behavior for actual sync acceptance.
 
 Native execution is retained from the existing session preference recorded in
-STATUS. The user approved this plan for execution. Tasks 1–2 are verified; Task 3
-project records are updated and the independent whole-change review is next.
+STATUS. All three tasks are implemented and verified. The independent whole-change
+review found one Important custom-XDG unit-installation defect, reproduced and
+fixed with default/custom-home guide checks. No Critical/Minor findings remain.
+See TESTBED and STATUS for actual results and the explicit runtime limits.
+The branch remains local; integration requires the user's choice.

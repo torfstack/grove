@@ -22,6 +22,11 @@ depend on your interactive shell's PATH. This first-install example uses
 refuses existing files, including symlinks: review an existing setup using
 `systemctl --user cat groved@personal.service` and follow the upgrade section.
 
+User units go beneath `${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user`, matching
+the user manager's configuration environment. The shell and manager must use
+the same XDG_CONFIG_HOME; check with `systemd-analyze --user unit-paths` if you
+customize it. This unit directory is separate from the fixed Grove JSON path.
+
 Run this block from the repository root in a POSIX shell. Replace `personal`
 consistently if you use a different label. The initial config is download-only;
 edit the absolute profile path before starting.
@@ -29,10 +34,11 @@ edit the absolute profile path before starting.
 ```sh
 (
   set -eu
+  grove_unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
   for target in \
     "$HOME/.local/bin/groved" \
-    "$HOME/.config/systemd/user/groved@.service" \
-    "$HOME/.config/systemd/user/groved@personal.service.d/override.conf" \
+    "$grove_unit_dir/groved@.service" \
+    "$grove_unit_dir/groved@personal.service.d/override.conf" \
     "$HOME/.config/grove/daemons/personal.json"
   do
     if [ -e "$target" ] || [ -L "$target" ]; then
@@ -40,14 +46,14 @@ edit the absolute profile path before starting.
       exit 1
     fi
   done
-  mkdir -p "$HOME/.local/bin" "$HOME/.config/systemd/user/groved@personal.service.d"
+  mkdir -p "$HOME/.local/bin" "$grove_unit_dir/groved@personal.service.d"
   install -m 755 bin/groved "$HOME/.local/bin/groved"
-  install -m 644 contrib/systemd/groved@.service "$HOME/.config/systemd/user/groved@.service"
+  install -m 644 contrib/systemd/groved@.service "$grove_unit_dir/groved@.service"
   umask 077
   mkdir -p "$HOME/.config/grove/daemons"
   chmod 700 "$HOME/.config/grove/daemons"
   set -C
-  cat > "$HOME/.config/systemd/user/groved@personal.service.d/override.conf" <<'UNIT'
+  cat > "$grove_unit_dir/groved@personal.service.d/override.conf" <<'UNIT'
 [Service]
 ExecStart=
 ExecStart="%h/.local/bin/groved" --config "%h/.config/grove/daemons/%i.json"
@@ -86,7 +92,8 @@ can install it at `/usr/lib/systemd/user/groved@.service` alongside that binary;
 this repository does not yet provide such a package. With a package-provided
 unit, omit the source-build copy and ExecStart override. Create only the private
 daemon config, then use the same commands below. Personal units and drop-ins
-under `~/.config/systemd/user/` take precedence over vendor files; remove a
+under `${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/` take precedence over vendor
+files; remove a
 source-build override/copy deliberately when switching to packaged binaries.
 
 ## Start and inspect
@@ -157,9 +164,10 @@ To disable and remove this instance:
 
 ```sh
 systemctl --user disable --now groved@personal.service
+grove_unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 # Review and remove only this instance's override, if you installed it:
-rm -i "$HOME/.config/systemd/user/groved@personal.service.d/override.conf"
-rmdir "$HOME/.config/systemd/user/groved@personal.service.d"
+rm -i "$grove_unit_dir/groved@personal.service.d/override.conf"
+rmdir "$grove_unit_dir/groved@personal.service.d"
 systemctl --user daemon-reload
 ```
 

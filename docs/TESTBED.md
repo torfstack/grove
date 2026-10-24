@@ -220,3 +220,13 @@ all file hashes. Existing real-daemon tests passed with `-count=1`:
 signals/locks. Helper tests establish manager mechanics, not real sync;
 authenticated daemon sync under systemd and logout/boot/linger behavior were
 not tested. Existing opt-in foreground live acceptance remains separate.
+
+The independent review found a valid custom-XDG_CONFIG_HOME installation issue:
+the original guide copied units to ~/.config/systemd/user even when that path
+was absent from the manager's search path. An executable guide-block check
+reproduced the missing unit under a custom config home before the fix. The guide
+now uses `${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user` consistently for units
+and overrides, while keeping Grove JSON at the approved fixed home-relative
+path. Default and custom config-home setup/repeat checks both pass after the
+fix, including spaces in both paths. The shell and user-manager XDG environment
+must agree; the guide includes the unit-path inspection command.
