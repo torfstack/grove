@@ -57,3 +57,17 @@ func TestDaemonUnfinishedRecordHasNoCounts(t *testing.T) {
 		t.Fatal("unstarted attempt claimed completed operations")
 	}
 }
+
+func TestWatchLocalHistoricalStatus(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		profile := t.TempDir()
+		r := Record{Version: 1, SessionID: "session", Mode: ModeDownload, Interval: time.Minute, Phase: "starting", Outcome: "never", UpdatedAt: time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC), WatchLocal: enabled}
+		if err := SaveRecord(profile, r); err != nil {
+			t.Fatal(err)
+		}
+		loaded, err := LoadRecord(profile)
+		if err != nil || loaded.WatchLocal != enabled {
+			t.Fatalf("roundtrip: %+v %v", loaded, err)
+		}
+	}
+}

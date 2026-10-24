@@ -27,6 +27,7 @@ type OperationCounts struct {
 }
 
 type Observation struct {
+	WatchLocal        bool            `json:"watch_local"`
 	Mode              Mode            `json:"mode"`
 	Interval          string          `json:"interval"`
 	Phase             string          `json:"phase"`
@@ -72,7 +73,7 @@ func Inspect(ctx context.Context, profileDir string, service syncengine.Service)
 		faults = append(faults, failed("status_unavailable", err))
 	} else if record != nil {
 		c := record.Counts
-		r.LastRecorded = &Observation{Mode: record.Mode, Interval: record.Interval.String(), Phase: record.Phase, Outcome: record.Outcome, UpdatedAt: record.UpdatedAt, AttemptStartedAt: record.AttemptStartedAt, AttemptFinishedAt: record.AttemptFinishedAt, NextAttemptAt: record.NextAttemptAt, Reason: record.Reason, Counts: OperationCounts{Downloaded: c.Downloaded, Uploaded: c.Uploaded, CreatedDirectories: c.CreatedDirectories, Skipped: c.Skipped, Updated: c.Updated, Moved: c.Moved, Trashed: c.Trashed}}
+		r.LastRecorded = &Observation{WatchLocal: record.WatchLocal, Mode: record.Mode, Interval: record.Interval.String(), Phase: record.Phase, Outcome: record.Outcome, UpdatedAt: record.UpdatedAt, AttemptStartedAt: record.AttemptStartedAt, AttemptFinishedAt: record.AttemptFinishedAt, NextAttemptAt: record.NextAttemptAt, Reason: record.Reason, Counts: OperationCounts{Downloaded: c.Downloaded, Uploaded: c.Uploaded, CreatedDirectories: c.CreatedDirectories, Skipped: c.Skipped, Updated: c.Updated, Moved: c.Moved, Trashed: c.Trashed}}
 	}
 	summary, err := service.InspectProfile(ctx, profile)
 	if errors.Is(err, privatefs.ErrLocked) {

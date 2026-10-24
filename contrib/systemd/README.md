@@ -67,11 +67,19 @@ UNIT
   "version": 1,
   "profile_dir": "/home/you/.local/state/grove/profiles/personal",
   "mode": "download",
-  "interval": "5m"
+  "interval": "5m",
+  "watch_local": false
 }
 JSON
 )
 ```
+
+Set `watch_local` to true for debounced native local events alongside periodic
+scans. The destination must already exist and `/proc/self/fd` must be available.
+Watcher/root/coverage failures stop visibly under the same `Restart=no` policy;
+inspect the journal, address the cause, then restart. See the
+[daemon guide](../../README.md#periodic-sync-on-linux) for debounce, retry, and
+filesystem limits. Changing this flag requires restarting the instance.
 
 Edit `~/.config/grove/daemons/personal.json` in your editor to set the real,
 absolute profile path. `mode` is required. Choose `two-way` only when you intend

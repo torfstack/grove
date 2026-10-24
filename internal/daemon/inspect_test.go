@@ -31,12 +31,12 @@ func TestDaemonInspectOffline(t *testing.T) {
 		t.Fatalf("initial status: %+v %v", report, err)
 	}
 	stamp := time.Date(2026, 10, 23, 10, 0, 0, 0, time.UTC)
-	r := Record{Version: 1, SessionID: "private-session-sentinel", Mode: ModeDownload, Interval: time.Minute, Phase: "syncing", Outcome: "never", UpdatedAt: stamp, AttemptStartedAt: &stamp}
+	r := Record{Version: 1, SessionID: "private-session-sentinel", WatchLocal: true, Mode: ModeDownload, Interval: time.Minute, Phase: "syncing", Outcome: "never", UpdatedAt: stamp, AttemptStartedAt: &stamp}
 	if err := SaveRecord(profile, r); err != nil {
 		t.Fatal(err)
 	}
 	report, err = Inspect(context.Background(), profile, service)
-	if err != nil || report.Owner != "inactive" || report.LastRecorded.Phase != "syncing" {
+	if err != nil || report.Owner != "inactive" || report.LastRecorded.Phase != "syncing" || !report.LastRecorded.WatchLocal {
 		t.Fatalf("stale history mistaken for active daemon: %+v %v", report, err)
 	}
 	lease, err := privatefs.AcquireLease(filepath.Join(profile, "daemon.lock"))

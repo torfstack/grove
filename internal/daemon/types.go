@@ -14,6 +14,7 @@ type Clock interface {
 }
 
 type Record struct {
+	WatchLocal        bool              `json:"watch_local"`
 	Version           int               `json:"version"`
 	SessionID         string            `json:"session_id"`
 	Mode              Mode              `json:"mode"`
@@ -29,6 +30,7 @@ type Record struct {
 }
 
 type Dependencies struct {
+	OpenWatcher    func(context.Context, string, Clock) (Watcher, error)
 	InspectProfile func(context.Context, string) (syncengine.ProfileSummary, error)
 	RunExisting    func(context.Context, string, syncengine.Binding, bool) (syncengine.Result, error)
 	Clock          Clock

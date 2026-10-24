@@ -23,6 +23,7 @@ const (
 )
 
 type Config struct {
+	WatchLocal bool
 	ConfigPath string
 	ProfileDir string
 	Mode       Mode
@@ -100,7 +101,14 @@ func LoadConfig(path string) (Config, error) {
 			return Config{}, configError("interval")
 		}
 	}
-	return Config{ConfigPath: path, ProfileDir: profile, Mode: Mode(mode), Interval: interval}, nil
+	watch := false
+	if raw, exists := fields["watch_local"]; exists {
+		if string(raw) != "true" && string(raw) != "false" {
+			return Config{}, configError("watch_local")
+		}
+		watch = string(raw) == "true"
+	}
+	return Config{WatchLocal: watch, ConfigPath: path, ProfileDir: profile, Mode: Mode(mode), Interval: interval}, nil
 }
 
 func configFields(data []byte) (map[string]json.RawMessage, error) {
@@ -120,7 +128,7 @@ func configFields(data []byte) (map[string]json.RawMessage, error) {
 			return nil, configError("JSON")
 		}
 		switch key {
-		case "version", "profile_dir", "mode", "interval":
+		case "version", "profile_dir", "mode", "interval", "watch_local":
 		default:
 			return nil, configError("unknown field")
 		}

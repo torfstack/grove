@@ -4,6 +4,33 @@ Updated: 2026-10-24.
 
 ## Systemd user integration
 
+PR #16 is now merged into main at `23c583b` (2026-10-24); GitHub merge
+state was confirmed and origin/main refreshed. The implementation/review
+narrative below is historical and its no-merge-authorized wording is superseded
+by the user's completed merge.
+
+## Local watching design
+
+The user selected local watching next and chose opt-in native Linux events via
+`watch_local`, default false, with debounce, sequential shared-engine attempts,
+and periodic scans retained. The user approved the complete written
+[spec 000011](spec/000011-local-watching-design.md), including timing defaults,
+retry restrictions, watcher failure handling, and historical status changes.
+The fresh read-only builder check reported "nothing important left".
+The [paired plan](implementation-plans/000011-local-watching-plan.md) is prepared
+for review with six tasks: config/status, deterministic scheduling, recursive
+native watching, lifecycle integration, process acceptance, and live harness/docs.
+It selects the existing pinned x/sys inotify bindings without a new dependency.
+The user approved the plan for native execution and authorized publication,
+one completed CodeRabbit review per PR, fixes, passing CI, and merge, followed
+by continued bounded work. Implementation is in `/tmp/grove-local-watching` on
+`feat/local-watching` from refreshed main `23c583b`; original design changes were
+preserved in the starting checkout. Tasks 1–5 are verified below. Final checks,
+operator docs, and one independent whole-change review are in progress.
+Live acceptance remains explicitly gated and has not run for this feature.
+
+## Systemd implementation and verification history
+
 PR #15 is merged into main at `63de937`; its review and verification history
 below is historical. The user approved spec and plan 000010 for native execution.
 The template and guide are implemented on `feat/systemd-user-service`:
@@ -756,3 +783,56 @@ documentation fix `a5c7d03`. The original thread is now outdated but remains ope
 no reply or manual thread-resolution action was posted. All actionable findings
 are addressed. Per decision 0009, no second CodeRabbit review is requested or
 awaited. This follow-up records results only. No merge is authorized.
+
+Local watching Task 1: strict optional watch_local configuration and offline
+historical status are implemented; daemon/CLI tests pass. Baseline full offline
+tests passed with filesystem/loopback access and a temporary Go cache. Watching
+runtime is not connected yet.
+
+Task 2 adds deterministic debounce/periodic/retry scheduling. Scheduler tests
+and daemon race tests pass. Selectable timers extend the existing clock contract
+rather than replacing periodic-only test injection.
+
+Task 3 implements recursive descriptor-anchored Linux inotify watching using
+existing x/sys. Native and daemon race tests pass, including overflow repair,
+repeated directory replacement, symlink exclusion, root identity, and reader
+shutdown. Registration requires /proc/self/fd. Event hints never resolve paths
+for engine operations; full engine scans remain authoritative.
+
+Task 4 connects watch hints to one sequential shared-engine worker while the
+scheduler continues draining events. Daemon/CLI/process race tests pass, covering
+completion-boundary edits, retry limits, historical deadlines, cancellation,
+watcher errors, and cleanup-before-lease-release ordering. Periodic-only behavior
+retains its original wait path and shares attempt classification.
+
+Task 5 real subprocess acceptance passes, including three repeated race-enabled
+runs: Grove's own downloads settle after one no-op follow-up, an edit during a
+blocked transfer is observed, SIGINT/SIGTERM clean up, root replacement stops
+visibly, and lifetime ownership is released. A reproduced transient-probe
+ENOENT during watcher enumeration now triggers coverage repair; deterministic
+and actual-directory-to-symlink swap regressions pass. No shared engine mutation
+semantics changed.
+
+Task 6 adds gated actual-binary watch-triggered upload acceptance and operator
+records. Disabled-mode acceptance reports an explicit SKIP without token/network
+use; authenticated local watching remains untested. Fresh fmt, lint (0 issues),
+all 11 offline/race packages, both Linux builds, and diff checks pass. Both
+binaries also cross-build for macOS arm64; no non-Linux runtime is claimed.
+The independent whole-change review and hosted PR review/checks are next.
+
+Independent whole-change review of `23c583b..dc8cb58` found two Important
+shutdown-ordering defects and no Critical findings. Deterministic regressions
+reproduced both: SIGTERM masked queued/late watcher failures, and cancellation
+during reconciliation became fatal while genuine completion cleanup errors
+could be lost. The single fix pass preserves sticky reader errors after join,
+suppresses only expected closed-reader cancellation, and distinguishes graceful
+repair cancellation from genuine engine/repair faults. All five new shutdown/
+read-error regressions pass. Fresh fmt, lint (0 issues), full offline/race suites,
+both Linux builds, both macOS arm64 cross-builds, and diff checks pass on the fixes.
+The reviewer also identified an overstated verification sentence: the plan now
+explicitly records that directory churn does not forcibly inject kernel watch-
+descriptor reuse/stale-event ordering. Authenticated watching remains gated/unrun;
+network filesystems, non-Linux runtime, and adversarial transient reparenting
+are not claimed. Event hints never become mutation paths or deletion authority.
+The user authorized PR publication, completed CodeRabbit review, fixes, passing
+CI, and merge; publication and hosted review/checks are next.
