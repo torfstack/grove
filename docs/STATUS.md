@@ -678,3 +678,14 @@ supersedes the quota-reset/re-review next steps above. PR #15 has already receiv
 its one full review; all three findings are fixed and its threads are resolved.
 The user also requested a fresh actual-groved live test, so both dedicated-token
 periodic download/upload scenarios are running. No merge is authorized.
+
+The fresh user-requested actual-groved live run passed in 117.606s on 2026-10-24:
+`TestDaemonPeriodicDownloadLive` 72.25s and `TestDaemonPeriodicUploadLive` 45.35s.
+Both built and launched the actual binaries with private disposable profiles and
+the dedicated test token, independently verified content and subsequent no-op
+cycles, checked offline status and SIGTERM shutdown, and completed fixture-owned
+cleanup. The download scenario also verified busy token exclusion during an
+owned remote mutation. No credentials, generated remote IDs, or synced contents
+were printed. No Go code changed. CI/security checks passed on `af062da`; this
+follow-up records results only. Under decision 0009, no additional CodeRabbit
+review is requested or awaited.
