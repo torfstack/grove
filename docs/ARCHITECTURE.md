@@ -147,15 +147,18 @@ is staged privately and journaled before mutation. Upload recovery reconciles an
 uncertain result without retrying the remote write.
 
 The engine pins the observed head before updating and scans revision history
-afterward. One detected competitor is downloaded into a private conflict
-candidate; the local upload and cloud candidate remain available to the profile
-service and CLI. Conflict policy and resolution stay in the shared service
+afterward. Detected competitors are pinned, independently downloaded and
+verified, and durably captured as cloud candidates alongside the local candidate
+under [spec 000006](spec/000006-multiple-conflict-candidates-design.md). The
+profile service and CLI expose stable ordinals for explicit cloud selection;
+automatic policies do not choose among multiple preserved cloud candidates. Conflict policy and resolution stay in the shared service
 boundary so a future desktop daemon can expose them without a second sync engine.
 Upload journals record the original keepForever state. Pre-upload recovery
 releases only a pin Grove introduced; missing ownership metadata preserves it.
 Drive does not permit unpinning non-head keepForever revisions, so successful
-uploads consume the per-file 200-revision pin quota. Multiple possible competitors
-remain journaled and pinned for manual recovery.
+uploads consume the per-file 200-revision pin quota. Incomplete capture remains
+journaled and pinned; a complete verified candidate set becomes a durable
+conflict available for deliberate resolution.
 
 Cloud-side deletion conflict resolution drops the selected tombstone subtree
 baseline and restores the reviewed remote tree through verified folder creation

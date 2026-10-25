@@ -1,6 +1,38 @@
 # Project status
 
-Updated: 2026-10-24.
+Updated: 2026-10-25.
+
+## Dependency and record refresh
+
+[PR #18](https://github.com/torfstack/grove/pull/18) refreshes compute metadata
+v0.3.0 → v0.10.0, pflag v1.0.9 → v1.0.10, mise-action 5.2.1 → 5.2.3, and
+CodeQL action 4.39.0 → 4.39.1. Action pins are immutable and aligned. Metadata's
+Go 1.26 and x/sys v0.46 minimums remain below Grove's existing pins. Direct Go
+dependencies and pinned Go/lint/gh tools were current; no open Dependabot alerts
+or dependency PRs were reported at audit time. Unused module-graph entries were
+not independently upgraded. No authentication, profile, or sync behavior changes
+are intended.
+
+Module verification, formatting, lint (0 issues), full offline/race tests, both
+Linux builds, macOS arm64 cross-builds, and documentation/diff checks pass.
+Pinned task-equivalent commands ran directly to avoid unrelated host mise
+cleanup; hosted CI runs the existing mise tasks. All hosted Linux/security checks
+passed on `474e914`. The independent read-only review found no issues.
+CodeRabbit's completed full review of `b6f2ad0..474e914` selected all nine
+reviewable files and reported minimal merge risk with no actionable findings.
+Its complete summary, submitted reviews, inline comments, and GraphQL threads
+were retrieved; the latter three are empty. go.sum was filtered by CodeRabbit
+and is verified by Go tooling. No second review is requested under decision
+0009. PR #18 tracks final documentation-head checks and authorized integration.
+
+Current product/architecture/roadmap and spec statuses now distinguish merged
+multi-candidate conflicts (PR #9), deletion propagation (PR #10), and watching
+(PR #17) from genuinely deferred work. Historical session narratives below are
+retained. No new requirements or product decisions were introduced.
+
+Environment note: an initial mise invocation unexpectedly removed the older
+host-global Codex 0.163.0 installation. Subsequent work uses pinned binaries
+directly to avoid unrelated host cleanup; no project tool pins changed.
 
 ## Systemd user integration
 
@@ -23,8 +55,8 @@ integrated tree and regression-backed shutdown/attempt-classification fixes.
 Both binaries cross-build for macOS arm64. The independent review's two
 Important findings are fixed; CodeRabbit's completed initial review of `9fb0c84`
 selected all 31 files and found no actionable issues, comments, or threads.
-[PR #17](https://github.com/torfstack/grove/pull/17) tracks hosted checks and
-integration. The user authorized publication, one completed CodeRabbit review,
+[PR #17](https://github.com/torfstack/grove/pull/17) merged into main at
+`b6f2ad0` on 2026-10-24 after all final-head CI/security checks passed. The user authorized publication, one completed CodeRabbit review,
 fixes, passing CI, and merge, followed by continued bounded work.
 
 Authenticated local watching is gated and unrun. Native descriptor churn is

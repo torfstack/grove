@@ -1,6 +1,7 @@
 # Multiple preserved conflict candidates
 
-Date: 2026-10-12. Status: approved for implementation.
+Date: 2026-10-12. Status: implemented; merged in PR #9 at `855f3c3`.
+The intent below records the original pre-implementation context.
 
 ## Intent
 

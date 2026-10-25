@@ -43,7 +43,7 @@ an unchanged population performs no media transfers. Interrupted downloads resum
 at file boundaries; existing completed files are hash-checked and preserved.
 Local edits and unexpected files are errors. Changes to an established population
 follow the incremental behavior below. Local deletion propagation is implemented
-on `feat/deletion-propagation` according to
+according to
 [spec 000007](spec/000007-deletion-propagation-design.md).
 Unsupported names, symlinks,
 native documents, shortcuts, duplicates, shared drives, and non-owned files fail
@@ -60,8 +60,7 @@ again or changing destination-file mtimes. See
 
 ## Incremental download behavior
 
-Approved spec 000003 is implemented on `feat/incremental-download`. Reusing a
-profile applies remote additions, updates, and safe renames/moves using persisted
+Approved spec 000003 is implemented in main. Reusing a profile applies remote additions, updates, and safe renames/moves using persisted
 remote identities and local content hashes. A changed version with unchanged
 size/MD5 advances metadata without a media download. Local conflicts and remote
 removals stop new operations during preflight. Explicit local uploads and
@@ -79,11 +78,14 @@ path swaps/cycles, and same-run reuse of tracked vacated paths fail safely.
 [Spec 000004](spec/000004-local-upload-design.md) defines explicit `--two-way`
 sync on populated profiles: new local files/folders and revision-aware local
 content updates, retaining downloads and profile-scoped conflict policy shared by
-the CLI and future daemon. The choices are ask (default), keep-local, and
+the CLI and daemon. The choices are ask (default), keep-local, and
 keep-cloud. Download-only remains the default. Drive does not enforce conditional
-writes, and retained revision pins consume its per-file quota; multiple concurrent
-competitors require manual recovery. Local renames remain deferred. Local deletion
-propagation is implemented according to spec 000007.
+writes, and retained revision pins consume its per-file quota.
+[Spec 000006](spec/000006-multiple-conflict-candidates-design.md) adds durable
+capture of multiple cloud candidates, inspection through `conflicts show`, and
+explicit cloud-candidate selection. Automatic policies leave multi-candidate
+conflicts pending. Incomplete capture remains journaled for recovery.
+Local renames remain deferred. Local deletion propagation is implemented according to spec 000007.
 Independent local and cloud additions at the same path remain pending under
 keep-local; this slice supports choosing cloud for those conflicts. Uncertain
 remote writes preserve their journal and may require operator reconciliation.
@@ -94,8 +96,9 @@ remote writes preserve their journal and may require operator reconciliation.
 `recovery inspect`, recovery-only `recovery retry`, and private verified-stage
 `recovery export`. Retry never starts new sync work or applies conflict policy.
 Export copies bytes without clearing intent. Uncertain writes can remain blocked
-indefinitely; force-abandon, unrecorded artifact reconciliation and selection
-among multiple competitors remain deferred.
+indefinitely; force-abandon and unrecorded artifact reconciliation remain
+deferred. Multiple preserved cloud candidates can be inspected and selected
+explicitly under spec 000006.
 
 ## Periodic Linux sync
 

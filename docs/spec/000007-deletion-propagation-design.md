@@ -1,6 +1,6 @@
 # 000007: Safe local deletion propagation
 
-Date: 2026-10-12. Status: implemented locally; pending pull request review.
+Date: 2026-10-12. Status: implemented; merged in PR #10 at `8123f12`.
 
 ## Intent
 
