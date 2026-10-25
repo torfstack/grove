@@ -6,16 +6,26 @@ import (
 	"time"
 )
 
+type RemoteCheckObservation struct {
+	CheckedAt time.Time
+	Outcome   string
+}
+
 type WatchBatch struct {
+	Remote      *RemoteCheckObservation
 	First, Last time.Time
 	Err         error
 }
-type Watcher interface {
+type ChangeSource interface {
 	Ready() <-chan struct{}
 	Take() WatchBatch
-	Reconcile(context.Context) error
 	Close() error
 }
+type Watcher interface {
+	ChangeSource
+	Reconcile(context.Context) error
+}
+
 type watchMailbox struct {
 	mu    sync.Mutex
 	ready chan struct{}
@@ -56,5 +66,22 @@ func (m *watchMailbox) take() WatchBatch {
 	b := m.batch
 	m.batch.First = time.Time{}
 	m.batch.Last = time.Time{}
+	m.batch.Remote = nil
 	return b
+}
+
+func (m *watchMailbox) observeRemote(now time.Time, outcome string, changed bool, fault error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.batch.Remote = &RemoteCheckObservation{CheckedAt: now.UTC(), Outcome: outcome}
+	if changed {
+		if m.batch.First.IsZero() {
+			m.batch.First = now
+		}
+		m.batch.Last = now
+	}
+	if fault != nil && m.batch.Err == nil {
+		m.batch.Err = fault
+	}
+	m.notify()
 }

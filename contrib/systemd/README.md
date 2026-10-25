@@ -81,6 +81,13 @@ inspect the journal, address the cause, then restart. See the
 [daemon guide](../../README.md#periodic-sync-on-linux) for debounce, retry, and
 filesystem limits. Changing this flag requires restarting the instance.
 
+Optionally add `"remote_poll_interval": "30s"` for Drive change hints between
+full scans (minimum ten seconds, disabled when absent). It works independently
+of local watching and requires no unit change. Restart the instance after editing
+JSON. Ordinary remote-check errors remain historical failures retried by the
+daemon; genuine cleanup faults stop the service under the existing `Restart=no`
+policy. See the daemon guide for token coordination, cursor recovery and limits.
+
 Edit `~/.config/grove/daemons/personal.json` in your editor to set the real,
 absolute profile path. `mode` is required. Choose `two-way` only when you intend
 to enable uploads and local-deletion propagation on a fully populated profile

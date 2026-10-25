@@ -90,3 +90,16 @@ func TestWatchLocalStatusOutput(t *testing.T) {
 		}
 	}
 }
+
+func TestRemotePollingStatusOutput(t *testing.T) {
+	r := daemon.StatusReport{LastRecorded: &daemon.Observation{RemotePollInterval: "30s", RemoteOutcome: "completed"}}
+	text := humanStatus(r)
+	if !strings.Contains(text, "Last recorded remote polling: 30s") || !strings.Contains(text, "completed") {
+		t.Fatal(text)
+	}
+	r.LastRecorded.RemotePollInterval = ""
+	r.LastRecorded.RemoteOutcome = ""
+	if !strings.Contains(humanStatus(r), "Last recorded remote polling: disabled") {
+		t.Fatal("disabled polling omitted")
+	}
+}

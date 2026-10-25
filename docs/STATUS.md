@@ -2,6 +2,78 @@
 
 Updated: 2026-10-25.
 
+## Remote change detection implementation
+
+[Spec 000012](spec/000012-remote-change-detection-design.md) and its
+[paired plan](implementation-plans/000012-remote-change-detection-plan.md) are
+implemented on `feat/remote-change-detection` in `/tmp/grove-live-watch-acceptance`.
+The user authorized the direction and delegated routine choices; decision 0012
+records opt-in intervals, account-wide hints, ephemeral cursors, bounded checks
+and serialized API work. Tasks 1–5 pass their normal/race checks and real-process
+acceptance. No engine mutation rules or dependencies changed.
+
+Explicitly enabled dedicated-account acceptance passed in 115.697s on 2026-10-25:
+remote changes 73.73s (independent download verification in 12.40s), local watching
+41.96s (independent upload verification in 7.30s). Both used actual binaries,
+ten-minute periodic intervals, settled no-op checks, offline status, SIGTERM,
+and fixture-owned cleanup. Remote live acceptance enables local watching for
+explicit later no-op requests; remote-only behavior is separately verified with
+fake-provider real processes. No credentials, cursors, generated IDs or synced
+contents were printed. Periodic live regressions also passed in 110.647s (download 68.34s, upload
+42.30s), each with independent verification, no-op checks, shutdown and owned
+cleanup. Final formatting, lint (0 issues), all eleven offline/race packages,
+both Linux builds and macOS arm64 cross-builds pass. Relative documentation links
+and diff checks pass. PR #19 contains the verified review fixes; its checks and
+merge state are tracked on GitHub.
+
+## Remote detection review and final acceptance
+
+CodeRabbit completed its initial review of PR #19 at `75892e3`; its summary,
+inline comment and review thread were retrieved. Its sole finding was valid:
+the current-status paragraph still claimed no implementation. That sentence is
+corrected; the sequential implementation history remains intact.
+
+Independent review found a cleanup race: releasing the remote-check gate before
+publishing a fatal cleanup error could let queued engine work begin. The daemon
+now cancels its shared lifetime while still holding the gate. A deterministic
+regression reproduced the failure for remote-only and combined sources before
+the fix. Native reconciliation also skips an already canceled lifetime, preserving
+the original fault. A minor live-harness correction captures the post-write
+attempt boundary after WriteFile succeeds, retaining the earlier latency clock.
+
+Fresh actual-binary acceptance after these fixes passed in 161.388s: remote
+74.74s (independent download 12.70s), periodic upload 43.13s, and watcher upload
+43.51s (independent upload 7.96s). All verified content, no-op stability, offline
+status, shutdown and fixture-owned cleanup. Earlier periodic-download acceptance
+remains valid. Final pinned formatting, lint (0 issues), all eleven offline/race packages,
+Linux builds and both macOS arm64 cross-builds pass after the fixes. No second
+CodeRabbit review is requested; final-head CI and integration are tracked in
+[PR #19](https://github.com/torfstack/grove/pull/19). Non-Linux runtime, network filesystems and
+authenticated systemd boot/logout remain outside this acceptance.
+
+## Live watcher acceptance and remote detection
+
+The user explicitly enabled dedicated-account live watcher acceptance. The first
+run exposed a harness observation race: an immediate no-op follow-up can replace
+the upload's historical counters before the test observes waiting status. Retained
+baseline data proved the expected edit committed, with no pending transaction;
+all nine owned fixture objects were cleaned. The test now waits for a completed
+attempt started after the edit, then independently verifies Drive bytes rather
+than relying on transient counts. No production behavior changed.
+
+The fresh actual-binary rerun passed in 42.888s; upload content was independently
+verified in 7.50s against a ten-minute periodic interval. Subsequent no-op cycles
+preserved file hashes/mtimes, offline status and SIGTERM shutdown passed, and
+fixture-owned cleanup completed for both runs. Tokens and generated Drive IDs
+were not printed. The user authorized remote change detection as the next slice;
+[spec 000012](spec/000012-remote-change-detection-design.md) and
+[paired plan](implementation-plans/000012-remote-change-detection-plan.md) are
+prepared under the standing autonomous workflow. Agent choices are opt-in
+remote_poll_interval (minimum 10s), account-wide My Drive hints, ephemeral cursor,
+10s bounded checks serialized with engine work, historical check status and the
+unchanged full-scan safety net. The builder check found no consequential gaps.
+Native implementation followed six tasks; the sections above record the implemented behavior and acceptance results.
+
 ## Dependency and record refresh
 
 [PR #18](https://github.com/torfstack/grove/pull/18) refreshes compute metadata
@@ -59,7 +131,9 @@ selected all 31 files and found no actionable issues, comments, or threads.
 `b6f2ad0` on 2026-10-24 after all final-head CI/security checks passed. The user authorized publication, one completed CodeRabbit review,
 fixes, passing CI, and merge, followed by continued bounded work.
 
-Authenticated local watching is gated and unrun. Native descriptor churn is
+Authenticated local watching passed on 2026-10-25: the actual-binary test
+completed in 42.888s, independently verified the watch-triggered upload in 7.50s,
+checked no-op content/mtime stability, offline status, SIGTERM, and owned cleanup. Native descriptor churn is
 covered without forcibly injecting kernel descriptor reuse. Network filesystem
 reliability and non-Linux daemon runtime are not claimed. Native registration
 requires `/proc/self/fd`; fatal watch/root errors stop visibly.
@@ -936,3 +1010,35 @@ and retains genuine faults for the scheduler's post-join drain. The failing
 (0 issues), full offline/race suites, both Linux builds, both macOS arm64 cross-
 builds, and diff checks pass. This narrow shutdown fix is pushed for fresh CI;
 no additional CodeRabbit review is requested under decision 0009.
+
+Remote detection Task 1 implements strict optional remote_poll_interval and
+historical interval/check timestamp/outcome fields. Existing disabled behavior
+remains valid; enabled intervals must be at least ten seconds. Daemon/CLI normal
+and race coverage passes. Remote polling execution is not connected yet.
+
+Remote detection Task 2 adds the separate bounded changes HTTP interface, opaque
+cursor encoding, scoped My Drive queries and checked response cleanup. Drive
+normal/race tests pass. The response-cap regression also fails when the 1 MiB
+cap is deliberately weakened, then passes with the cap restored. No Drive IDs
+or response bodies are exposed by the new boundary.
+
+Remote detection Task 3 adds locked read-only feed checks, original-binding
+comparison, complete pagination and cursor preservation on partial/error results.
+Sync-engine normal/race tests pass, including real fake-HTTP pagination, missing/
+rebound/busy profiles, unchanged state bytes and genuine close failures joined
+with cancellation. A typed cleanup fault lets the daemon stop rather than hide
+resource failures as ordinary remote-check errors.
+
+Remote detection Task 4 implements the bounded polling source and a cancellation-
+aware job gate. Daemon race tests pass for immediate initialization, check budget,
+cursor retention, partial dirty hints, failed/busy retries, drained observations,
+and sticky cleanup faults preserved after source join. Native watcher tests remain
+green; remote execution integration is next.
+
+Remote detection Task 5 integrates optional local/remote sources with one existing
+scheduler and serialized API gate. Affected daemon/CLI/process race suites pass.
+Real daemon processes detect fake remote edits before a ten-minute periodic
+interval, then empty checks preserve the prior attempt timestamp/counts. Remote-
+only, combined-source and in-flight-check SIGTERM cases release lifetime ownership.
+Remote observations persist only across valid record phases and do not erase
+normal sync history. Live remote detection and final review remain next.

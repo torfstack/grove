@@ -193,3 +193,29 @@ func TestConfigWatchLocal(t *testing.T) {
 		})
 	}
 }
+
+func TestConfigRemotePollInterval(t *testing.T) {
+	base := configText(t.TempDir(), "download", "")
+	for _, tc := range []struct {
+		raw   string
+		valid bool
+		want  time.Duration
+	}{
+		{"", true, 0}, {`"10s"`, true, 10 * time.Second}, {`"30s"`, true, 30 * time.Second},
+		{`"9999ms"`, false, 0}, {"null", false, 0}, {"true", false, 0}, {"30", false, 0}, {`""`, false, 0}, {`"999999999999999999h"`, false, 0}, {`"10s","remote_poll_interval":"30s"`, false, 0},
+	} {
+		t.Run(tc.raw, func(t *testing.T) {
+			data := base
+			if tc.raw != "" {
+				data = strings.TrimSuffix(data, "}") + `,"remote_poll_interval":` + tc.raw + "}"
+			}
+			cfg, err := LoadConfig(writeConfig(t, data))
+			if (err == nil) != tc.valid {
+				t.Fatalf("valid=%t: %v", tc.valid, err)
+			}
+			if tc.valid && (cfg.RemotePollInterval != tc.want || cfg.WatchLocal || cfg.Interval != 5*time.Minute) {
+				t.Fatalf("config=%+v", cfg)
+			}
+		})
+	}
+}

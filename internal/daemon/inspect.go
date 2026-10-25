@@ -27,17 +27,20 @@ type OperationCounts struct {
 }
 
 type Observation struct {
-	WatchLocal        bool            `json:"watch_local"`
-	Mode              Mode            `json:"mode"`
-	Interval          string          `json:"interval"`
-	Phase             string          `json:"phase"`
-	Outcome           string          `json:"outcome"`
-	UpdatedAt         time.Time       `json:"updated_at"`
-	AttemptStartedAt  *time.Time      `json:"attempt_started_at"`
-	AttemptFinishedAt *time.Time      `json:"attempt_finished_at"`
-	NextAttemptAt     *time.Time      `json:"next_attempt_at"`
-	Counts            OperationCounts `json:"counts"`
-	Reason            string          `json:"reason"`
+	RemotePollInterval string          `json:"remote_poll_interval"`
+	RemoteCheckedAt    *time.Time      `json:"remote_checked_at"`
+	RemoteOutcome      string          `json:"remote_outcome"`
+	WatchLocal         bool            `json:"watch_local"`
+	Mode               Mode            `json:"mode"`
+	Interval           string          `json:"interval"`
+	Phase              string          `json:"phase"`
+	Outcome            string          `json:"outcome"`
+	UpdatedAt          time.Time       `json:"updated_at"`
+	AttemptStartedAt   *time.Time      `json:"attempt_started_at"`
+	AttemptFinishedAt  *time.Time      `json:"attempt_finished_at"`
+	NextAttemptAt      *time.Time      `json:"next_attempt_at"`
+	Counts             OperationCounts `json:"counts"`
+	Reason             string          `json:"reason"`
 }
 
 type StatusReport struct {
@@ -73,7 +76,11 @@ func Inspect(ctx context.Context, profileDir string, service syncengine.Service)
 		faults = append(faults, failed("status_unavailable", err))
 	} else if record != nil {
 		c := record.Counts
-		r.LastRecorded = &Observation{WatchLocal: record.WatchLocal, Mode: record.Mode, Interval: record.Interval.String(), Phase: record.Phase, Outcome: record.Outcome, UpdatedAt: record.UpdatedAt, AttemptStartedAt: record.AttemptStartedAt, AttemptFinishedAt: record.AttemptFinishedAt, NextAttemptAt: record.NextAttemptAt, Reason: record.Reason, Counts: OperationCounts{Downloaded: c.Downloaded, Uploaded: c.Uploaded, CreatedDirectories: c.CreatedDirectories, Skipped: c.Skipped, Updated: c.Updated, Moved: c.Moved, Trashed: c.Trashed}}
+		remoteInterval := ""
+		if record.RemotePollInterval > 0 {
+			remoteInterval = record.RemotePollInterval.String()
+		}
+		r.LastRecorded = &Observation{RemotePollInterval: remoteInterval, RemoteCheckedAt: record.RemoteCheckedAt, RemoteOutcome: record.RemoteOutcome, WatchLocal: record.WatchLocal, Mode: record.Mode, Interval: record.Interval.String(), Phase: record.Phase, Outcome: record.Outcome, UpdatedAt: record.UpdatedAt, AttemptStartedAt: record.AttemptStartedAt, AttemptFinishedAt: record.AttemptFinishedAt, NextAttemptAt: record.NextAttemptAt, Reason: record.Reason, Counts: OperationCounts{Downloaded: c.Downloaded, Uploaded: c.Uploaded, CreatedDirectories: c.CreatedDirectories, Skipped: c.Skipped, Updated: c.Updated, Moved: c.Moved, Trashed: c.Trashed}}
 	}
 	summary, err := service.InspectProfile(ctx, profile)
 	if errors.Is(err, privatefs.ErrLocked) {

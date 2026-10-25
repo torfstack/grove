@@ -71,3 +71,30 @@ func TestWatchLocalHistoricalStatus(t *testing.T) {
 		}
 	}
 }
+
+func TestRemotePollingRecordValidation(t *testing.T) {
+	stamp := time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)
+	base := Record{Version: 1, SessionID: "session", Mode: ModeDownload, Interval: time.Minute, Phase: "starting", Outcome: "never", UpdatedAt: stamp}
+	for _, tc := range []struct {
+		name     string
+		interval time.Duration
+		checked  *time.Time
+		outcome  string
+		valid    bool
+	}{
+		{"disabled", 0, nil, "", true}, {"never", 10 * time.Second, nil, "never", true},
+		{"completed", 30 * time.Second, &stamp, "completed", true}, {"busy", 30 * time.Second, &stamp, "busy", true}, {"failed", 30 * time.Second, &stamp, "failed", true},
+		{"short", time.Second, nil, "never", false}, {"disabled-time", 0, &stamp, "", false}, {"disabled-outcome", 0, nil, "never", false},
+		{"missing-time", 30 * time.Second, nil, "completed", false}, {"never-time", 30 * time.Second, &stamp, "never", false}, {"unknown", 30 * time.Second, &stamp, "private-reason", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := base
+			r.RemotePollInterval = tc.interval
+			r.RemoteCheckedAt = tc.checked
+			r.RemoteOutcome = tc.outcome
+			if validRecord(r) != tc.valid {
+				t.Fatalf("valid=%t record=%+v", tc.valid, r)
+			}
+		})
+	}
+}

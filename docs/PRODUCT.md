@@ -119,3 +119,17 @@ scans retained. Events request sequential normal engine runs and do not grant
 mutation authority. Failed/busy event retries wait one interval, and fatal watch
 coverage/root failures stop visibly. Multiple profiles per process, hot reload,
 and other native platform lifecycles remain follow-ups.
+
+## Remote change hints
+
+[Spec 000012](spec/000012-remote-change-detection-design.md) adds opt-in
+`remote_poll_interval` (minimum ten seconds) for read-only My Drive change hints.
+Polling and normal engine calls serialize through cleanup. Native local watching
+is independent, and full periodic scans remain enabled. Any account-level change
+may request a no-op scan, including activity outside the selected root.
+
+Cursors are ephemeral and initialization requests a later normal scan. Complete
+pagination is required to advance them; partial changes can request a scan while
+errors retain the original cursor. Feed removals never authorize deletion. Normal
+check failures retry and are historical status; cleanup faults stop visibly.
+No new remote-removal propagation or sync mutation semantics are introduced.

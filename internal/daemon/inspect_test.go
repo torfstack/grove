@@ -161,3 +161,20 @@ func TestDaemonInspectRecordedCounts(t *testing.T) {
 		t.Fatalf("public count format changed: %s %v", data, err)
 	}
 }
+
+func TestRemotePollingStatus(t *testing.T) {
+	_, profile, _ := daemonFixture(t, "download")
+	stamp := time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)
+	r := Record{Version: 1, SessionID: "private-session", Mode: ModeDownload, Interval: time.Minute, Phase: "starting", Outcome: "never", UpdatedAt: stamp, RemotePollInterval: 30 * time.Second, RemoteCheckedAt: &stamp, RemoteOutcome: "completed"}
+	if err := SaveRecord(profile, r); err != nil {
+		t.Fatal(err)
+	}
+	report, err := Inspect(context.Background(), profile, syncengine.Service{})
+	if err != nil || report.Owner != "inactive" || report.LastRecorded == nil || report.LastRecorded.RemotePollInterval != "30s" || report.LastRecorded.RemoteOutcome != "completed" || !report.LastRecorded.RemoteCheckedAt.Equal(stamp) {
+		t.Fatalf("historical report: %+v %v", report, err)
+	}
+	data, err := json.Marshal(report)
+	if err != nil || strings.Contains(string(data), "private-session") || strings.Contains(string(data), "cursor") {
+		t.Fatal("private information in report")
+	}
+}

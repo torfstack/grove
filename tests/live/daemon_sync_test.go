@@ -26,10 +26,11 @@ import (
 func TestDaemonPeriodicDownloadLive(t *testing.T) { testDaemonLive(t, false) }
 func TestDaemonPeriodicUploadLive(t *testing.T)   { testDaemonLive(t, true) }
 
-func testDaemonLive(t *testing.T, upload bool) { testDaemonVariant(t, upload, false) }
+func testDaemonLive(t *testing.T, upload bool) { testDaemonVariant(t, upload, false, false) }
 
-func testDaemonVariant(t *testing.T, upload, watching bool) {
+func testDaemonVariant(t *testing.T, upload, watching, remote bool) {
 	cfg := testConfig(t)
+	watching = watching || remote
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	t.Cleanup(cancel)
 	if err := os.MkdirAll(cfg.Runs, 0700); err != nil {
@@ -106,7 +107,11 @@ func testDaemonVariant(t *testing.T, upload, watching bool) {
 		interval = "10m"
 	}
 	config := filepath.Join(base, "daemon.json")
-	if err := privatefs.WriteJSON(config, map[string]any{"version": 1, "profile_dir": opts.ProfileDir, "mode": mode, "interval": interval, "watch_local": watching}); err != nil {
+	settings := map[string]any{"version": 1, "profile_dir": opts.ProfileDir, "mode": mode, "interval": interval, "watch_local": watching}
+	if remote {
+		settings["remote_poll_interval"] = "10s"
+	}
+	if err := privatefs.WriteJSON(config, settings); err != nil {
 		t.Fatal(err)
 	}
 	log, err := os.OpenFile(filepath.Join(base, "process.log"), os.O_CREATE|os.O_WRONLY, 0600)
@@ -181,20 +186,38 @@ func testDaemonVariant(t *testing.T, upload, watching bool) {
 		t.Helper()
 		output, err := exec.CommandContext(ctx, groveBin, "status", "--profile-dir", opts.ProfileDir, "--json").Output()
 		var report daemon.StatusReport
-		if err != nil || json.Unmarshal(output, &report) != nil || report.Owner != owner || report.LastRecorded == nil || report.LastRecorded.WatchLocal != watching {
+		if err != nil || json.Unmarshal(output, &report) != nil || report.Owner != owner || report.LastRecorded == nil || report.LastRecorded.WatchLocal != watching || (remote && report.LastRecorded.RemotePollInterval != "10s") || (!remote && report.LastRecorded.RemotePollInterval != "") {
 			t.Fatal("offline command status disagrees with process ownership")
 		}
 	}
 	queryStatus("active")
+	if remote {
+		var initialized time.Time
+		wait(func() bool {
+			r := record()
+			if r == nil || r.RemoteOutcome != "completed" || r.RemoteCheckedAt == nil {
+				return false
+			}
+			initialized = *r.RemoteCheckedAt
+			return true
+		})
+		wait(func() bool {
+			r := record()
+			c := r.Counts
+			return r.Phase == "waiting" && r.Outcome == "completed" && r.AttemptStartedAt != nil && r.AttemptStartedAt.After(initialized) && r.NextAttemptAt != nil && time.Until(*r.NextAttemptAt) > time.Minute && c.Downloaded == 0 && c.Uploaded == 0 && c.Updated == 0 && c.CreatedDirectories == 0 && c.Moved == 0 && c.Trashed == 0
+		})
+	}
 	expected := manifest
 	if upload {
 		payload := []byte("daemon owned local edit\n")
+		editedAt := time.Now()
 		if err := os.WriteFile(filepath.Join(opts.LocalDir, "nested", "hello.txt"), payload, 0600); err != nil {
 			t.Fatal("cannot edit owned local file")
 		}
+		writtenAt := time.Now()
 		wait(func() bool {
 			r := record()
-			return r.Phase == "waiting" && r.Outcome == "completed" && r.Counts.Updated > 0
+			return r != nil && r.Phase == "waiting" && r.Outcome == "completed" && r.AttemptStartedAt != nil && r.AttemptStartedAt.After(writtenAt)
 		})
 		if err := daemonFixtureSession(ctx, cfg.Token, runDir, "read-only", func(api drive.API) error {
 			var content bytes.Buffer
@@ -208,13 +231,18 @@ func testDaemonVariant(t *testing.T, upload, watching bool) {
 		}); err != nil {
 			t.Fatal("independent uploaded-content verification failed")
 		}
+		if watching {
+			t.Logf("Watch-triggered upload independently verified in %.2fs", time.Since(editedAt).Seconds())
+		}
 	} else {
 		expected, err = fixture.LoadManifest("../../testdata/fixtures/baseline/incremental.json")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if err := daemonFixtureSession(ctx, cfg.Token, runDir, "read-write", func(api drive.API) error {
-			wait(func() bool { r := record(); return r.Phase == "waiting" && r.Outcome == "busy" })
+			if !remote {
+				wait(func() bool { r := record(); return r.Phase == "waiting" && r.Outcome == "busy" })
+			}
 			mutation, ok := api.(drive.MutationAPI)
 			if !ok {
 				return errors.New("fixture mutation unavailable")
@@ -223,11 +251,15 @@ func testDaemonVariant(t *testing.T, upload, watching bool) {
 		}); err != nil {
 			t.Fatal("owned fixture mutation failed; outcome retained without retry")
 		}
+		changedAt := time.Now()
 		wait(func() bool { _, err := fixture.VerifyLocal(ctx, expected, opts.LocalDir); return err == nil })
+		if remote {
+			t.Logf("Remote-triggered download independently verified in %.2fs", time.Since(changedAt).Seconds())
+		}
 	}
 	settledAfter := time.Now()
 	if watching {
-		if err := os.Chmod(filepath.Join(opts.LocalDir, "nested", "hello.txt"), 0600); err != nil {
+		if err := os.Chmod(filepath.Join(opts.LocalDir, "empty.bin"), 0600); err != nil {
 			t.Fatal("cannot request owned metadata reconciliation")
 		}
 	}
@@ -259,7 +291,7 @@ func testDaemonVariant(t *testing.T, upload, watching bool) {
 	}
 	after := time.Now()
 	if watching {
-		if err := os.Chmod(filepath.Join(opts.LocalDir, "nested", "hello.txt"), 0600); err != nil {
+		if err := os.Chmod(filepath.Join(opts.LocalDir, "empty.bin"), 0600); err != nil {
 			t.Fatal("cannot request owned no-op reconciliation")
 		}
 	}

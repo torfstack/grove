@@ -251,3 +251,28 @@ read/hash scans do not trigger events. Historical status exposes configured
 watching and earliest advisory deadline, not current watch health. Shutdown joins
 engine and native reader cleanup before releasing lifetime ownership. Periodic-
 only execution retains its original completion-based wait path.
+
+## Remote change hints
+
+[Spec 000012](spec/000012-remote-change-detection-design.md) adds a separate
+Drive ChangesAPI and locked Service.CheckRemoteChanges boundary. It validates
+the original existing-profile binding before opening read-only authentication,
+traverses bounded pages, and closes API/profile leases before return. Results
+carry only an opaque in-memory cursor and dirty bit. Partial/error pagination
+retains the original cursor; genuine session/profile cleanup failures preserve
+joined causes with a typed fatal marker and sanitized display.
+
+An optional remote source emits bounded dirty hints and latest historical check
+observations into the existing coordinator. A context-aware in-process gate
+serializes each bounded check with RunExisting, through cleanup. Polling waits
+its configured interval after each result and includes gate wait in its ten-
+second budget. The shared scheduler retains debounce, sync retry restrictions
+and independent periodic deadlines; remote checks never reset sync counts or
+become operation plans. Both sources disabled retains the old periodic-only path.
+
+The coordinator alone persists remote history, across valid phase transitions.
+It cancels work, joins workers/sources, drains sticky faults and then releases
+lifetime ownership. Native watcher semantics remain intact. Ephemeral cursor
+initialization emits a dirty hint to close the startup gap, and account-wide
+My Drive hints deliberately allow false-positive scans. No event path/ID reaches
+the planner, and periodic full scans remain authoritative.

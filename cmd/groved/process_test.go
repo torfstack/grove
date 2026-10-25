@@ -31,19 +31,43 @@ import (
 )
 
 type processDrive struct {
-	mu            sync.Mutex
-	data          string
-	version       string
-	gate          chan struct{}
-	started       chan struct{}
-	createStarted chan struct{}
-	once          sync.Once
+	changesGate    chan struct{}
+	changesStarted chan struct{}
+	changesOnce    sync.Once
+	mu             sync.Mutex
+	data           string
+	version        string
+	gate           chan struct{}
+	started        chan struct{}
+	createStarted  chan struct{}
+	once           sync.Once
 }
 
 func (d *processDrive) serve(w http.ResponseWriter, r *http.Request) {
 	d.mu.Lock()
 	data, version, gate, started, createStarted := d.data, d.version, d.gate, d.started, d.createStarted
+	changesGate, changesStarted := d.changesGate, d.changesStarted
 	d.mu.Unlock()
+	if r.Method == http.MethodGet && (strings.HasSuffix(r.URL.Path, "/changes") || strings.HasSuffix(r.URL.Path, "/changes/startPageToken")) {
+		if changesGate != nil {
+			d.changesOnce.Do(func() { close(changesStarted) })
+			select {
+			case <-changesGate:
+			case <-r.Context().Done():
+				return
+			}
+		}
+		if strings.HasSuffix(r.URL.Path, "/startPageToken") {
+			_ = json.NewEncoder(w).Encode(map[string]any{"startPageToken": version})
+			return
+		}
+		entries := []any{}
+		if r.URL.Query().Get("pageToken") != version {
+			entries = append(entries, map[string]string{"changeType": "file"})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"newStartPageToken": version, "changes": entries})
+		return
+	}
 	if createStarted != nil && strings.HasSuffix(r.URL.Path, "/generateIds") {
 		_ = json.NewEncoder(w).Encode(map[string]any{"ids": []string{"allocated"}})
 		return
@@ -151,7 +175,7 @@ func TestGrovedProcessHelper(t *testing.T) {
 	ctx, stop := processContext(context.Background())
 	service := processService(os.Getenv("GROVE_DAEMON_TEST_DRIVE"), os.Getenv("GROVE_DAEMON_TEST_REGISTRY"))
 	cmd := newCommand(func(ctx context.Context, path string) error {
-		return daemon.Run(ctx, path, daemon.Dependencies{InspectProfile: service.InspectProfile, RunExisting: service.RunExisting})
+		return daemon.Run(ctx, path, daemon.Dependencies{InspectProfile: service.InspectProfile, RunExisting: service.RunExisting, CheckRemoteChanges: service.CheckRemoteChanges})
 	})
 	cmd.SetArgs([]string{"--config", os.Getenv("GROVE_DAEMON_TEST_CONFIG")})
 	err := cmd.ExecuteContext(ctx)

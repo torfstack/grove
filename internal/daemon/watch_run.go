@@ -38,26 +38,74 @@ func runWatching(ctx context.Context, cfg Config, deps Dependencies, binding syn
 	if !ok {
 		return failed("watch_clock_unavailable", nil)
 	}
-	open := deps.OpenWatcher
-	if open == nil {
-		open = openWatcher
-	}
 	life, cancel := context.WithCancelCause(ctx)
 	defer cancel(context.Canceled)
-	w, err := open(life, binding.LocalDir, deps.Clock)
-	if err != nil {
-		return failed("watch_setup_failed", err)
+	gate := newJobGate()
+	var sources []ChangeSource
+	var w Watcher
+	var localReady, remoteReady <-chan struct{}
+	if cfg.WatchLocal {
+		open := deps.OpenWatcher
+		if open == nil {
+			open = openWatcher
+		}
+		w, err = open(life, binding.LocalDir, deps.Clock)
+		if err != nil {
+			return failed("watch_setup_failed", err)
+		}
+		sources = append(sources, w)
+		localReady = w.Ready()
+	}
+	if cfg.RemotePollInterval > 0 {
+		remote := openRemoteSource(life, cfg.RemotePollInterval, clock, func(checkCtx context.Context, cursor string) (syncengine.RemoteChangesResult, error) {
+			if waitErr := gate.acquire(checkCtx); waitErr != nil {
+				if life.Err() != nil {
+					return syncengine.RemoteChangesResult{}, context.Cause(life)
+				}
+				if errors.Is(waitErr, context.DeadlineExceeded) {
+					return syncengine.RemoteChangesResult{}, privatefs.ErrLocked
+				}
+				return syncengine.RemoteChangesResult{}, waitErr
+			}
+			defer gate.release()
+			result, checkErr := deps.CheckRemoteChanges(checkCtx, cfg.ProfileDir, binding, cursor)
+			if errors.Is(checkErr, syncengine.ErrRemoteCheckCleanup) {
+				cancel(checkErr)
+			}
+			return result, checkErr
+		})
+		sources = append(sources, remote)
+		remoteReady = remote.Ready()
 	}
 	defer func() {
-		if closeErr := w.Close(); closeErr != nil {
-			err = errors.Join(err, failed("watch_cleanup_failed", closeErr))
+		for i := len(sources) - 1; i >= 0; i-- {
+			if closeErr := sources[i].Close(); closeErr != nil {
+				err = errors.Join(err, failed("change_source_cleanup_failed", closeErr))
+			}
 		}
-		if fault := w.Take().Err; fault != nil && !errors.Is(err, fault) {
-			err = errors.Join(err, failed("watch_failed", fault))
+		for _, source := range sources {
+			if fault := source.Take().Err; fault != nil && !errors.Is(err, fault) {
+				err = errors.Join(err, failed("change_source_failed", fault))
+			}
 		}
 	}()
-	if err := save("starting"); err != nil {
+	remoteDirty := false
+	persist := func(phase string) error {
+		if err := save(phase); err != nil {
+			return err
+		}
+		remoteDirty = false
+		return nil
+	}
+	if err := persist("starting"); err != nil {
 		return err
+	}
+	run := func() (syncengine.Result, error) {
+		if waitErr := gate.acquire(life); waitErr != nil {
+			return syncengine.Result{}, context.Cause(life)
+		}
+		defer gate.release()
+		return deps.RunExisting(life, cfg.ProfileDir, binding, cfg.Mode == ModeTwoWay)
 	}
 	s := newSchedule(cfg.Interval)
 	results := make(chan watchResult, 1)
@@ -82,11 +130,18 @@ func runWatching(ctx context.Context, cfg Config, deps Dependencies, binding syn
 		}
 	}()
 	take := func() error {
-		b := w.Take()
-		if b.Err != nil {
-			return failed("watch_failed", b.Err)
+		for _, source := range sources {
+			batch := source.Take()
+			if batch.Remote != nil && cfg.RemotePollInterval > 0 {
+				r.RemoteCheckedAt = utcStamp(batch.Remote.CheckedAt)
+				r.RemoteOutcome = batch.Remote.Outcome
+				remoteDirty = true
+			}
+			if batch.Err != nil {
+				return failed("change_source_failed", batch.Err)
+			}
+			s.hint(batch.First, batch.Last)
 		}
-		s.hint(b.First, b.Last)
 		return nil
 	}
 	var timer Timer
@@ -127,7 +182,7 @@ func runWatching(ctx context.Context, cfg Config, deps Dependencies, binding syn
 				r.Counts = syncengine.Result{}
 				r.Outcome = "never"
 				r.Reason = ""
-				if err := save("syncing"); err != nil {
+				if err := persist("syncing"); err != nil {
 					return err
 				}
 				if ctx.Err() != nil {
@@ -140,7 +195,7 @@ func runWatching(ctx context.Context, cfg Config, deps Dependencies, binding syn
 					timer = nil
 				}
 				go func(started time.Time) {
-					result, runErr := deps.RunExisting(life, cfg.ProfileDir, binding, cfg.Mode == ModeTwoWay)
+					result, runErr := run()
 					results <- watchResult{result, runErr, started, clock.Now()}
 				}(now)
 			} else if !next.Equal(due) {
@@ -149,10 +204,15 @@ func runWatching(ctx context.Context, cfg Config, deps Dependencies, binding syn
 				}
 				due = next
 				r.NextAttemptAt = utcStamp(next)
-				if err := save("waiting"); err != nil {
+				if err := persist("waiting"); err != nil {
 					return err
 				}
 				timer = clock.NewTimer(next.Sub(now))
+			}
+		}
+		if remoteDirty {
+			if err := persist(r.Phase); err != nil {
+				return err
 			}
 		}
 		var ticks <-chan time.Time
@@ -161,14 +221,18 @@ func runWatching(ctx context.Context, cfg Config, deps Dependencies, binding syn
 		}
 		select {
 		case <-ctx.Done():
-		case <-w.Ready():
+		case <-localReady:
+		case <-remoteReady:
 		case <-ticks:
 			timer = nil
 			due = time.Time{}
 		case out := <-results:
 			active = false
 			finish(out)
-			repairErr := w.Reconcile(life)
+			var repairErr error
+			if w != nil && life.Err() == nil {
+				repairErr = w.Reconcile(life)
+			}
 			if ctx.Err() != nil {
 				var faults []error
 				if out.err != nil && !cancellationOnly(out.err, context.Cause(ctx)) && !errors.Is(out.err, privatefs.ErrLocked) {

@@ -14,26 +14,30 @@ type Clock interface {
 }
 
 type Record struct {
-	WatchLocal        bool              `json:"watch_local"`
-	Version           int               `json:"version"`
-	SessionID         string            `json:"session_id"`
-	Mode              Mode              `json:"mode"`
-	Interval          time.Duration     `json:"interval"`
-	Phase             string            `json:"phase"`
-	Outcome           string            `json:"outcome"`
-	UpdatedAt         time.Time         `json:"updated_at"`
-	AttemptStartedAt  *time.Time        `json:"attempt_started_at,omitempty"`
-	AttemptFinishedAt *time.Time        `json:"attempt_finished_at,omitempty"`
-	NextAttemptAt     *time.Time        `json:"next_attempt_at,omitempty"`
-	Counts            syncengine.Result `json:"counts"`
-	Reason            string            `json:"reason,omitempty"`
+	RemotePollInterval time.Duration     `json:"remote_poll_interval"`
+	RemoteCheckedAt    *time.Time        `json:"remote_checked_at"`
+	RemoteOutcome      string            `json:"remote_outcome"`
+	WatchLocal         bool              `json:"watch_local"`
+	Version            int               `json:"version"`
+	SessionID          string            `json:"session_id"`
+	Mode               Mode              `json:"mode"`
+	Interval           time.Duration     `json:"interval"`
+	Phase              string            `json:"phase"`
+	Outcome            string            `json:"outcome"`
+	UpdatedAt          time.Time         `json:"updated_at"`
+	AttemptStartedAt   *time.Time        `json:"attempt_started_at,omitempty"`
+	AttemptFinishedAt  *time.Time        `json:"attempt_finished_at,omitempty"`
+	NextAttemptAt      *time.Time        `json:"next_attempt_at,omitempty"`
+	Counts             syncengine.Result `json:"counts"`
+	Reason             string            `json:"reason,omitempty"`
 }
 
 type Dependencies struct {
-	OpenWatcher    func(context.Context, string, Clock) (Watcher, error)
-	InspectProfile func(context.Context, string) (syncengine.ProfileSummary, error)
-	RunExisting    func(context.Context, string, syncengine.Binding, bool) (syncengine.Result, error)
-	Clock          Clock
-	AcquireLease   func(string) (io.Closer, error)
-	SaveRecord     func(string, Record) error
+	CheckRemoteChanges func(context.Context, string, syncengine.Binding, string) (syncengine.RemoteChangesResult, error)
+	OpenWatcher        func(context.Context, string, Clock) (Watcher, error)
+	InspectProfile     func(context.Context, string) (syncengine.ProfileSummary, error)
+	RunExisting        func(context.Context, string, syncengine.Binding, bool) (syncengine.Result, error)
+	Clock              Clock
+	AcquireLease       func(string) (io.Closer, error)
+	SaveRecord         func(string, Record) error
 }

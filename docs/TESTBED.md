@@ -258,6 +258,46 @@ account gates. It runs actual binaries with watch_local=true and a ten-minute
 interval, observes local-edit upload before a 90-second observation timeout,
 independently verifies Drive content, requests metadata-triggered no-op cycles,
 checks stable content/mtimes and offline status, and cleans fixture-owned data.
-It has only been checked in disabled mode (explicit SKIP); authenticated watching
-has not been exercised. Native watcher evidence is local Linux filesystem
+Actual dedicated-account acceptance passed on 2026-10-25 in 42.888s; the upload
+was independently verified in 7.50s. The first run exposed a harness race that
+waited for transient upload counters; a following no-op could replace them.
+The corrected test requires a completed post-edit attempt and independent Drive
+bytes. Both runs finished fixture-owned cleanup, with no pending uncertain write.
+No-op stability, offline status and SIGTERM shutdown passed. Native watcher evidence is local Linux filesystem
 coverage, not a guarantee for network filesystems or authenticated systemd sync.
+
+
+## Remote changes acceptance
+
+Spec 000012 adds opt-in My Drive changes-feed hints without replacing complete
+periodic scans. Fake HTTP and locked-service tests cover opaque cursor handling,
+full pagination, partial/error retention, bounds, cancellation and cleanup.
+Deterministic daemon tests cover initialization after startup, check/sync gate
+serialization, busy/failed retries, valid historical record transitions and late
+faults during shutdown. Real processes cover remote-only detection before a
+10-minute periodic deadline, idle checks preserving prior attempt counts, combined
+sources, signal cancellation during a check and lifetime lease release.
+
+Dedicated-account actual-binary acceptance passed on 2026-10-25: remote download
+73.73s, independently verified 12.40s after owned remote mutation completion;
+watcher regression 41.96s, independently verified upload in 7.30s. Combined run
+115.697s. Remote mode waits for post-cursor startup reconciliation and no pending
+debounce before mutation, excluding startup work as the download trigger. Both
+scenarios verify no-op content/mtime stability, offline configuration/status,
+SIGTERM and owned cleanup. Remote live mode enables local watching to request
+later no-op cycles; remote-only behavior has separate process evidence. Network
+filesystem guarantees and authenticated systemd boot/logout remain unclaimed.
+
+
+The shared helper's periodic regressions also passed after the changes: download
+68.34s and upload 42.30s, combined 110.647s. Both verified content, no-op cycles,
+status, shutdown and owned cleanup. All four daemon live scenarios therefore have
+fresh dedicated-account evidence; no unrelated live engine aggregate was rerun.
+Full pinned offline/race/lint/build checks and both macOS arm64 cross-builds pass.
+
+Final review-fix acceptance passed in 161.388s: remote 74.74s (independent
+download 12.70s), periodic upload 43.13s, watcher upload 43.51s (independent
+upload 7.96s). This exercises the corrected post-write observation boundary and
+cleanup cancellation ordering. A deterministic remote-only/combined regression
+reproduced queued engine entry after failed remote cleanup, then passed with
+synchronous lifetime cancellation while the shared gate is held.
