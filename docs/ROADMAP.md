@@ -18,8 +18,9 @@ systemd is not claimed. The user selected opt-in native local watching next;
 [approved spec 000011](spec/000011-local-watching-design.md) is implemented following its
 [paired plan](implementation-plans/000011-local-watching-plan.md). Deterministic,
 native filesystem, and subprocess verification pass. Independent review findings
-are fixed and the initial CodeRabbit review found no actionable findings; final
-integrated-head CI precedes merge. Live watcher acceptance remains gated and unrun.
+are fixed, the initial CodeRabbit review found no actionable findings, and all
+final integrated-head checks passed. PR #17 merged at `b6f2ad0` on 2026-10-24.
+Live watcher acceptance remains gated and unrun.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus
@@ -36,16 +37,15 @@ integrated-head CI precedes merge. Live watcher acceptance remains gated and unr
    incremental live acceptance. Explicit local uploads and conflict policy in
    [spec 000004](spec/000004-local-upload-design.md) are implemented with preflight
    revision checks, durable conflict candidates, CLI controls, and macOS live
-   acceptance. Operator reconciliation is implemented on
-   `feat/operator-reconciliation`, following approved
-   [spec 000005](spec/000005-operator-reconciliation-design.md): offline inspection,
+   acceptance. Operator reconciliation merged in PR #8 at `24e2ebb`, following
+   approved [spec 000005](spec/000005-operator-reconciliation-design.md): offline inspection,
    recovery-only retry, and verified stage export. Local offline/race verification
-   passes; independent review findings were fixed and verified. Multi-competitor
-   UI recovery, force-abandon, and automatic content merging follow later. Local
-   deletion propagation is approved in
-   [spec 000007](spec/000007-deletion-propagation-design.md) and is implemented
-   on `feat/deletion-propagation`, pending pull request review. Periodic scheduling is
-   implemented in spec 000009; opt-in local watching is implemented in spec 000011.
+   passes; independent review findings were fixed and verified. Multiple preserved
+   conflict candidates from [spec 000006](spec/000006-multiple-conflict-candidates-design.md)
+   merged in PR #9 at `855f3c3`; force-abandon and automatic content merging remain
+   deferred. Local deletion propagation from
+   [spec 000007](spec/000007-deletion-propagation-design.md) merged in PR #10 at
+   `8123f12`. Periodic scheduling is implemented in spec 000009; opt-in local watching is implemented in spec 000011.
 4. **Linux daemon**: the first implemented slice is spec 000009: a foreground
    process periodically syncing one existing profile through the shared engine,
    with lifetime exclusion, cancellation, and offline status. Opt-in local
