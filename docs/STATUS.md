@@ -985,3 +985,11 @@ aware job gate. Daemon race tests pass for immediate initialization, check budge
 cursor retention, partial dirty hints, failed/busy retries, drained observations,
 and sticky cleanup faults preserved after source join. Native watcher tests remain
 green; remote execution integration is next.
+
+Remote detection Task 5 integrates optional local/remote sources with one existing
+scheduler and serialized API gate. Affected daemon/CLI/process race suites pass.
+Real daemon processes detect fake remote edits before a ten-minute periodic
+interval, then empty checks preserve the prior attempt timestamp/counts. Remote-
+only, combined-source and in-flight-check SIGTERM cases release lifetime ownership.
+Remote observations persist only across valid record phases and do not erase
+normal sync history. Live remote detection and final review remain next.

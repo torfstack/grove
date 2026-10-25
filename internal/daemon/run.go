@@ -63,6 +63,9 @@ func Run(ctx context.Context, configPath string, deps Dependencies) (err error) 
 	if deps.RunExisting == nil {
 		deps.RunExisting = service.RunExisting
 	}
+	if deps.CheckRemoteChanges == nil {
+		deps.CheckRemoteChanges = service.CheckRemoteChanges
+	}
 	if deps.Clock == nil {
 		deps.Clock = realClock{}
 	}
@@ -109,7 +112,10 @@ func Run(ctx context.Context, configPath string, deps Dependencies) (err error) 
 	if _, err := rand.Read(session); err != nil {
 		return failed("session_unavailable", err)
 	}
-	r := Record{WatchLocal: cfg.WatchLocal, Version: 1, SessionID: hex.EncodeToString(session), Mode: cfg.Mode, Interval: cfg.Interval, Outcome: "never"}
+	r := Record{RemotePollInterval: cfg.RemotePollInterval, WatchLocal: cfg.WatchLocal, Version: 1, SessionID: hex.EncodeToString(session), Mode: cfg.Mode, Interval: cfg.Interval, Outcome: "never"}
+	if cfg.RemotePollInterval > 0 {
+		r.RemoteOutcome = "never"
+	}
 	now := func() *time.Time { stamp := deps.Clock.Now().UTC(); return &stamp }
 	save := func(phase string) error {
 		r.Phase = phase
@@ -131,7 +137,7 @@ func Run(ctx context.Context, configPath string, deps Dependencies) (err error) 
 		}
 		return save("stopped")
 	}
-	if cfg.WatchLocal {
+	if cfg.WatchLocal || cfg.RemotePollInterval > 0 {
 		return runWatching(ctx, cfg, deps, summary.Binding, &r, save, stop)
 	}
 	if err := save("starting"); err != nil {
