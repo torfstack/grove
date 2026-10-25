@@ -23,11 +23,12 @@ const (
 )
 
 type Config struct {
-	WatchLocal bool
-	ConfigPath string
-	ProfileDir string
-	Mode       Mode
-	Interval   time.Duration
+	RemotePollInterval time.Duration
+	WatchLocal         bool
+	ConfigPath         string
+	ProfileDir         string
+	Mode               Mode
+	Interval           time.Duration
 }
 
 func configError(field string) error { return fmt.Errorf("invalid daemon configuration: %s", field) }
@@ -108,7 +109,18 @@ func LoadConfig(path string) (Config, error) {
 		}
 		watch = string(raw) == "true"
 	}
-	return Config{WatchLocal: watch, ConfigPath: path, ProfileDir: profile, Mode: Mode(mode), Interval: interval}, nil
+	remoteInterval := time.Duration(0)
+	if _, exists := fields["remote_poll_interval"]; exists {
+		value, readErr := readString("remote_poll_interval")
+		if readErr != nil {
+			return Config{}, readErr
+		}
+		remoteInterval, err = time.ParseDuration(value)
+		if err != nil || remoteInterval < 10*time.Second {
+			return Config{}, configError("remote_poll_interval")
+		}
+	}
+	return Config{RemotePollInterval: remoteInterval, WatchLocal: watch, ConfigPath: path, ProfileDir: profile, Mode: Mode(mode), Interval: interval}, nil
 }
 
 func configFields(data []byte) (map[string]json.RawMessage, error) {
@@ -128,7 +140,7 @@ func configFields(data []byte) (map[string]json.RawMessage, error) {
 			return nil, configError("JSON")
 		}
 		switch key {
-		case "version", "profile_dir", "mode", "interval", "watch_local":
+		case "version", "profile_dir", "mode", "interval", "watch_local", "remote_poll_interval":
 		default:
 			return nil, configError("unknown field")
 		}

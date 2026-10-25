@@ -961,3 +961,8 @@ and retains genuine faults for the scheduler's post-join drain. The failing
 (0 issues), full offline/race suites, both Linux builds, both macOS arm64 cross-
 builds, and diff checks pass. This narrow shutdown fix is pushed for fresh CI;
 no additional CodeRabbit review is requested under decision 0009.
+
+Remote detection Task 1 implements strict optional remote_poll_interval and
+historical interval/check timestamp/outcome fields. Existing disabled behavior
+remains valid; enabled intervals must be at least ten seconds. Daemon/CLI normal
+and race coverage passes. Remote polling execution is not connected yet.

@@ -12,6 +12,28 @@ import (
 func recordError() error { return errors.New("daemon status unavailable") }
 
 func validRecord(r Record) bool {
+	if r.RemotePollInterval == 0 {
+		if r.RemoteCheckedAt != nil || r.RemoteOutcome != "" {
+			return false
+		}
+	} else {
+		if r.RemotePollInterval < 10*time.Second {
+			return false
+		}
+		switch r.RemoteOutcome {
+		case "never":
+			if r.RemoteCheckedAt != nil {
+				return false
+			}
+		case "completed", "busy", "failed":
+			if r.RemoteCheckedAt == nil || !utcTime(*r.RemoteCheckedAt) {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+
 	if r.Version != 1 || r.SessionID == "" || len(r.SessionID) > 128 || (r.Mode != ModeDownload && r.Mode != ModeTwoWay) || r.Interval < time.Second || !utcTime(r.UpdatedAt) {
 		return false
 	}

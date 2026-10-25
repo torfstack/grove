@@ -66,6 +66,11 @@ func humanStatus(r daemon.StatusReport) string {
 		lines = append(lines, "Last recorded daemon observation: none")
 	} else {
 		r := r.LastRecorded
+		if r.RemotePollInterval == "" {
+			lines = append(lines, "Last recorded remote polling: disabled")
+		} else {
+			lines = append(lines, fmt.Sprintf("Last recorded remote polling: %s; checked: %s; outcome: %s", r.RemotePollInterval, statusTime(r.RemoteCheckedAt), r.RemoteOutcome))
+		}
 		lines = append(lines, fmt.Sprintf("Last recorded local watching: %t", r.WatchLocal))
 		outcome := r.Outcome
 		if outcome == "never" {
