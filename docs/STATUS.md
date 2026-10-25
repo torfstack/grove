@@ -979,3 +979,9 @@ Sync-engine normal/race tests pass, including real fake-HTTP pagination, missing
 rebound/busy profiles, unchanged state bytes and genuine close failures joined
 with cancellation. A typed cleanup fault lets the daemon stop rather than hide
 resource failures as ordinary remote-check errors.
+
+Remote detection Task 4 implements the bounded polling source and a cancellation-
+aware job gate. Daemon race tests pass for immediate initialization, check budget,
+cursor retention, partial dirty hints, failed/busy retries, drained observations,
+and sticky cleanup faults preserved after source join. Native watcher tests remain
+green; remote execution integration is next.
