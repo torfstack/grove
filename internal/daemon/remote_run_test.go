@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -249,5 +250,104 @@ func TestDaemonRemoteShutdown(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("remote cleanup hung")
+	}
+}
+
+type cleanupGateClock struct {
+	realClock
+	blocked  atomic.Bool
+	arrivals chan struct{}
+	release  <-chan struct{}
+}
+
+func (c *cleanupGateClock) Now() time.Time {
+	if c.blocked.Load() {
+		c.arrivals <- struct{}{}
+		<-c.release
+	}
+	return time.Now()
+}
+func TestDaemonRemoteCleanupStopsQueuedSync(t *testing.T) {
+	for _, local := range []bool{false, true} {
+		t.Run(map[bool]string{false: "remote-only", true: "combined"}[local], func(t *testing.T) {
+			path := remoteConfig(t)
+			if local {
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, []byte(strings.TrimSuffix(string(data), "}")+`,"watch_local":true}`), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			releaseClock, releaseCheck := make(chan struct{}), make(chan struct{})
+			var clockOnce, checkOnce, syncOnce sync.Once
+			clock := &cleanupGateClock{arrivals: make(chan struct{}, 20), release: releaseClock}
+			defer func() {
+				cancel()
+				clock.blocked.Store(false)
+				clockOnce.Do(func() { close(releaseClock) })
+				checkOnce.Do(func() { close(releaseCheck) })
+			}()
+			checkStarted, syncQueued, engineEntered := make(chan struct{}), make(chan struct{}), make(chan struct{})
+			done := make(chan error, 1)
+			fault := errors.New("private-remote-cleanup")
+			native := &reconcileWatcher{fakeWatcher: newFakeWatcher(), reconcile: func(ctx context.Context) error { return ctx.Err() }}
+			go func() {
+				done <- Run(ctx, path, Dependencies{Clock: clock, OpenWatcher: func(context.Context, string, Clock) (Watcher, error) { return native, nil }, SaveRecord: func(_ string, r Record) error {
+					if r.Phase == "starting" {
+						select {
+						case <-checkStarted:
+						case <-ctx.Done():
+							return ctx.Err()
+						}
+					}
+					if r.Phase == "syncing" {
+						syncOnce.Do(func() { close(syncQueued) })
+					}
+					return nil
+				}, CheckRemoteChanges: func(context.Context, string, syncengine.Binding, string) (syncengine.RemoteChangesResult, error) {
+					close(checkStarted)
+					<-releaseCheck
+					clock.blocked.Store(true)
+					return syncengine.RemoteChangesResult{}, errors.Join(syncengine.ErrRemoteCheckCleanup, fault)
+				}, RunExisting: func(context.Context, string, syncengine.Binding, bool) (syncengine.Result, error) {
+					close(engineEntered)
+					return syncengine.Result{}, nil
+				}})
+			}()
+			select {
+			case <-syncQueued:
+			case err := <-done:
+				t.Fatal("startup", err)
+			case <-time.After(3 * time.Second):
+				t.Fatal("sync was not queued")
+			}
+			checkOnce.Do(func() { close(releaseCheck) })
+			// Hold both publication and worker completion so coordinator scheduling cannot hide the gate race.
+			for i := 0; i < 2; i++ {
+				select {
+				case <-clock.arrivals:
+				case <-time.After(3 * time.Second):
+					t.Fatal("queued work did not finish gate acquisition")
+				}
+			}
+			select {
+			case <-engineEntered:
+				t.Error("queued sync entered engine after failed cleanup")
+			default:
+			}
+			clock.blocked.Store(false)
+			clockOnce.Do(func() { close(releaseClock) })
+			select {
+			case err := <-done:
+				if !errors.Is(err, fault) || strings.Contains(err.Error(), "private") || strings.Contains(err.Error(), "watch_coverage_failed") {
+					t.Fatalf("fatal cleanup lost, exposed or misclassified: %v", err)
+				}
+			case <-time.After(3 * time.Second):
+				t.Fatal("fatal cleanup did not stop daemon")
+			}
+		})
 	}
 }

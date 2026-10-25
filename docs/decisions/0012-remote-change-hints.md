@@ -1,7 +1,7 @@
 # 0012: Opt-in remote change hints
 
 Date: 2026-10-25. Status: direction authorized by the user; detailed choices
-made by the agent under standing autonomy, implemented under verification.
+made by the agent under standing autonomy; implementation and acceptance complete.
 
 The user authorized remote change detection after dedicated-account live watcher
 acceptance. [Spec 000012](../spec/000012-remote-change-detection-design.md)
@@ -32,3 +32,7 @@ feed checks retain prior sync counts/history; they do not invent an unrequested
 no-op engine attempt. Combined live acceptance requests explicit local metadata
 hints for later no-op cycles. No tokens, cursors, generated IDs or synced contents
 are recorded in public evidence.
+
+Review clarified that fatal remote cleanup cancels the shared lifetime before
+releasing the gate. This prevents queued engine work from starting against an
+uncertain cleanup state; remote-only and combined regressions enforce the order.

@@ -68,7 +68,11 @@ func runWatching(ctx context.Context, cfg Config, deps Dependencies, binding syn
 				return syncengine.RemoteChangesResult{}, waitErr
 			}
 			defer gate.release()
-			return deps.CheckRemoteChanges(checkCtx, cfg.ProfileDir, binding, cursor)
+			result, checkErr := deps.CheckRemoteChanges(checkCtx, cfg.ProfileDir, binding, cursor)
+			if errors.Is(checkErr, syncengine.ErrRemoteCheckCleanup) {
+				cancel(checkErr)
+			}
+			return result, checkErr
 		})
 		sources = append(sources, remote)
 		remoteReady = remote.Ready()
@@ -226,7 +230,7 @@ func runWatching(ctx context.Context, cfg Config, deps Dependencies, binding syn
 			active = false
 			finish(out)
 			var repairErr error
-			if w != nil {
+			if w != nil && life.Err() == nil {
 				repairErr = w.Reconcile(life)
 			}
 			if ctx.Err() != nil {

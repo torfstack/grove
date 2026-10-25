@@ -214,9 +214,10 @@ func testDaemonVariant(t *testing.T, upload, watching, remote bool) {
 		if err := os.WriteFile(filepath.Join(opts.LocalDir, "nested", "hello.txt"), payload, 0600); err != nil {
 			t.Fatal("cannot edit owned local file")
 		}
+		writtenAt := time.Now()
 		wait(func() bool {
 			r := record()
-			return r != nil && r.Phase == "waiting" && r.Outcome == "completed" && r.AttemptStartedAt != nil && r.AttemptStartedAt.After(editedAt)
+			return r != nil && r.Phase == "waiting" && r.Outcome == "completed" && r.AttemptStartedAt != nil && r.AttemptStartedAt.After(writtenAt)
 		})
 		if err := daemonFixtureSession(ctx, cfg.Token, runDir, "read-only", func(api drive.API) error {
 			var content bytes.Buffer

@@ -109,6 +109,8 @@ consumed by 5; Task 5 runtime consumed by 6. Live harness observation fix and
 already-approved watcher acceptance remain separate from production behavior.
 Tasks 1–5 and dedicated-account remote/watcher live acceptance are complete.
 Periodic download/upload live regressions and full pinned verification also pass.
-Native execution continues under standing authorization; whole-change/hosted
-review and integration remain. Detailed evidence
+One independent whole-change review and the initial CodeRabbit review at
+75892e3 are complete; valid findings are fixed and fresh local verification
+passes. Final-head CI and integration are tracked in PR #19 under standing
+authorization. Detailed evidence
 and rulings are in STATUS and the plan's ignored execution ledger.

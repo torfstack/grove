@@ -23,7 +23,32 @@ contents were printed. Periodic live regressions also passed in 110.647s (downlo
 42.30s), each with independent verification, no-op checks, shutdown and owned
 cleanup. Final formatting, lint (0 issues), all eleven offline/race packages,
 both Linux builds and macOS arm64 cross-builds pass. Relative documentation links
-and diff checks pass. One independent whole-change review precedes publication.
+and diff checks pass. PR #19 is published; final review fixes are awaiting fresh CI.
+
+## Remote detection review and final acceptance
+
+CodeRabbit completed its initial review of PR #19 at `75892e3`; its summary,
+inline comment and review thread were retrieved. Its sole finding was valid:
+the current-status paragraph still claimed no implementation. That sentence is
+corrected; the sequential implementation history remains intact.
+
+Independent review found a cleanup race: releasing the remote-check gate before
+publishing a fatal cleanup error could let queued engine work begin. The daemon
+now cancels its shared lifetime while still holding the gate. A deterministic
+regression reproduced the failure for remote-only and combined sources before
+the fix. Native reconciliation also skips an already canceled lifetime, preserving
+the original fault. A minor live-harness correction captures the post-write
+attempt boundary after WriteFile succeeds, retaining the earlier latency clock.
+
+Fresh actual-binary acceptance after these fixes passed in 161.388s: remote
+74.74s (independent download 12.70s), periodic upload 43.13s, and watcher upload
+43.51s (independent upload 7.96s). All verified content, no-op stability, offline
+status, shutdown and fixture-owned cleanup. Earlier periodic-download acceptance
+remains valid. Final pinned formatting, lint (0 issues), all eleven offline/race packages,
+Linux builds and both macOS arm64 cross-builds pass after the fixes. No second
+CodeRabbit review is requested; final-head CI and integration are tracked in
+[PR #19](https://github.com/torfstack/grove/pull/19). Non-Linux runtime, network filesystems and
+authenticated systemd boot/logout remain outside this acceptance.
 
 ## Live watcher acceptance and remote detection
 
@@ -46,7 +71,7 @@ prepared under the standing autonomous workflow. Agent choices are opt-in
 remote_poll_interval (minimum 10s), account-wide My Drive hints, ephemeral cursor,
 10s bounded checks serialized with engine work, historical check status and the
 unchanged full-scan safety net. The builder check found no consequential gaps.
-Native implementation follows six tasks; no remote implementation is claimed yet.
+Native implementation followed six tasks; the sections above record the implemented behavior and acceptance results.
 
 ## Dependency and record refresh
 

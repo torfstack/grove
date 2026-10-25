@@ -294,3 +294,10 @@ The shared helper's periodic regressions also passed after the changes: download
 status, shutdown and owned cleanup. All four daemon live scenarios therefore have
 fresh dedicated-account evidence; no unrelated live engine aggregate was rerun.
 Full pinned offline/race/lint/build checks and both macOS arm64 cross-builds pass.
+
+Final review-fix acceptance passed in 161.388s: remote 74.74s (independent
+download 12.70s), periodic upload 43.13s, watcher upload 43.51s (independent
+upload 7.96s). This exercises the corrected post-write observation boundary and
+cleanup cancellation ordering. A deterministic remote-only/combined regression
+reproduced queued engine entry after failed remote cleanup, then passed with
+synchronous lifetime cancellation while the shared gate is held.
