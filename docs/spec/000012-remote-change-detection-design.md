@@ -2,8 +2,9 @@
 
 Date: 2026-10-25. Status: authorized direction; detailed implementation choices
 below are made by the agent under the user's standing instruction to continue
-autonomously. Implementation is pending. A fresh read-only builder check reported "nothing
-important left".
+autonomously. Implementation and dedicated-account live acceptance are complete; final
+verification/review precede integration. A fresh read-only builder check reported
+"nothing important left".
 
 ## Intent
 

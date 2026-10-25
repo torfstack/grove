@@ -297,6 +297,29 @@ Native events are best effort, particularly on network/unsupported filesystems;
 periodic full scans remain necessary. Overflow repairs coverage and requests a
 full sync without authorizing deletions from missing events.
 
+Add `"remote_poll_interval": "30s"` to the daemon JSON to check Drive's changes
+feed between full scans. Omit it to disable remote polling; the minimum is ten
+seconds. It works with either mode and with or without local watching. Restart
+to apply the setting. Any My Drive change can request a normal sync, including
+changes outside this profile or Grove's own writes, so occasional extra no-op
+runs are expected. Full periodic scans continue unchanged.
+
+Remote checks use read-only authorization and serialize with this daemon's sync
+work, including cleanup, so they do not compete for its own token/profile lease.
+A check has a ten-second context budget; a sync may wait for an already active
+check to finish. Other processes retain normal token/profile exclusion. Polling
+cursors live only in memory; initialization requests a full sync after the cursor
+is captured. Authentication, busy, network, and feed errors retry at the remote
+interval and appear in historical status; periodic sync still runs. If the
+provider rejects a cursor repeatedly, restart the daemon to obtain a new one.
+Genuine session/lease cleanup failures stop visibly for inspection.
+
+Feed notifications never apply operations directly. Missing or incomplete
+notifications never authorize deletion. Remote removals keep the engine's
+existing preflight/conflict behavior and preserve local data. Status reports the
+configured interval and last completed remote-check outcome, not current health;
+`next_attempt_at` continues to describe a normal sync, not a cheap feed check.
+
 Status observes the lifetime lock independently of its **last recorded** phase,
 result, and schedule. History may be stale after a crash. The recorded `watch_local` flag is
 configuration history, not a watcher-health check; `next_attempt_at` is the

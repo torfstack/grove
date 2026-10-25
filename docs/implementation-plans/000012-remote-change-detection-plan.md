@@ -48,57 +48,57 @@
 
 **Interfaces:** Add `RemotePollInterval time.Duration` to Config and Record, `RemoteCheckedAt *time.Time` and `RemoteOutcome string` to Record. Public Observation uses interval string (empty when disabled), timestamp pointer and outcome string. JSON keys: remote_poll_interval, remote_checked_at, remote_outcome. Existing version-1 records with absent fields remain valid.
 
-- [ ] Write `TestConfigRemotePollInterval`: omitted disables; 10s/30s valid; 9999ms/null/bool/number/empty/duplicate/overflow rejected. Observe failure with focused daemon tests.
-- [ ] Implement strict field parsing and config allowance without changing interval/watch_local defaults.
-- [ ] Add `TestRemotePollingRecordValidation` and `TestRemotePollingStatus`: disabled requires zero/nil/empty; enabled requires interval>=10s; never requires nil timestamp; completed/busy/failed require UTC timestamp; reject malformed combinations. Historical JSON/human output includes interval, last check and outcome, never cursor/credentials; source ownership remains separate.
-- [ ] Implement validation/DTO/formatting. Run daemon/CLI tests (normal and race); expect PASS. Update STATUS and commit.
+- [x] Write `TestConfigRemotePollInterval`: omitted disables; 10s/30s valid; 9999ms/null/bool/number/empty/duplicate/overflow rejected. Observe failure with focused daemon tests.
+- [x] Implement strict field parsing and config allowance without changing interval/watch_local defaults.
+- [x] Add `TestRemotePollingRecordValidation` and `TestRemotePollingStatus`: disabled requires zero/nil/empty; enabled requires interval>=10s; never requires nil timestamp; completed/busy/failed require UTC timestamp; reject malformed combinations. Historical JSON/human output includes interval, last check and outcome, never cursor/credentials; source ownership remains separate.
+- [x] Implement validation/DTO/formatting. Run daemon/CLI tests (normal and race); expect PASS. Update STATUS and commit.
 
 ## Task 2: Drive feed HTTP boundary
 
 **Interfaces:** Define `ChangesPage{NextToken, StartToken string; Changed bool}` and separate `ChangesAPI` with `StartChanges(context.Context)(string,error)` and `ListChanges(context.Context,string)(ChangesPage,error)`. Client implements it without expanding drive.API.
 
-- [ ] Write fake HTTP tests `TestStartChanges`, `TestListChanges`, `TestChangesRejectMalformed`, `TestChangesCancellationRedaction`. Assert correct paths/fields/query flags, absent empty pageToken, opaque token escaping, empty/nonempty/removal entries, required nonempty tokens, JSON shape errors, 64KiB token/1MiB body limits, cancellation identity and fixed sanitized errors.
-- [ ] Run focused tests and observe failure. Implement endpoints with existing safe read requests/retries and redirect refusal. Request spaces=drive, restrictToMyDrive=true, includeRemoved=true, includeItemsFromAllDrives=false, supportsAllDrives=false, pageSize<=1000, fields for tokens/changes(changeType). Do not fetch IDs or paths.
-- [ ] Check body read/decode/close errors explicitly; join genuine close failures without exposing response bodies or URLs. Page-shape/pagination ownership stays in Task 3.
-- [ ] Run Drive normal/race suite; expect PASS. Update STATUS and commit.
+- [x] Write fake HTTP tests `TestStartChanges`, `TestListChanges`, `TestChangesRejectMalformed`, `TestChangesCancellationRedaction`. Assert correct paths/fields/query flags, absent empty pageToken, opaque token escaping, empty/nonempty/removal entries, required nonempty tokens, JSON shape errors, 64KiB token/1MiB body limits, cancellation identity and fixed sanitized errors.
+- [x] Run focused tests and observe failure. Implement endpoints with existing safe read requests/retries and redirect refusal. Request spaces=drive, restrictToMyDrive=true, includeRemoved=true, includeItemsFromAllDrives=false, supportsAllDrives=false, pageSize<=1000, fields for tokens/changes(changeType). Do not fetch IDs or paths.
+- [x] Check body read/decode/close errors explicitly; join genuine close failures without exposing response bodies or URLs. Page-shape/pagination ownership stays in Task 3.
+- [x] Run Drive normal/race suite; expect PASS. Update STATUS and commit.
 
 ## Task 3: Locked existing-profile remote checks
 
 **Interfaces:** Add `RemoteChangesResult{Cursor string; Changed bool}` and `Service.CheckRemoteChanges(ctx context.Context,profileDir string,expected Binding,cursor string)(RemoteChangesResult,error)`. Empty cursor initializes and returns Changed=true. Export sentinel `ErrRemoteCheckCleanup`, detectable through fixed-message wrappers preserving joined causes.
 
-- [ ] Add `TestRemoteCheckProfileBoundary`: missing/rebound profile refuses before API open, original binding and read-only access passed, state bytes unchanged, profile/token contention retained, no baseline/destination mutation.
-- [ ] Add `TestRemoteCheckPagination`: complete/empty/multiple pages advance only at terminal cursor; repeated tokens, both/no continuation fields, page cap, malformed/error/cancelled pages retain original cursor; dirty partial results survive errors. Initialization emits dirty. Use real fake-HTTP client integration for at least one complete multi-page scenario.
-- [ ] Add `TestRemoteCheckCleanup`: API/session and profile-close failure joined with operation error/cancellation is fatal/detectable and sanitized. Add a narrow unexported helper for closing a checked resource so fake close functions test classification without global mutable hooks.
-- [ ] Observe failing tests. Implement existingProfile lock and expected binding comparison before read-only OpenAPI; type assert ChangesAPI; bound traversal to 100 pages and visited continuation tokens. Return original cursor on every error. Close API then profile lock before return, preserving result. Classify all genuine close failures with the sentinel.
-- [ ] Run syncengine normal/race suite; expect PASS. Update STATUS and commit.
+- [x] Add `TestRemoteCheckProfileBoundary`: missing/rebound profile refuses before API open, original binding and read-only access passed, state bytes unchanged, profile/token contention retained, no baseline/destination mutation.
+- [x] Add `TestRemoteCheckPagination`: complete/empty/multiple pages advance only at terminal cursor; repeated tokens, both/no continuation fields, page cap, malformed/error/cancelled pages retain original cursor; dirty partial results survive errors. Initialization emits dirty. Use real fake-HTTP client integration for at least one complete multi-page scenario.
+- [x] Add `TestRemoteCheckCleanup`: API/session and profile-close failure joined with operation error/cancellation is fatal/detectable and sanitized. Add a narrow unexported helper for closing a checked resource so fake close functions test classification without global mutable hooks.
+- [x] Observe failing tests. Implement existingProfile lock and expected binding comparison before read-only OpenAPI; type assert ChangesAPI; bound traversal to 100 pages and visited continuation tokens. Return original cursor on every error. Close API then profile lock before return, preserving result. Classify all genuine close failures with the sentinel.
+- [x] Run syncengine normal/race suite; expect PASS. Update STATUS and commit.
 
 ## Task 4: Polling source and context-aware API gate
 
 **Interfaces:** Define `ChangeSource` (Ready/Take/Close), embed it into existing Watcher (plus Reconcile). Add `RemoteCheckObservation{CheckedAt time.Time; Outcome string}` and optional `WatchBatch.Remote *RemoteCheckObservation`. Mailbox Take clears timestamps/observation but retains sticky fatal Err. Create `jobGate` with context-aware acquire/release. Add `openRemoteSource(ctx context.Context,interval time.Duration,clock TimerClock,check func(context.Context,string)(syncengine.RemoteChangesResult,error)) ChangeSource`.
 
-- [ ] Add gate tests proving cancellation-aware wait, no overlapping jobs and release after callback cleanup. Add source tests for immediate first check, whole-check 10s deadline, interval after check completion, cursor initialization dirty hint, empty-page silence, failed/busy retry without cursor advance, partial dirty results and bounded latest observation.
-- [ ] Add cancellation/late-close regression tests: ordinary parent cancellation exits normally, cleanup sentinel concurrent with signal stays sticky and survives Take after Close, no timer/goroutine/lease leak. Native mailbox tests stay green.
-- [ ] Observe failures; implement the poller with one worker and TimerClock, context.WithTimeout(10s), and existing mailbox. Ordinary check failures publish failed/busy and retry; cleanup sentinel publishes sticky fatal and stops. Close cancels and joins idempotently.
-- [ ] Run daemon normal/race suites; expect PASS. Update STATUS and commit.
+- [x] Add gate tests proving cancellation-aware wait, no overlapping jobs and release after callback cleanup. Add source tests for immediate first check, whole-check 10s deadline, interval after check completion, cursor initialization dirty hint, empty-page silence, failed/busy retry without cursor advance, partial dirty results and bounded latest observation.
+- [x] Add cancellation/late-close regression tests: ordinary parent cancellation exits normally, cleanup sentinel concurrent with signal stays sticky and survives Take after Close, no timer/goroutine/lease leak. Native mailbox tests stay green.
+- [x] Observe failures; implement the poller with one worker and TimerClock, context.WithTimeout(10s), and existing mailbox. Ordinary check failures publish failed/busy and retry; cleanup sentinel publishes sticky fatal and stops. Close cancels and joins idempotently.
+- [x] Run daemon normal/race suites; expect PASS. Update STATUS and commit.
 
 ## Task 5: Integrate remote/local sources and real process acceptance
 
 **Interfaces:** Add `Dependencies.CheckRemoteChanges` matching Task 3 service method. Run enters timed-source scheduler when watch_local or remote_poll_interval is enabled; both disabled retains original path. Use optional native/remote source channels in select; existing Run signature unchanged.
 
-- [ ] Add deterministic `TestDaemonRemotePolling` and `TestDaemonRemoteStatus`: initialize source, update remote fields through coordinator only, preserve sync counts/history, persist one coalesced observation, remote hints share debounce/cooldown/periodic deadlines, initialization forces post-cursor scan. Disabled mode never opens native watcher or remote API.
-- [ ] Add `TestDaemonRemoteGate` and `TestDaemonRemoteShutdown`: gate RunExisting and check calls, bound poll gate wait and classify timeout as busy, no self-busy sync, late source/engine/cleanup faults retained, genuine failures survive signals and lease closes last. Existing native-only tests retain behavior.
-- [ ] Observe failures; integrate both sources without a second scheduler. A remote check's context includes gate wait; timeout while waiting yields resource busy. Gate release occurs after complete RunExisting/CheckRemoteChanges return. Capture remote observations in coordinator Take and save using the current valid phase. Close/join each source and drain fatal evidence before lifetime release; native Reconcile only runs when native source exists.
-- [ ] Extend processDrive before its generic Get handlers with synthetic start/changes endpoints backed by its version. Add `TestGrovedRemoteDownload` with remote-only config, 10s checks and 10m periodic sync: wait for post-initialization settled scan, mutate fake remote bytes/version, verify a later download and no-op settling before periodic due. Use bounded 30s process observation windows rather than the older 10s helper for this case.
-- [ ] Add real process signal/ownership coverage with remote-only and combined sources. Preserve existing forced-death, token and uncertain-journal process tests. Run affected normal/race suites; expect PASS. Update STATUS and commit.
+- [x] Add deterministic `TestDaemonRemotePolling` and `TestDaemonRemoteStatus`: initialize source, update remote fields through coordinator only, preserve sync counts/history, persist one coalesced observation, remote hints share debounce/cooldown/periodic deadlines, initialization forces post-cursor scan. Disabled mode never opens native watcher or remote API.
+- [x] Add `TestDaemonRemoteGate` and `TestDaemonRemoteShutdown`: gate RunExisting and check calls, bound poll gate wait and classify timeout as busy, no self-busy sync, late source/engine/cleanup faults retained, genuine failures survive signals and lease closes last. Existing native-only tests retain behavior.
+- [x] Observe failures; integrate both sources without a second scheduler. A remote check's context includes gate wait; timeout while waiting yields resource busy. Gate release occurs after complete RunExisting/CheckRemoteChanges return. Capture remote observations in coordinator Take and save using the current valid phase. Close/join each source and drain fatal evidence before lifetime release; native Reconcile only runs when native source exists.
+- [x] Extend processDrive before its generic Get handlers with synthetic start/changes endpoints backed by its version. Add `TestGrovedRemoteDownload` with remote-only config, 10s checks and 10m periodic sync: wait for post-initialization settled scan, mutate fake remote bytes/version, verify a later download and no-op settling before periodic due. Use bounded 30s process observation windows rather than the older 10s helper for this case.
+- [x] Add real process signal/ownership coverage with remote-only and combined sources. Preserve existing forced-death, token and uncertain-journal process tests. Run affected normal/race suites; expect PASS. Update STATUS and commit.
 
 ## Task 6: Live acceptance, documentation and final review
 
 **Interfaces:** Add `TestDaemonRemoteChangesLive`; extend shared `testDaemonVariant(t,upload,watching,remote bool)` while existing callers pass remote=false. Remote live mode uses interval=10m, remote_poll_interval=10s and watch_local=true for explicit later metadata-triggered no-op requests. Remote-only behavior is verified in Task 5.
 
-- [ ] Write scenario using existing dedicated fixture helpers and actual binaries. Before remote mutation, require completed remote initialization plus a normal attempt started after that check, zero-operation waiting and next_attempt_at comfortably beyond debounce; this excludes pending startup hints as the download trigger. Independently mutate owned remote fixture, without the periodic-only helper's wait-for-sync-busy step. Verify downloaded manifest before the 90s observation window, log latency, then trigger and verify settled no-op cycles, hashes/mtimes, offline remote/local configuration and SIGTERM. Clean all owned fixtures on failure/success without retrying uncertain mutations.
-- [ ] Run disabled-mode gate check, then explicitly enabled dedicated-account remote and existing watcher scenarios sequentially. Record actual results and any transport/cleanup limitation; never treat SKIP as acceptance.
-- [ ] Update all operator/product/architecture/roadmap/testbed/status and decision records, including account-wide false positives, opt-in/defaults, ephemeral cursor startup rescan, contention/10s budget, ordinary failure status, invalid cursor restart recovery, historical status and periodic safety net. Keep credentials/IDs/cursors out of records.
-- [ ] Run pinned fmt/lint/full offline/full race/build commands and both macOS cross-builds; validate links and diff. Update spec/plan completion only with demonstrated results.
+- [x] Write scenario using existing dedicated fixture helpers and actual binaries. Before remote mutation, require completed remote initialization plus a normal attempt started after that check, zero-operation waiting and next_attempt_at comfortably beyond debounce; this excludes pending startup hints as the download trigger. Independently mutate owned remote fixture, without the periodic-only helper's wait-for-sync-busy step. Verify downloaded manifest before the 90s observation window, log latency, then trigger and verify settled no-op cycles, hashes/mtimes, offline remote/local configuration and SIGTERM. Clean all owned fixtures on failure/success without retrying uncertain mutations.
+- [x] Run disabled-mode gate check, then explicitly enabled dedicated-account remote and existing watcher scenarios sequentially. Record actual results and any transport/cleanup limitation; never treat SKIP as acceptance.
+- [x] Update all operator/product/architecture/roadmap/testbed/status and decision records, including account-wide false positives, opt-in/defaults, ephemeral cursor startup rescan, contention/10s budget, ordinary failure status, invalid cursor restart recovery, historical status and periodic safety net. Keep credentials/IDs/cursors out of records.
+- [x] Run pinned fmt/lint/full offline/full race/build commands and both macOS cross-builds; validate links and diff. Update spec/plan completion only with demonstrated results.
 - [ ] Perform one fresh whole-change read-only review under native workflow, assess findings and make regression-backed fixes with fresh verification. Record delegated rulings and limitations. Publish under standing authorization; obtain one completed CodeRabbit review, retrieve summary/inline/threads, fix valid findings, wait for fresh CI, and merge without requesting another review unless the user asks.
 
 ## Pre-flight and handoff
@@ -107,5 +107,8 @@ Interfaces align: Task 1 config/status consumed by 5; Task 2 ChangesAPI consumed
 by 3; Task 3 result/cleanup sentinel consumed by 4/5; Task 4 mailbox/gate/source
 consumed by 5; Task 5 runtime consumed by 6. Live harness observation fix and
 already-approved watcher acceptance remain separate from production behavior.
-Native execution proceeds under standing user authorization. No task is complete
-yet; detailed progress/rulings belong in this plan's ignored execution ledger.
+Tasks 1–5 and dedicated-account remote/watcher live acceptance are complete.
+Periodic download/upload live regressions and full pinned verification also pass.
+Native execution continues under standing authorization; whole-change/hosted
+review and integration remain. Detailed evidence
+and rulings are in STATUS and the plan's ignored execution ledger.

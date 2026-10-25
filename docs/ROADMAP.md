@@ -22,7 +22,10 @@ are fixed, the initial CodeRabbit review found no actionable findings, and all
 final integrated-head checks passed. PR #17 merged at `b6f2ad0` on 2026-10-24.
 Dedicated-account live watcher acceptance passed on 2026-10-25 in 42.888s,
 including independently verified upload in 7.50s, no-op cycles and owned cleanup.
-Remote change detection is the next authorized slice.
+[Spec 000012](spec/000012-remote-change-detection-design.md) implements the next
+slice: opt-in account-level Drive hints with unchanged periodic scans. Offline,
+process and dedicated-account remote/local live acceptance pass; final checks
+and independent review precede integration.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus
@@ -51,7 +54,8 @@ Remote change detection is the next authorized slice.
 4. **Linux daemon**: the first implemented slice is spec 000009: a foreground
    process periodically syncing one existing profile through the shared engine,
    with lifetime exclusion, cancellation, and offline status. Opt-in local
-   watching is implemented in spec 000011; richer remote polling follows. Systemd user-service integration
+   watching is implemented in spec 000011; opt-in remote change hints follow
+   spec 000012. Further polling optimizations remain separate work. Systemd user-service integration
    is implemented in spec 000010 with manual installation instructions.
 5. **Windows and macOS**: native lifecycle integration and platform-specific
    filesystem and credential behavior, backed by tests on each platform.

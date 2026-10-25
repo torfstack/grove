@@ -265,3 +265,32 @@ The corrected test requires a completed post-edit attempt and independent Drive
 bytes. Both runs finished fixture-owned cleanup, with no pending uncertain write.
 No-op stability, offline status and SIGTERM shutdown passed. Native watcher evidence is local Linux filesystem
 coverage, not a guarantee for network filesystems or authenticated systemd sync.
+
+
+## Remote changes acceptance
+
+Spec 000012 adds opt-in My Drive changes-feed hints without replacing complete
+periodic scans. Fake HTTP and locked-service tests cover opaque cursor handling,
+full pagination, partial/error retention, bounds, cancellation and cleanup.
+Deterministic daemon tests cover initialization after startup, check/sync gate
+serialization, busy/failed retries, valid historical record transitions and late
+faults during shutdown. Real processes cover remote-only detection before a
+10-minute periodic deadline, idle checks preserving prior attempt counts, combined
+sources, signal cancellation during a check and lifetime lease release.
+
+Dedicated-account actual-binary acceptance passed on 2026-10-25: remote download
+73.73s, independently verified 12.40s after owned remote mutation completion;
+watcher regression 41.96s, independently verified upload in 7.30s. Combined run
+115.697s. Remote mode waits for post-cursor startup reconciliation and no pending
+debounce before mutation, excluding startup work as the download trigger. Both
+scenarios verify no-op content/mtime stability, offline configuration/status,
+SIGTERM and owned cleanup. Remote live mode enables local watching to request
+later no-op cycles; remote-only behavior has separate process evidence. Network
+filesystem guarantees and authenticated systemd boot/logout remain unclaimed.
+
+
+The shared helper's periodic regressions also passed after the changes: download
+68.34s and upload 42.30s, combined 110.647s. Both verified content, no-op cycles,
+status, shutdown and owned cleanup. All four daemon live scenarios therefore have
+fresh dedicated-account evidence; no unrelated live engine aggregate was rerun.
+Full pinned offline/race/lint/build checks and both macOS arm64 cross-builds pass.

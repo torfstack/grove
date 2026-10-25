@@ -2,6 +2,29 @@
 
 Updated: 2026-10-25.
 
+## Remote change detection implementation
+
+[Spec 000012](spec/000012-remote-change-detection-design.md) and its
+[paired plan](implementation-plans/000012-remote-change-detection-plan.md) are
+implemented on `feat/remote-change-detection` in `/tmp/grove-live-watch-acceptance`.
+The user authorized the direction and delegated routine choices; decision 0012
+records opt-in intervals, account-wide hints, ephemeral cursors, bounded checks
+and serialized API work. Tasks 1–5 pass their normal/race checks and real-process
+acceptance. No engine mutation rules or dependencies changed.
+
+Explicitly enabled dedicated-account acceptance passed in 115.697s on 2026-10-25:
+remote changes 73.73s (independent download verification in 12.40s), local watching
+41.96s (independent upload verification in 7.30s). Both used actual binaries,
+ten-minute periodic intervals, settled no-op checks, offline status, SIGTERM,
+and fixture-owned cleanup. Remote live acceptance enables local watching for
+explicit later no-op requests; remote-only behavior is separately verified with
+fake-provider real processes. No credentials, cursors, generated IDs or synced
+contents were printed. Periodic live regressions also passed in 110.647s (download 68.34s, upload
+42.30s), each with independent verification, no-op checks, shutdown and owned
+cleanup. Final formatting, lint (0 issues), all eleven offline/race packages,
+both Linux builds and macOS arm64 cross-builds pass. Relative documentation links
+and diff checks pass. One independent whole-change review precedes publication.
+
 ## Live watcher acceptance and remote detection
 
 The user explicitly enabled dedicated-account live watcher acceptance. The first
