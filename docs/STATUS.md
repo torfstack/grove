@@ -4,19 +4,26 @@ Updated: 2026-10-25.
 
 ## Dependency and record refresh
 
-A read-only update audit found current direct dependencies and pinned Go/lint/gh
-tools, no open Dependabot alerts, and no open dependency PRs. Two reachable
-indirect modules have updates: compute metadata v0.3.0 → v0.10.0 and pflag
-v1.0.9 → v1.0.10. Metadata requires Go 1.26, below Grove's pinned 1.27.2, and
-x/sys v0.46.0, below the existing v0.49.0. Unused graph-only modules are not
-independently upgraded. Official releases also advance mise-action 5.2.1 →
-5.2.3 and CodeQL action 4.39.0 → 4.39.1; immutable pins remain aligned.
-The updates are on `chore/dependency-refresh`. Module verification, formatting,
-lint (0 issues), full offline/race tests, both Linux builds, macOS arm64 cross-
-builds, relative-link checks, and diff checks pass. Pinned task-equivalent
-commands ran directly to avoid host mise cleanup; hosted CI retains the mise
-tasks. Independent review and the required completed CodeRabbit review/CI are
-next before the already-authorized merge. No authentication/synced-data or profile behavior changes are intended.
+[PR #18](https://github.com/torfstack/grove/pull/18) refreshes compute metadata
+v0.3.0 → v0.10.0, pflag v1.0.9 → v1.0.10, mise-action 5.2.1 → 5.2.3, and
+CodeQL action 4.39.0 → 4.39.1. Action pins are immutable and aligned. Metadata's
+Go 1.26 and x/sys v0.46 minimums remain below Grove's existing pins. Direct Go
+dependencies and pinned Go/lint/gh tools were current; no open Dependabot alerts
+or dependency PRs were reported at audit time. Unused module-graph entries were
+not independently upgraded. No authentication, profile, or sync behavior changes
+are intended.
+
+Module verification, formatting, lint (0 issues), full offline/race tests, both
+Linux builds, macOS arm64 cross-builds, and documentation/diff checks pass.
+Pinned task-equivalent commands ran directly to avoid unrelated host mise
+cleanup; hosted CI runs the existing mise tasks. All hosted Linux/security checks
+passed on `474e914`. The independent read-only review found no issues.
+CodeRabbit's completed full review of `b6f2ad0..474e914` selected all nine
+reviewable files and reported minimal merge risk with no actionable findings.
+Its complete summary, submitted reviews, inline comments, and GraphQL threads
+were retrieved; the latter three are empty. go.sum was filtered by CodeRabbit
+and is verified by Go tooling. No second review is requested under decision
+0009. PR #18 tracks final documentation-head checks and authorized integration.
 
 Current product/architecture/roadmap and spec statuses now distinguish merged
 multi-candidate conflicts (PR #9), deletion propagation (PR #10), and watching
