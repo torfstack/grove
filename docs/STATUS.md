@@ -17,7 +17,13 @@ verified in 7.50s against a ten-minute periodic interval. Subsequent no-op cycle
 preserved file hashes/mtimes, offline status and SIGTERM shutdown passed, and
 fixture-owned cleanup completed for both runs. Tokens and generated Drive IDs
 were not printed. The user authorized remote change detection as the next slice;
-its design is being prepared under the standing autonomous workflow.
+[spec 000012](spec/000012-remote-change-detection-design.md) and
+[paired plan](implementation-plans/000012-remote-change-detection-plan.md) are
+prepared under the standing autonomous workflow. Agent choices are opt-in
+remote_poll_interval (minimum 10s), account-wide My Drive hints, ephemeral cursor,
+10s bounded checks serialized with engine work, historical check status and the
+unchanged full-scan safety net. The builder check found no consequential gaps.
+Native implementation follows six tasks; no remote implementation is claimed yet.
 
 ## Dependency and record refresh
 
