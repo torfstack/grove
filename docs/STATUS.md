@@ -972,3 +972,10 @@ cursor encoding, scoped My Drive queries and checked response cleanup. Drive
 normal/race tests pass. The response-cap regression also fails when the 1 MiB
 cap is deliberately weakened, then passes with the cap restored. No Drive IDs
 or response bodies are exposed by the new boundary.
+
+Remote detection Task 3 adds locked read-only feed checks, original-binding
+comparison, complete pagination and cursor preservation on partial/error results.
+Sync-engine normal/race tests pass, including real fake-HTTP pagination, missing/
+rebound/busy profiles, unchanged state bytes and genuine close failures joined
+with cancellation. A typed cleanup fault lets the daemon stop rather than hide
+resource failures as ordinary remote-check errors.
