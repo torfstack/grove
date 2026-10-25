@@ -23,7 +23,8 @@ contents were printed. Periodic live regressions also passed in 110.647s (downlo
 42.30s), each with independent verification, no-op checks, shutdown and owned
 cleanup. Final formatting, lint (0 issues), all eleven offline/race packages,
 both Linux builds and macOS arm64 cross-builds pass. Relative documentation links
-and diff checks pass. PR #19 is published; final review fixes are awaiting fresh CI.
+and diff checks pass. PR #19 contains the verified review fixes; its checks and
+merge state are tracked on GitHub.
 
 ## Remote detection review and final acceptance
 

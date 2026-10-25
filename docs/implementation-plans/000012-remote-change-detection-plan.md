@@ -99,7 +99,7 @@
 - [x] Run disabled-mode gate check, then explicitly enabled dedicated-account remote and existing watcher scenarios sequentially. Record actual results and any transport/cleanup limitation; never treat SKIP as acceptance.
 - [x] Update all operator/product/architecture/roadmap/testbed/status and decision records, including account-wide false positives, opt-in/defaults, ephemeral cursor startup rescan, contention/10s budget, ordinary failure status, invalid cursor restart recovery, historical status and periodic safety net. Keep credentials/IDs/cursors out of records.
 - [x] Run pinned fmt/lint/full offline/full race/build commands and both macOS cross-builds; validate links and diff. Update spec/plan completion only with demonstrated results.
-- [ ] Perform one fresh whole-change read-only review under native workflow, assess findings and make regression-backed fixes with fresh verification. Record delegated rulings and limitations. Publish under standing authorization; obtain one completed CodeRabbit review, retrieve summary/inline/threads, fix valid findings, wait for fresh CI, and merge without requesting another review unless the user asks.
+- [x] Perform one fresh whole-change read-only review under native workflow, assess findings and make regression-backed fixes with fresh verification. Record delegated rulings and limitations. Publish under standing authorization; obtain one completed CodeRabbit review, retrieve summary/inline/threads, fix valid findings. Final-head CI and the authorized merge are tracked in [PR #19](https://github.com/torfstack/grove/pull/19), without requesting another review unless the user asks.
 
 ## Pre-flight and handoff
 
