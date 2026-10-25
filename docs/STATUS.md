@@ -966,3 +966,9 @@ Remote detection Task 1 implements strict optional remote_poll_interval and
 historical interval/check timestamp/outcome fields. Existing disabled behavior
 remains valid; enabled intervals must be at least ten seconds. Daemon/CLI normal
 and race coverage passes. Remote polling execution is not connected yet.
+
+Remote detection Task 2 adds the separate bounded changes HTTP interface, opaque
+cursor encoding, scoped My Drive queries and checked response cleanup. Drive
+normal/race tests pass. The response-cap regression also fails when the 1 MiB
+cap is deliberately weakened, then passes with the cap restored. No Drive IDs
+or response bodies are exposed by the new boundary.
