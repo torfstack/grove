@@ -189,12 +189,13 @@ func testDaemonVariant(t *testing.T, upload, watching bool) {
 	expected := manifest
 	if upload {
 		payload := []byte("daemon owned local edit\n")
+		editedAt := time.Now()
 		if err := os.WriteFile(filepath.Join(opts.LocalDir, "nested", "hello.txt"), payload, 0600); err != nil {
 			t.Fatal("cannot edit owned local file")
 		}
 		wait(func() bool {
 			r := record()
-			return r.Phase == "waiting" && r.Outcome == "completed" && r.Counts.Updated > 0
+			return r != nil && r.Phase == "waiting" && r.Outcome == "completed" && r.AttemptStartedAt != nil && r.AttemptStartedAt.After(editedAt)
 		})
 		if err := daemonFixtureSession(ctx, cfg.Token, runDir, "read-only", func(api drive.API) error {
 			var content bytes.Buffer
@@ -207,6 +208,9 @@ func testDaemonVariant(t *testing.T, upload, watching bool) {
 			return nil
 		}); err != nil {
 			t.Fatal("independent uploaded-content verification failed")
+		}
+		if watching {
+			t.Logf("Watch-triggered upload independently verified in %.2fs", time.Since(editedAt).Seconds())
 		}
 	} else {
 		expected, err = fixture.LoadManifest("../../testdata/fixtures/baseline/incremental.json")

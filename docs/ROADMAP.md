@@ -20,7 +20,9 @@ systemd is not claimed. The user selected opt-in native local watching next;
 native filesystem, and subprocess verification pass. Independent review findings
 are fixed, the initial CodeRabbit review found no actionable findings, and all
 final integrated-head checks passed. PR #17 merged at `b6f2ad0` on 2026-10-24.
-Live watcher acceptance remains gated and unrun.
+Dedicated-account live watcher acceptance passed on 2026-10-25 in 42.888s,
+including independently verified upload in 7.50s, no-op cycles and owned cleanup.
+Remote change detection is the next authorized slice.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus

@@ -2,6 +2,23 @@
 
 Updated: 2026-10-25.
 
+## Live watcher acceptance and remote detection
+
+The user explicitly enabled dedicated-account live watcher acceptance. The first
+run exposed a harness observation race: an immediate no-op follow-up can replace
+the upload's historical counters before the test observes waiting status. Retained
+baseline data proved the expected edit committed, with no pending transaction;
+all nine owned fixture objects were cleaned. The test now waits for a completed
+attempt started after the edit, then independently verifies Drive bytes rather
+than relying on transient counts. No production behavior changed.
+
+The fresh actual-binary rerun passed in 42.888s; upload content was independently
+verified in 7.50s against a ten-minute periodic interval. Subsequent no-op cycles
+preserved file hashes/mtimes, offline status and SIGTERM shutdown passed, and
+fixture-owned cleanup completed for both runs. Tokens and generated Drive IDs
+were not printed. The user authorized remote change detection as the next slice;
+its design is being prepared under the standing autonomous workflow.
+
 ## Dependency and record refresh
 
 [PR #18](https://github.com/torfstack/grove/pull/18) refreshes compute metadata
@@ -59,7 +76,9 @@ selected all 31 files and found no actionable issues, comments, or threads.
 `b6f2ad0` on 2026-10-24 after all final-head CI/security checks passed. The user authorized publication, one completed CodeRabbit review,
 fixes, passing CI, and merge, followed by continued bounded work.
 
-Authenticated local watching is gated and unrun. Native descriptor churn is
+Authenticated local watching passed on 2026-10-25: the actual-binary test
+completed in 42.888s, independently verified the watch-triggered upload in 7.50s,
+checked no-op content/mtime stability, offline status, SIGTERM, and owned cleanup. Native descriptor churn is
 covered without forcibly injecting kernel descriptor reuse. Network filesystem
 reliability and non-Linux daemon runtime are not claimed. Native registration
 requires `/proc/self/fd`; fatal watch/root errors stop visibly.

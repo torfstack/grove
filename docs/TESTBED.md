@@ -258,6 +258,10 @@ account gates. It runs actual binaries with watch_local=true and a ten-minute
 interval, observes local-edit upload before a 90-second observation timeout,
 independently verifies Drive content, requests metadata-triggered no-op cycles,
 checks stable content/mtimes and offline status, and cleans fixture-owned data.
-It has only been checked in disabled mode (explicit SKIP); authenticated watching
-has not been exercised. Native watcher evidence is local Linux filesystem
+Actual dedicated-account acceptance passed on 2026-10-25 in 42.888s; the upload
+was independently verified in 7.50s. The first run exposed a harness race that
+waited for transient upload counters; a following no-op could replace them.
+The corrected test requires a completed post-edit attempt and independent Drive
+bytes. Both runs finished fixture-owned cleanup, with no pending uncertain write.
+No-op stability, offline status and SIGTERM shutdown passed. Native watcher evidence is local Linux filesystem
 coverage, not a guarantee for network filesystems or authenticated systemd sync.
