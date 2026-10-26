@@ -218,8 +218,30 @@ all file hashes. Existing real-daemon tests passed with `-count=1`:
 `TestGrovedProcessOwnershipAndSignals`, `TestGrovedProcessesShareToken`, and
 `TestGrovedSignalDuringFolderCreation`. These use fake HTTP and actual process
 signals/locks. Helper tests establish manager mechanics, not real sync;
-authenticated daemon sync under systemd and logout/boot/linger behavior were
-not tested. Existing opt-in foreground live acceptance remains separate.
+authenticated daemon sync under systemd was tested separately below. Logout,
+boot, and linger behavior remain untested. Existing opt-in foreground live
+acceptance remains separate.
+
+`TestDaemonSystemdDownloadLive` adds a separately gated systemd acceptance. Run
+it with `GROVE_SYSTEMD_LIVE_TEST=1` in addition to the standard live-test gate,
+dedicated token, and private runs path. It requires a running user manager whose
+unit search path includes `~/.config/systemd/user`. The test uses a unique
+instance, creates a source template there only when absent, and writes only its
+own per-instance override and private config. It never enables the unit or
+changes lingering. After the test it stops the unit and removes only paths it
+created.
+
+Authenticated service acceptance passed three times on 2026-10-25 (67.74s,
+67.51s, and 67.02s), then three times on the PR branch on 2026-10-26 (67.77s,
+68.06s, and 71.14s). Each run
+built actual Grove binaries and initialized a disposable profile,
+started `groved` through the user service template, applied an owned remote
+fixture change, independently verified the download, observed a no-op cycle,
+checked offline status while active and inactive, and stopped the service
+gracefully. The test-only drop-in sets a 15-second stop bound and asserts that
+the running manager loaded it. Fixture-owned remote data was cleaned by the test; its private local
+run directory was removed after each successful run. Tokens and generated IDs
+were not printed.
 
 The independent review found a valid custom-XDG_CONFIG_HOME installation issue:
 the original guide copied units to ~/.config/systemd/user even when that path
