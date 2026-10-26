@@ -232,7 +232,8 @@ changes lingering. After the test it stops the unit and removes only paths it
 created.
 
 Authenticated service acceptance passed three times on 2026-10-25 (67.74s,
-67.51s, and 67.02s), and again on the PR branch on 2026-10-26 (67.77s). Each run
+67.51s, and 67.02s), then twice on the PR branch on 2026-10-26 (67.77s and
+68.06s). Each run
 built actual Grove binaries and initialized a disposable profile,
 started `groved` through the user service template, applied an owned remote
 fixture change, independently verified the download, observed a no-op cycle,

@@ -465,11 +465,6 @@ func installAcceptanceUnit(t *testing.T, daemonBin, stateHome string) (string, s
 				t.Errorf("cannot remove temporary user service template: %v", err)
 			}
 		}
-		for i := len(createdUnitDirs) - 1; i >= 0; i-- {
-			if err := os.Remove(createdUnitDirs[i]); err != nil && !errors.Is(err, os.ErrNotExist) {
-				t.Errorf("cannot remove empty acceptance unit directory %s: %v", createdUnitDirs[i], err)
-			}
-		}
 		if configDirCreated {
 			if err := os.Remove(configDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 				t.Errorf("cannot remove empty acceptance config directory: %v", err)
@@ -478,6 +473,11 @@ func installAcceptanceUnit(t *testing.T, daemonBin, stateHome string) (string, s
 		if configRootCreated {
 			if err := os.Remove(configRoot); err != nil && !errors.Is(err, os.ErrNotExist) {
 				t.Errorf("cannot remove empty acceptance Grove config directory: %v", err)
+			}
+		}
+		for i := len(createdUnitDirs) - 1; i >= 0; i-- {
+			if err := os.Remove(createdUnitDirs[i]); err != nil && !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("cannot remove empty acceptance unit directory %s: %v", createdUnitDirs[i], err)
 			}
 		}
 	}

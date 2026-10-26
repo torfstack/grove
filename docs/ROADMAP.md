@@ -14,7 +14,7 @@ PR #15 is merged into main at `63de937`.
 user-service template and installation instructions, merged in PR #16 at `23c583b`.
 Static validation, isolated manager lifecycle checks, actual-daemon invalid-config
 rejection, and existing daemon process tests pass. Dedicated-account authenticated
-download acceptance through the actual user service passed four times on 2026-10-25–26;
+download acceptance through the actual user service passed five times on 2026-10-25–26;
 logout/boot/linger behavior remains untested. The user selected opt-in native local watching next;
 [approved spec 000011](spec/000011-local-watching-design.md) is implemented following its
 [paired plan](implementation-plans/000011-local-watching-plan.md). Deterministic,
