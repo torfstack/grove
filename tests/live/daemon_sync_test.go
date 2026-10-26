@@ -35,6 +35,29 @@ func TestDaemonSystemdDownloadLive(t *testing.T) {
 	testDaemonVariantMode(t, false, false, false, true)
 }
 
+func TestMakeAcceptanceUnitDirTracksCreatedParents(t *testing.T) {
+	unitDir := filepath.Join(t.TempDir(), "config", "systemd", "user")
+	created := []string{}
+	if err := makeAcceptanceUnitDir(unitDir, &created); err != nil {
+		t.Fatal("cannot create acceptance unit directory")
+	}
+	if len(created) != 3 {
+		t.Fatalf("tracked %d directories, want 3", len(created))
+	}
+	for _, path := range created {
+		info, err := os.Lstat(path)
+		if err != nil || !info.IsDir() {
+			t.Fatalf("tracked unit directory is unavailable: %s", path)
+		}
+	}
+	if err := makeAcceptanceUnitDir(unitDir, &created); err != nil {
+		t.Fatal("existing unit directory was rejected")
+	}
+	if len(created) != 3 {
+		t.Fatalf("existing directories were marked as created: %d", len(created))
+	}
+}
+
 func testDaemonLive(t *testing.T, upload bool) { testDaemonVariant(t, upload, false, false) }
 
 func testDaemonVariant(t *testing.T, upload, watching, remote bool) {
@@ -377,6 +400,11 @@ func testDaemonVariantMode(t *testing.T, upload, watching, remote, underSystemd 
 		t.Fatal("owned daemon fixture cleanup failed")
 	}
 	cleaned = true
+	if underSystemd {
+		if err := os.RemoveAll(base); err != nil {
+			t.Fatal("cannot remove successful systemd acceptance run data")
+		}
+	}
 	t.Log("Actual daemon scheduling, independent content, no-op cycle, offline status, shutdown and owned cleanup verified")
 }
 
@@ -415,6 +443,7 @@ func installAcceptanceUnit(t *testing.T, daemonBin, stateHome string) (string, s
 	_, configRootErr := os.Lstat(configRoot)
 	configRootCreated := errors.Is(configRootErr, os.ErrNotExist)
 	dropinDirCreated := false
+	createdUnitDirs := []string{}
 	cleanupFiles := func() {
 		for _, path := range []string{dropin} {
 			if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -434,6 +463,11 @@ func installAcceptanceUnit(t *testing.T, daemonBin, stateHome string) (string, s
 		if templateCreated {
 			if err := os.Remove(template); err != nil && !errors.Is(err, os.ErrNotExist) {
 				t.Errorf("cannot remove temporary user service template: %v", err)
+			}
+		}
+		for i := len(createdUnitDirs) - 1; i >= 0; i-- {
+			if err := os.Remove(createdUnitDirs[i]); err != nil && !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("cannot remove empty acceptance unit directory %s: %v", createdUnitDirs[i], err)
 			}
 		}
 		if configDirCreated {
@@ -457,7 +491,7 @@ func installAcceptanceUnit(t *testing.T, daemonBin, stateHome string) (string, s
 		if readErr != nil {
 			t.Fatal("cannot read Grove service template")
 		}
-		if err := os.MkdirAll(unitDir, 0755); err != nil {
+		if err := makeAcceptanceUnitDir(unitDir, &createdUnitDirs); err != nil {
 			t.Fatal("cannot create user unit directory")
 		}
 		file, err := os.OpenFile(template, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
@@ -502,6 +536,36 @@ func installAcceptanceUnit(t *testing.T, daemonBin, stateHome string) (string, s
 			t.Errorf("cannot reload user service manager during cleanup: %v", err)
 		}
 	}, func() { configCreated = true }
+}
+
+func makeAcceptanceUnitDir(path string, created *[]string) error {
+	info, err := os.Lstat(path)
+	if err == nil {
+		if !info.IsDir() {
+			return errors.New("acceptance unit path is not a directory")
+		}
+		return nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	parent := filepath.Dir(path)
+	if parent != path {
+		if err := makeAcceptanceUnitDir(parent, created); err != nil {
+			return err
+		}
+	}
+	if err := os.Mkdir(path, 0755); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			info, statErr := os.Lstat(path)
+			if statErr == nil && info.IsDir() {
+				return nil
+			}
+		}
+		return err
+	}
+	*created = append(*created, path)
+	return nil
 }
 
 func unitProperty(ctx context.Context, unit, property string) string {

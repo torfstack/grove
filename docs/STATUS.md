@@ -5,7 +5,7 @@ Updated: 2026-10-26.
 ## Authenticated systemd acceptance
 
 `TestDaemonSystemdDownloadLive` passed three times on 2026-10-25 (67.74s,
-67.51s, and 67.02s), then passed on the PR branch on 2026-10-26 (73.09s), using
+67.51s, and 67.02s), then passed on the PR branch on 2026-10-26 (67.77s), using
 the dedicated test account and the actual user systemd manager. Each run
 used a unique `groved@` instance and disposable profile, downloaded an owned
 remote fixture mutation verified independently, completed a no-op cycle,
