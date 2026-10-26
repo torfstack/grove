@@ -232,13 +232,14 @@ changes lingering. After the test it stops the unit and removes only paths it
 created.
 
 Authenticated service acceptance passed three times on 2026-10-25 (67.74s,
-67.51s, and 67.02s), then twice on the PR branch on 2026-10-26 (67.77s and
-68.06s). Each run
+67.51s, and 67.02s), then three times on the PR branch on 2026-10-26 (67.77s,
+68.06s, and 71.14s). Each run
 built actual Grove binaries and initialized a disposable profile,
 started `groved` through the user service template, applied an owned remote
 fixture change, independently verified the download, observed a no-op cycle,
 checked offline status while active and inactive, and stopped the service
-gracefully. Fixture-owned remote data was cleaned by the test; its private local
+gracefully. The test-only drop-in sets a 15-second stop bound and asserts that
+the running manager loaded it. Fixture-owned remote data was cleaned by the test; its private local
 run directory was removed after each successful run. Tokens and generated IDs
 were not printed.
 

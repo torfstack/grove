@@ -5,8 +5,9 @@ Updated: 2026-10-26.
 ## Authenticated systemd acceptance
 
 `TestDaemonSystemdDownloadLive` passed three times on 2026-10-25 (67.74s,
-67.51s, and 67.02s), then passed twice on the PR branch on 2026-10-26 (67.77s
-and 68.06s), using the dedicated test account and the actual user systemd manager. Each run
+67.51s, and 67.02s), then passed three times on the PR branch on 2026-10-26
+(67.77s, 68.06s, and 71.14s), using the dedicated test account and the actual
+user systemd manager. Each run
 used a unique `groved@` instance and disposable profile, downloaded an owned
 remote fixture mutation verified independently, completed a no-op cycle,
 reported active/inactive ownership through offline status, stopped gracefully,
@@ -20,6 +21,9 @@ The new gated acceptance test passes its explicit live run. Pinned `gofmt`,
 `golangci-lint` (0 issues), and the full offline Go suite pass with the required
 filesystem/loopback access. Initial sandboxed suite execution was blocked by
 loopback and private-path restrictions; the approved unsandboxed rerun passed.
+CodeRabbit's completed review found the test inherited an infinite stop timeout;
+the disposable unit now sets 15s and the test asserts systemd loaded that bound.
+The finding is fixed and final-head checks pass; no second review was requested.
 
 ## Remote change detection implementation
 

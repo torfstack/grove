@@ -167,6 +167,9 @@ func testDaemonVariantMode(t *testing.T, upload, watching, remote, underSystemd 
 		if err := exec.CommandContext(ctx, "systemctl", "--user", "start", unit).Run(); err != nil {
 			t.Fatal("cannot start authenticated daemon user service")
 		}
+		if timeout := unitProperty(ctx, unit, "TimeoutStopUSec"); timeout != "15s" {
+			t.Fatalf("user service stop timeout is %q, want 15s", timeout)
+		}
 	}
 	log, err := os.OpenFile(filepath.Join(base, "process.log"), os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
@@ -523,7 +526,7 @@ func installAcceptanceUnit(t *testing.T, daemonBin, stateHome string) (string, s
 		value = strings.ReplaceAll(value, "$", "$$")
 		return `"` + value + `"`
 	}
-	content := "[Service]\nExecStart=\nExecStart=" + quote(daemonBin) + " --config " + quote(config) + "\nEnvironment=" + quote("XDG_STATE_HOME="+stateHome) + "\n"
+	content := "[Service]\nTimeoutStopSec=15s\nExecStart=\nExecStart=" + quote(daemonBin) + " --config " + quote(config) + "\nEnvironment=" + quote("XDG_STATE_HOME="+stateHome) + "\n"
 	if err := os.WriteFile(dropin, []byte(content), 0600); err != nil {
 		t.Fatal("cannot write isolated service drop-in")
 	}
