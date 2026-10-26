@@ -23,7 +23,9 @@ filesystem/loopback access. Initial sandboxed suite execution was blocked by
 loopback and private-path restrictions; the approved unsandboxed rerun passed.
 CodeRabbit's completed review found the test inherited an infinite stop timeout;
 the disposable unit now sets 15s and the test asserts systemd loaded that bound.
-The finding is fixed and final-head checks pass; no second review was requested.
+Its sole finding was fixed in commit `cb2e155`; no second review was requested.
+[PR #20](https://github.com/torfstack/grove/pull/20) is open, and Linux CI,
+CodeQL Go/Actions, and dependency review pass on that head.
 
 ## Remote change detection implementation
 
