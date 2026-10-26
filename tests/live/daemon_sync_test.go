@@ -8,10 +8,12 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -26,9 +28,20 @@ import (
 func TestDaemonPeriodicDownloadLive(t *testing.T) { testDaemonLive(t, false) }
 func TestDaemonPeriodicUploadLive(t *testing.T)   { testDaemonLive(t, true) }
 
+func TestDaemonSystemdDownloadLive(t *testing.T) {
+	if os.Getenv("GROVE_SYSTEMD_LIVE_TEST") != "1" {
+		t.Skip("authenticated systemd acceptance requires GROVE_SYSTEMD_LIVE_TEST=1")
+	}
+	testDaemonVariantMode(t, false, false, false, true)
+}
+
 func testDaemonLive(t *testing.T, upload bool) { testDaemonVariant(t, upload, false, false) }
 
 func testDaemonVariant(t *testing.T, upload, watching, remote bool) {
+	testDaemonVariantMode(t, upload, watching, remote, false)
+}
+
+func testDaemonVariantMode(t *testing.T, upload, watching, remote, underSystemd bool) {
 	cfg := testConfig(t)
 	watching = watching || remote
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
@@ -107,6 +120,13 @@ func testDaemonVariant(t *testing.T, upload, watching, remote bool) {
 		interval = "10m"
 	}
 	config := filepath.Join(base, "daemon.json")
+	var cleanupSystemd func()
+	var markConfigOwned func()
+	unit := ""
+	if underSystemd {
+		unit, config, cleanupSystemd, markConfigOwned = installAcceptanceUnit(t, daemonBin, stateHome)
+		t.Cleanup(cleanupSystemd)
+	}
 	settings := map[string]any{"version": 1, "profile_dir": opts.ProfileDir, "mode": mode, "interval": interval, "watch_local": watching}
 	if remote {
 		settings["remote_poll_interval"] = "10s"
@@ -114,26 +134,51 @@ func testDaemonVariant(t *testing.T, upload, watching, remote bool) {
 	if err := privatefs.WriteJSON(config, settings); err != nil {
 		t.Fatal(err)
 	}
+	if underSystemd {
+		markConfigOwned()
+	}
+	if underSystemd {
+		if err := exec.CommandContext(ctx, "systemctl", "--user", "daemon-reload").Run(); err != nil {
+			t.Fatal("cannot reload user service manager")
+		}
+		if err := exec.CommandContext(ctx, "systemctl", "--user", "start", unit).Run(); err != nil {
+			t.Fatal("cannot start authenticated daemon user service")
+		}
+	}
 	log, err := os.OpenFile(filepath.Join(base, "process.log"), os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		t.Fatal("cannot create private process log")
 	}
-	cmd := exec.CommandContext(ctx, daemonBin, "--config", config)
-	cmd.Env = append(os.Environ(), "XDG_STATE_HOME="+stateHome)
-	cmd.Stdout, cmd.Stderr = log, log
-	if err := cmd.Start(); err != nil {
-		_ = log.Close()
-		t.Fatal("cannot launch daemon")
-	}
 	done := make(chan struct{})
 	var processErr error
-	go func() { processErr = cmd.Wait(); _ = log.Close(); close(done) }()
+	var cmd *exec.Cmd
+	if underSystemd {
+		_ = log.Close()
+	} else {
+		cmd = exec.CommandContext(ctx, daemonBin, "--config", config)
+		cmd.Env = append(os.Environ(), "XDG_STATE_HOME="+stateHome)
+		cmd.Stdout, cmd.Stderr = log, log
+		if err := cmd.Start(); err != nil {
+			_ = log.Close()
+			t.Fatal("cannot launch daemon")
+		}
+		go func() { processErr = cmd.Wait(); _ = log.Close(); close(done) }()
+	}
 	stopped := false
 	stop := func() {
 		if stopped {
 			return
 		}
 		stopped = true
+		if underSystemd {
+			if err := exec.CommandContext(ctx, "systemctl", "--user", "stop", unit).Run(); err != nil {
+				t.Error("cannot stop authenticated daemon user service")
+			}
+			if state := unitProperty(ctx, unit, "ActiveState"); state != "inactive" {
+				t.Errorf("user service did not become inactive: %s", state)
+			}
+			return
+		}
 		if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
 			select {
 			case <-done:
@@ -160,6 +205,9 @@ func testDaemonVariant(t *testing.T, upload, watching, remote bool) {
 		timer := time.NewTicker(100 * time.Millisecond)
 		defer timer.Stop()
 		for {
+			if underSystemd && unitProperty(ctx, unit, "ActiveState") == "failed" {
+				t.Fatal("systemd daemon entered failed state; inspect its journal")
+			}
 			if condition() {
 				return
 			}
@@ -330,6 +378,138 @@ func testDaemonVariant(t *testing.T, upload, watching, remote bool) {
 	}
 	cleaned = true
 	t.Log("Actual daemon scheduling, independent content, no-op cycle, offline status, shutdown and owned cleanup verified")
+}
+
+func installAcceptanceUnit(t *testing.T, daemonBin, stateHome string) (string, string, func(), func()) {
+	t.Helper()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal("cannot determine user home")
+	}
+	unitDir := filepath.Join(home, ".config", "systemd", "user")
+	paths, err := exec.Command("systemctl", "--user", "show", "-p", "UnitPath", "--value").Output()
+	unitDirFound := false
+	for _, path := range strings.Fields(string(paths)) {
+		unitDirFound = unitDirFound || path == unitDir
+	}
+	if err != nil || !unitDirFound {
+		t.Fatal("the running user manager does not search the expected unit directory")
+	}
+	configDir := filepath.Join(home, ".config", "grove", "daemons")
+	configRoot := filepath.Dir(configDir)
+	label := fmt.Sprintf("acceptance-%d-%d", os.Getpid(), time.Now().Unix())
+	unit := "groved@" + label + ".service"
+	config := filepath.Join(configDir, label+".json")
+	template := filepath.Join(unitDir, "groved@.service")
+	dropinDir := filepath.Join(unitDir, "groved@"+label+".service.d")
+	dropin := filepath.Join(dropinDir, "override.conf")
+	for _, path := range []string{config, dropinDir, dropin} {
+		if _, err := os.Lstat(path); err == nil || !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("refusing to replace an existing acceptance path: %s", path)
+		}
+	}
+	templateCreated := false
+	configCreated := false
+	_, configDirErr := os.Lstat(configDir)
+	configDirCreated := errors.Is(configDirErr, os.ErrNotExist)
+	_, configRootErr := os.Lstat(configRoot)
+	configRootCreated := errors.Is(configRootErr, os.ErrNotExist)
+	dropinDirCreated := false
+	cleanupFiles := func() {
+		for _, path := range []string{dropin} {
+			if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("cannot remove acceptance file %s: %v", path, err)
+			}
+		}
+		if configCreated {
+			if err := os.Remove(config); err != nil && !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("cannot remove acceptance config %s: %v", config, err)
+			}
+		}
+		if dropinDirCreated {
+			if err := os.Remove(dropinDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("cannot remove acceptance drop-in directory: %v", err)
+			}
+		}
+		if templateCreated {
+			if err := os.Remove(template); err != nil && !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("cannot remove temporary user service template: %v", err)
+			}
+		}
+		if configDirCreated {
+			if err := os.Remove(configDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("cannot remove empty acceptance config directory: %v", err)
+			}
+		}
+		if configRootCreated {
+			if err := os.Remove(configRoot); err != nil && !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("cannot remove empty acceptance Grove config directory: %v", err)
+			}
+		}
+	}
+	defer func() {
+		if t.Failed() {
+			cleanupFiles()
+		}
+	}()
+	if _, err := os.Lstat(template); errors.Is(err, os.ErrNotExist) {
+		data, readErr := os.ReadFile("../../contrib/systemd/groved@.service")
+		if readErr != nil {
+			t.Fatal("cannot read Grove service template")
+		}
+		if err := os.MkdirAll(unitDir, 0755); err != nil {
+			t.Fatal("cannot create user unit directory")
+		}
+		file, err := os.OpenFile(template, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+		if err != nil {
+			t.Fatal("cannot install temporary Grove service template")
+		}
+		templateCreated = true
+		if _, err := file.Write(data); err != nil {
+			_ = file.Close()
+			t.Fatal("cannot write temporary Grove service template")
+		}
+		if err := file.Close(); err != nil {
+			t.Fatal("cannot close temporary Grove service template")
+		}
+	} else if err != nil {
+		t.Fatal("cannot inspect user unit template")
+	}
+	if err := os.MkdirAll(configDir, 0700); err != nil {
+		t.Fatal("cannot create private daemon config directory")
+	}
+	if err := os.Mkdir(dropinDir, 0755); err != nil {
+		t.Fatal("cannot create isolated service drop-in")
+	}
+	dropinDirCreated = true
+	quote := func(value string) string {
+		value = strings.ReplaceAll(value, `\`, `\\`)
+		value = strings.ReplaceAll(value, `"`, `\"`)
+		value = strings.ReplaceAll(value, "%", "%%")
+		value = strings.ReplaceAll(value, "$", "$$")
+		return `"` + value + `"`
+	}
+	content := "[Service]\nExecStart=\nExecStart=" + quote(daemonBin) + " --config " + quote(config) + "\nEnvironment=" + quote("XDG_STATE_HOME="+stateHome) + "\n"
+	if err := os.WriteFile(dropin, []byte(content), 0600); err != nil {
+		t.Fatal("cannot write isolated service drop-in")
+	}
+	return unit, config, func() {
+		if err := exec.Command("systemctl", "--user", "stop", unit).Run(); err != nil {
+			t.Errorf("cannot stop acceptance service during cleanup: %v", err)
+		}
+		cleanupFiles()
+		if err := exec.Command("systemctl", "--user", "daemon-reload").Run(); err != nil {
+			t.Errorf("cannot reload user service manager during cleanup: %v", err)
+		}
+	}, func() { configCreated = true }
+}
+
+func unitProperty(ctx context.Context, unit, property string) string {
+	output, err := exec.CommandContext(ctx, "systemctl", "--user", "show", "-p", property, "--value", unit).Output()
+	if err != nil {
+		return "unknown"
+	}
+	return strings.TrimSpace(string(output))
 }
 
 func daemonFixtureSession(ctx context.Context, token, runDir, access string, work func(drive.API) error) error {

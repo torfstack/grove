@@ -99,7 +99,7 @@
 - [x] Run disabled-mode gate check, then explicitly enabled dedicated-account remote and existing watcher scenarios sequentially. Record actual results and any transport/cleanup limitation; never treat SKIP as acceptance.
 - [x] Update all operator/product/architecture/roadmap/testbed/status and decision records, including account-wide false positives, opt-in/defaults, ephemeral cursor startup rescan, contention/10s budget, ordinary failure status, invalid cursor restart recovery, historical status and periodic safety net. Keep credentials/IDs/cursors out of records.
 - [x] Run pinned fmt/lint/full offline/full race/build commands and both macOS cross-builds; validate links and diff. Update spec/plan completion only with demonstrated results.
-- [x] Perform one fresh whole-change read-only review under native workflow, assess findings and make regression-backed fixes with fresh verification. Record delegated rulings and limitations. Publish under standing authorization; obtain one completed CodeRabbit review, retrieve summary/inline/threads, fix valid findings. Final-head CI and the authorized merge are tracked in [PR #19](https://github.com/torfstack/grove/pull/19), without requesting another review unless the user asks.
+- [x] Perform one fresh whole-change read-only review under native workflow, assess findings and make regression-backed fixes with fresh verification. Record delegated rulings and limitations. Publish under standing authorization; obtain one completed CodeRabbit review, retrieve summary/inline/threads, fix valid findings. PR #19 merged into `main` at `f6d23b5` after final-head CI/security checks passed; no second review was requested under the standing workflow.
 
 ## Pre-flight and handoff
 
@@ -111,6 +111,5 @@ Tasks 1–5 and dedicated-account remote/watcher live acceptance are complete.
 Periodic download/upload live regressions and full pinned verification also pass.
 One independent whole-change review and the initial CodeRabbit review at
 75892e3 are complete; valid findings are fixed and fresh local verification
-passes. Final-head CI and integration are tracked in PR #19 under standing
-authorization. Detailed evidence
+passes. PR #19 is merged into `main` at `f6d23b5`. Detailed evidence
 and rulings are in STATUS and the plan's ignored execution ledger.

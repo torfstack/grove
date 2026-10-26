@@ -1,6 +1,25 @@
 # Project status
 
-Updated: 2026-10-25.
+Updated: 2026-10-26.
+
+## Authenticated systemd acceptance
+
+`TestDaemonSystemdDownloadLive` passed three times on 2026-10-25 (67.74s,
+67.51s, and 67.02s), then passed on the PR branch on 2026-10-26 (73.09s), using
+the dedicated test account and the actual user systemd manager. Each run
+used a unique `groved@` instance and disposable profile, downloaded an owned
+remote fixture mutation verified independently, completed a no-op cycle,
+reported active/inactive ownership through offline status, stopped gracefully,
+and cleaned fixture-owned remote data. The test removed its unique config,
+drop-in, and temporary template when created; private run artifacts were also
+removed. No service was enabled and lingering was unchanged. Logout/boot behavior
+remains untested. Details and the repeatable gate are in
+[TESTBED](TESTBED.md#systemd-user-service-acceptance).
+
+The new gated acceptance test passes its explicit live run. Pinned `gofmt`,
+`golangci-lint` (0 issues), and the full offline Go suite pass with the required
+filesystem/loopback access. Initial sandboxed suite execution was blocked by
+loopback and private-path restrictions; the approved unsandboxed rerun passed.
 
 ## Remote change detection implementation
 
@@ -23,8 +42,9 @@ contents were printed. Periodic live regressions also passed in 110.647s (downlo
 42.30s), each with independent verification, no-op checks, shutdown and owned
 cleanup. Final formatting, lint (0 issues), all eleven offline/race packages,
 both Linux builds and macOS arm64 cross-builds pass. Relative documentation links
-and diff checks pass. PR #19 contains the verified review fixes; its checks and
-merge state are tracked on GitHub.
+and diff checks pass. PR #19 merged into `main` at `f6d23b5` on 2026-10-25;
+final Linux CI, CodeQL Go/Actions, and dependency review passed on the merged
+head. The primary checkout is synchronized with `origin/main`.
 
 ## Remote detection review and final acceptance
 
@@ -46,9 +66,10 @@ Fresh actual-binary acceptance after these fixes passed in 161.388s: remote
 43.51s (independent upload 7.96s). All verified content, no-op stability, offline
 status, shutdown and fixture-owned cleanup. Earlier periodic-download acceptance
 remains valid. Final pinned formatting, lint (0 issues), all eleven offline/race packages,
-Linux builds and both macOS arm64 cross-builds pass after the fixes. No second
-CodeRabbit review is requested; final-head CI and integration are tracked in
-[PR #19](https://github.com/torfstack/grove/pull/19). Non-Linux runtime, network filesystems and
+Linux builds and both macOS arm64 cross-builds pass after the fixes. CodeRabbit's
+completed review found one valid status-wording issue, which was fixed; no
+second review was requested. PR #19 merged into `main` at `f6d23b5` after all
+final-head checks passed. Non-Linux runtime, network filesystems and
 authenticated systemd boot/logout remain outside this acceptance.
 
 ## Live watcher acceptance and remote detection

@@ -13,8 +13,9 @@ PR #15 is merged into main at `63de937`.
 [Spec 000010](spec/000010-systemd-user-service-design.md) adds a systemd
 user-service template and installation instructions, merged in PR #16 at `23c583b`.
 Static validation, isolated manager lifecycle checks, actual-daemon invalid-config
-rejection, and existing daemon process tests pass; authenticated sync under
-systemd is not claimed. The user selected opt-in native local watching next;
+rejection, and existing daemon process tests pass. Dedicated-account authenticated
+download acceptance through the actual user service passed four times on 2026-10-25–26;
+logout/boot/linger behavior remains untested. The user selected opt-in native local watching next;
 [approved spec 000011](spec/000011-local-watching-design.md) is implemented following its
 [paired plan](implementation-plans/000011-local-watching-plan.md). Deterministic,
 native filesystem, and subprocess verification pass. Independent review findings
@@ -25,7 +26,8 @@ including independently verified upload in 7.50s, no-op cycles and owned cleanup
 [Spec 000012](spec/000012-remote-change-detection-design.md) implements the next
 slice: opt-in account-level Drive hints with unchanged periodic scans. Offline,
 process and dedicated-account remote/local live acceptance pass; final checks
-and independent review precede integration.
+and independent review findings are addressed. PR #19 merged into main at
+`f6d23b5` on 2026-10-25 after final CI/security checks passed.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus
