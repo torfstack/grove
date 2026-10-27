@@ -133,3 +133,16 @@ pagination is required to advance them; partial changes can request a scan while
 errors retain the original cursor. Feed removals never authorize deletion. Normal
 check failures retry and are historical status; cleanup faults stop visibly.
 No new remote-removal propagation or sync mutation semantics are introduced.
+
+
+## Linux desktop indicator
+
+[Spec 000014](spec/000014-linux-freedesktop-tray-design.md) adds `grove-tray`, a
+separate per-profile companion using StatusNotifierItem and D-BusMenu. The icon
+and host-rendered menu show offline status and preserve the distinction between
+live ownership, historical attempts, and busy/unavailable profile details.
+It remains available while the daemon is stopped. Optional explicitly linked
+systemd user-service controls validate the effective unit command and profile
+configuration before start/stop. Quitting the tray leaves the daemon running.
+Installation and graphical-session autostart are manual. Waybar is verified;
+other compatible hosts need independent acceptance before a tested-support claim.

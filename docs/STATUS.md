@@ -1,6 +1,62 @@
 # Project status
 
-Updated: 2026-10-26.
+Updated: 2026-10-27.
+
+## Linux desktop tray implementation
+
+The user approved spec/plan 000014 and native execution. `grove-tray` is
+implemented on `feat/linux-tray` in the managed worktree, with offline status,
+StatusNotifierItem/D-BusMenu, distinct icon states, and optional validated
+systemd user-service controls. All six slices and the independent
+whole-change review are complete. The review of `ac1ec50` found four Important
+issues, with no Critical or Minor issues. All four were reproduced by failing
+regressions and fixed: busy startup with history cannot advertise normal health
+before profile validation; delayed service job results retain correlation;
+requested startup cancellation stays graceful; and Stop remains available for a
+validated active service even if profile inspection is unavailable. Fresh full
+offline/race/lint/build checks pass after those fixes. No rereview was requested.
+
+Pinned formatting, lint (0 issues), full offline/race suites (13 packages),
+module verification, all three Linux builds and both existing Darwin arm64
+cross-builds pass. Local checks used the exact pinned task equivalents to avoid
+the recorded host mise cleanup issue. Actual-binary lifecycle/fake-provider
+daemon tests pass. Isolated Sway 1.12/Waybar 0.15.0 acceptance visually verified
+icon, tooltip, menu, state transitions, watcher restart and tray-only quit. A
+root-menu-property warning found by the host was reproduced and fixed before
+the fresh warning-free run. The actual systemd adapter also validated/started/
+stopped a unique disposable runtime service, observing active/inactive leases.
+No service was enabled; lingering and ordinary desktop config were unchanged.
+Owned service/desktop fixture artifacts were cleaned; no live Drive access ran.
+
+A second independent tray host is unavailable, so broader tested compatibility
+is not claimed. Login/autostart remains untested; the desktop-entry template
+validates statically. Repeatable gates and limits are in
+[TESTBED](TESTBED.md#linux-desktop-tray-acceptance). The macOS design remains a
+separate unapproved proposal. [PR #21](https://github.com/torfstack/grove/pull/21)
+is open against `main`.
+Final-head CI exposed a timing race in the SIGTERM process test: it could signal
+after item registration but before the initial status publication. The test now
+waits for the published state before sending SIGTERM, and the event loop exits
+cleanly when cancellation races with queued observations. The lifecycle test
+passed 30 repeated runs; full lint, formatting, offline and race suites passed
+locally. Fresh hosted checks are pending for the fix. Linux CI, CodeQL
+Go/Actions and dependency review passed on reviewed publication head `4b0bcf9`.
+Automatic CodeRabbit review was skipped because the repository
+has fewer than ten stars; the manually requested initial full review completed
+on `7499f6c..4b0bcf9`, processed all 36 eligible text files, and reported no
+actionable findings or concrete merge-blocking issue. Its full summary and
+walkthrough were retrieved and assessed; submitted-review records, inline
+comments and GraphQL review threads are all empty. The 20 icon files and go.sum
+were filtered by the reviewer; local icon/runtime and Go module checks cover
+those artifacts. No second review was requested. Final documentation-head CI is
+tracked in the PR checks; no feature merge has been requested.
+
+## macOS daemon design
+
+A separate proposed slice is a foreground periodic `groved` runtime on macOS,
+without local filesystem watching or launchd integration. The repo-grounded
+design is in [spec 000013](spec/000013-macos-daemon-design.md) and awaits user
+approval before implementation planning.
 
 ## Authenticated systemd acceptance
 
@@ -24,8 +80,9 @@ loopback and private-path restrictions; the approved unsandboxed rerun passed.
 CodeRabbit's completed review found the test inherited an infinite stop timeout;
 the disposable unit now sets 15s and the test asserts systemd loaded that bound.
 Its sole finding was fixed in commit `cb2e155`; no second review was requested.
-[PR #20](https://github.com/torfstack/grove/pull/20) is open, and Linux CI,
-CodeQL Go/Actions, and dependency review pass on that head.
+[PR #20](https://github.com/torfstack/grove/pull/20) merged into `main` at
+`7499f6c` on 2026-10-26 after Linux CI, CodeQL Go/Actions, and dependency review
+passed on final head `1d14bea`.
 
 ## Remote change detection implementation
 

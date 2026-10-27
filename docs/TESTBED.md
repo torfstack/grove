@@ -323,3 +323,73 @@ upload 7.96s). This exercises the corrected post-write observation boundary and
 cleanup cancellation ordering. A deterministic remote-only/combined regression
 reproduced queued engine entry after failed remote cleanup, then passed with
 synchronous lifetime cancellation while the shared gate is held.
+
+
+## Linux desktop tray acceptance
+
+Spec/plan 000014 implements the separate Linux `grove-tray` companion. Offline
+protocol tests require `dbus-daemon`; they create private buses and test actual
+D-Bus replies/signals, watcher replacement, root/menu layouts, disabled actions,
+configuration matching, asynchronous service jobs, and coordinator shutdown.
+Actual-binary tests use disposable populated profiles with absent synthetic token
+paths and a fake-provider daemon helper; production gains no endpoint override.
+
+```sh
+go test ./internal/tray ./cmd/grove-tray
+go test -race ./internal/tray ./cmd/grove-tray
+```
+
+On 2026-10-27 `TestTrayProcessLifecycle` passed in 0.39s and
+`TestTrayProcessDaemon` in 2.34s. They verify stopped/waiting/syncing transitions,
+duplicate rejection, watcher replacement, Refresh/Quit, SIGTERM, unchanged profile
+state and preserved daemon ownership after tray exit. Required full offline/race
+suites and pinned lint (0 issues) also pass; all three Linux binaries and both
+existing Darwin arm64 cross-builds pass. No live Drive tests were enabled.
+
+Actual desktop acceptance used Sway 1.12's headless/pixman backend, a private
+runtime directory/session bus, Waybar 0.15.0 with only its tray module, a
+disposable profile and the fake-provider daemon helper. A virtual pointer in
+that isolated compositor exercised hover and right-click. Screenshots were
+inspected for the stopped icon, plain status tooltip, rendered menu, waiting and
+syncing icons, and re-registration after Waybar restart. The named icons were
+not installed, exercising embedded pixmap fallback. Quitting the tray left the
+daemon running; the helper stopped gracefully afterward. A real Waybar root-menu
+property warning was reproduced by a regression and fixed before the fresh
+warning-free run. The ordinary compositor/bar and its configuration were untouched.
+
+The production systemd adapter was separately exercised against the actual user
+manager through its normal session bus, without publishing an item to the normal
+panel. A unique `groved@tray-acceptance-…` runtime unit directly launched a
+fake-provider harness named `groved` with a private matching config. Observe
+validated the effective command/config; explicit Start reached active lease
+ownership; explicit Stop reached inactive ownership. The unique unit/config,
+fixture and runtime artifacts were removed; no service was enabled and lingering
+was unchanged. The 15s timeout on that disposable harness was a test cleanup
+bound, not a tray-imposed daemon stop deadline.
+
+To repeat desktop acceptance, use an isolated compositor/session bus and
+explicit disposable profile, enable only the panel's tray module, launch the
+actual companion, and exercise tooltip/menu, record/lease transitions, bar
+restart and tray quit. Use only fixture-owned state. For manager acceptance,
+reserve a unique runtime instance and verify/remove only its unit and artifacts.
+Do not rewrite normal services or session configuration as a verification step.
+
+No independent second SNI host is installed in this environment. Protocol tests
+are not a substitute for desktop acceptance: broader host compatibility remains
+unverified. The next gate is the same icon/menu/tooltip/restart/quit checklist in
+an independent host such as KDE Plasma or another panel. Desktop-entry autostart
+has static validation and documented quoting; actual login/autostart is untested.
+
+
+Independent whole-change review at `ac1ec50` produced four Important findings;
+`TestTrayStartupBusyHistory`, `TestServiceDelayedFailureResult`,
+`TestTrayStartupControlCancellation`, and `TestServiceStopUnavailableProfile`
+all failed before their production fixes, then passed. A job disappearing before
+its completion signal now shows an explicit unknown outcome and retains its job
+identity so a delayed failure remains visible. A further fresh stable observation
+can restore control eligibility without clearing that historical warning.
+Fresh formatting/lint/full offline/full race/build/module checks pass after the
+fixes. The actual user-manager adapter acceptance also passed again afterward.
+The rebuilt final binary also passed the isolated pointer-driven Waybar checklist
+again after review fixes, with no menu/property warnings; its owned temporary
+profile/session artifacts were removed.
