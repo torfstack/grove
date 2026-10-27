@@ -17,6 +17,8 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	errCh := make(chan error, 1)
+	var end func()
+	loopReady := make(chan struct{})
 	start, end := systray.RunWithExternalLoop(func() {
 		go func() {
 			cmd := newCommand(func(runCtx context.Context, opts tray.Options) error {
@@ -24,9 +26,11 @@ func main() {
 			})
 			errCh <- cmd.ExecuteContext(ctx)
 			stop()
+			<-loopReady
 			end()
 		}()
 	}, stop)
+	close(loopReady)
 	start()
 	select {
 	case err := <-errCh:

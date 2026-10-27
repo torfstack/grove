@@ -72,8 +72,9 @@ func TestDarwinDisposableLaunchAgentStartStop(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, _ = (systemLaunchctl{}).Print(context.Background(), "gui/"+strconv.FormatUint(uint64(uid), 10)+"/"+label)
-		_ = (systemLaunchctl{}).Bootout(context.Background(), "gui/"+strconv.FormatUint(uint64(uid), 10), plistPath)
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cleanupCancel()
+		_ = (systemLaunchctl{}).Bootout(cleanupCtx, "gui/"+strconv.FormatUint(uint64(uid), 10), plistPath)
 		if err := os.Remove(plistPath); err != nil && !os.IsNotExist(err) {
 			t.Errorf("remove fixture plist: %v", err)
 		}
@@ -151,7 +152,9 @@ func TestDarwinDisposableLaunchAgentFatalExitStaysStopped(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_ = (systemLaunchctl{}).Bootout(context.Background(), "gui/"+strconv.FormatUint(uint64(uid), 10), plistPath)
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cleanupCancel()
+		_ = (systemLaunchctl{}).Bootout(cleanupCtx, "gui/"+strconv.FormatUint(uint64(uid), 10), plistPath)
 		if err := os.Remove(plistPath); err != nil && !os.IsNotExist(err) {
 			t.Errorf("remove fixture plist: %v", err)
 		}
