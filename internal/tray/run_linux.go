@@ -183,6 +183,9 @@ func Run(ctx context.Context, opts Options, deps Dependencies) (err error) {
 		return false
 	}
 	for {
+		if ctx.Err() != nil {
+			return nil
+		}
 		select {
 		case <-ctx.Done():
 			return nil
@@ -206,6 +209,9 @@ func Run(ctx context.Context, opts Options, deps Dependencies) (err error) {
 				}
 			}
 		case result := <-observed:
+			if ctx.Err() != nil {
+				return nil
+			}
 			current = result.sample
 			if controller != nil {
 				service = result.service
@@ -242,6 +248,9 @@ func Run(ctx context.Context, opts Options, deps Dependencies) (err error) {
 				}
 			}
 		case controlErr := <-controlDone:
+			if ctx.Err() != nil {
+				return nil
+			}
 			controlActive = false
 			if controlErr != nil {
 				controlError = "service action failed or outcome unknown"

@@ -32,9 +32,16 @@ A second independent tray host is unavailable, so broader tested compatibility
 is not claimed. Login/autostart remains untested; the desktop-entry template
 validates statically. Repeatable gates and limits are in
 [TESTBED](TESTBED.md#linux-desktop-tray-acceptance). The macOS design remains a
-separate unapproved proposal. [PR #21](https://github.com/torfstack/grove/pull/21) is open against `main`.
-Linux CI, CodeQL Go/Actions and dependency review pass on reviewed publication
-head `4b0bcf9`. Automatic CodeRabbit review was skipped because the repository
+separate unapproved proposal. [PR #21](https://github.com/torfstack/grove/pull/21)
+is open against `main`.
+Final-head CI exposed a timing race in the SIGTERM process test: it could signal
+after item registration but before the initial status publication. The test now
+waits for the published state before sending SIGTERM, and the event loop exits
+cleanly when cancellation races with queued observations. The lifecycle test
+passed 30 repeated runs; full lint, formatting, offline and race suites passed
+locally. Fresh hosted checks are pending for the fix. Linux CI, CodeQL
+Go/Actions and dependency review passed on reviewed publication head `4b0bcf9`.
+Automatic CodeRabbit review was skipped because the repository
 has fewer than ten stars; the manually requested initial full review completed
 on `7499f6c..4b0bcf9`, processed all 36 eligible text files, and reported no
 actionable findings or concrete merge-blocking issue. Its full summary and

@@ -253,12 +253,14 @@ func TestTrayProcessLifecycle(t *testing.T) {
 		t.Fatal("tray mutated profile state")
 	}
 	c = startTray(t, binary, addr, profile)
-	registered(t, replacement)
+	sender = registered(t, replacement)
+	waitIcon(t, conn, sender, "grove-syncing")
 	if err := c.cmd.Process.Signal(syscall.SIGTERM); err != nil {
 		t.Fatal(err)
 	}
 	if err := waitChild(t, c); err != nil {
-		t.Fatal(err)
+		log, _ := os.ReadFile(c.log)
+		t.Fatalf("tray did not exit cleanly after SIGTERM: %v\n%s", err, log)
 	}
 }
 
