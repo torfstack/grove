@@ -28,21 +28,21 @@ type Dependencies struct {
 	OpenBus     func(context.Context, Options) (TrayBus, error)
 	OpenService func(context.Context, Options) (Controller, error)
 }
-type trayFailure struct {
+type Failure struct {
 	reason string
 	cause  error
 }
 
-func (e *trayFailure) Error() string              { return "tray failed: " + e.reason }
-func (e *trayFailure) Unwrap() error              { return e.cause }
-func trayFailed(reason string, cause error) error { return &trayFailure{reason, cause} }
+func (e *Failure) Error() string                  { return "tray failed: " + e.reason }
+func (e *Failure) Unwrap() error                  { return e.cause }
+func trayFailed(reason string, cause error) error { return &Failure{reason, cause} }
 func Run(ctx context.Context, opts Options, deps Dependencies) (err error) {
 	if ctx.Err() != nil {
 		return nil
 	}
 	opts, err = NormalizeOptions(opts)
 	if err != nil {
-		return err
+		return trayFailed("invalid profile or tray configuration", err)
 	}
 	if deps.Inspect == nil {
 		deps.Inspect = func(ctx context.Context, path string) (daemon.StatusReport, error) {

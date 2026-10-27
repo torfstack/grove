@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Grove tray
+Comment=Show Grove sync status
+Exec="/absolute/path/to/grove-tray" --profile-dir "/absolute/path/to/profile" --name "Personal"
+Icon=grove-idle
+Terminal=false
+Categories=Utility;
+StartupNotify=false

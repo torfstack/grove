@@ -24,8 +24,12 @@ description = "Run offline tests with race detection"
 run = "go test -race ./..."
 
 [tasks.build]
-description = "Build Grove CLI and daemon"
-run = ["go build -o bin/grove ./cmd/grove", "go build -o bin/groved ./cmd/groved"]
+description = "Build Grove CLI, daemon, and Linux tray"
+run = [
+  "go build -o bin/grove ./cmd/grove",
+  "go build -o bin/groved ./cmd/groved",
+  'if [ "$(go env GOOS)" = "linux" ]; then go build -o bin/grove-tray ./cmd/grove-tray; fi',
+]
 
 [tasks.test-live]
 description = "Run explicitly enabled live Drive fixture tests"

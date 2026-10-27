@@ -36,7 +36,7 @@ func validInstance(instance string) bool {
 	}
 	return true
 }
-func NormalizeOptions(opts Options) (Options, error) {
+func ValidateArguments(opts Options) (Options, error) {
 	if opts.Name == "" {
 		opts.Name = "Grove"
 	}
@@ -48,6 +48,13 @@ func NormalizeOptions(opts Options) (Options, error) {
 	}
 	if !filepath.IsAbs(opts.ProfileDir) {
 		return Options{}, errors.New("absolute profile directory required")
+	}
+	return opts, nil
+}
+func NormalizeOptions(opts Options) (Options, error) {
+	opts, err := ValidateArguments(opts)
+	if err != nil {
+		return Options{}, err
 	}
 	profile, err := privatefs.Canonical(opts.ProfileDir)
 	if err != nil || privatefs.OutsideGit(profile) != nil {

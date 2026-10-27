@@ -14,7 +14,10 @@ race checks. Task 3's optional systemd boundary passes mapping, command/config v
 early job completion, denied/absent-manager, duplicate request and long-stop
 tests, including the tray race suite. Task 4's coordinator passes serialized/coalesced polling, fresh action checks,
 busy/invalid startup, later unavailability, cancellation, bus loss and joined
-shutdown tests with race detection. Task 5 (command and distribution) is next. The original
+shutdown tests with race detection. Task 5 adds the validated Linux command, inert desktop-entry template, manual
+installation/Waybar guide, Linux build and explicit CI bus prerequisite. Command
+and package race tests, tray build, both Darwin arm64 cross-builds and Darwin
+package exclusion pass. Task 6 process/desktop acceptance and final review remain. The original
 checkout's draft records remain preserved. No live Drive or ordinary desktop
 configuration has been touched.
 
