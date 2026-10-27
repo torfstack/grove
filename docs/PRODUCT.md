@@ -19,6 +19,16 @@ operations. `grove status --profile-dir PATH [--json]` and
 Development should prioritize fast iteration and meaningful tests, including a
 dedicated Google test account with reproducible fixtures.
 
+## Proposed macOS desktop experience
+
+The user selected a macOS experience parallel to Linux: a periodic foreground
+`groved` process managed as an optional per-profile launchd user agent, plus a
+native menu-bar companion for offline status and service controls. Installation,
+daemon login start, and menu-bar login start remain explicit user choices. This
+scope is approved in [spec 000013](spec/000013-macos-daemon-design.md), and its
+[implementation plan](implementation-plans/000013-macos-daemon-plan.md) is now
+being implemented. Local filesystem watching is not part of this slice.
+
 ## Requirements to settle before affected implementation
 
 - Automatic conflict resolution beyond the existing per-profile policies.

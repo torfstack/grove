@@ -31,16 +31,20 @@ process and dedicated-account remote/local live acceptance pass; final checks
 and independent review findings are addressed. PR #19 merged into main at
 `f6d23b5` on 2026-10-25 after final CI/security checks passed.
 
-The current work prioritizes Linux desktop visibility:
-[approved spec 000014](spec/000014-linux-freedesktop-tray-design.md) defines a
-Freedesktop tray companion for Waybar and other compatible hosts. The
-[paired plan](implementation-plans/000014-linux-freedesktop-tray-plan.md) covers
-status, menu behavior, and optional service controls. All six implementation
-slices are present; offline/race checks, actual processes, isolated Waybar
-acceptance and real disposable-user-service controls pass. Independent review
-findings are fixed with regression coverage and fresh checks; a second tray host
-remains unverified. [Spec 000013](spec/000013-macos-daemon-design.md) remains a separate
-unapproved macOS foreground-daemon proposal.
+Linux desktop visibility is implemented in
+[spec 000014](spec/000014-linux-freedesktop-tray-design.md): `grove-tray` uses
+Freedesktop StatusNotifierItem/D-BusMenu and optionally controls a validated
+systemd user service. All six slices are merged through PR #21 at `357f239`.
+Offline/race checks, actual processes, isolated Waybar acceptance and disposable
+user-service controls pass; a second tray host and the user's login/autostart
+workflow remain unverified.
+
+The next platform slice is in progress from
+[spec 000013](spec/000013-macos-daemon-design.md): full macOS desktop integration
+with the shared periodic daemon, optional per-profile LaunchAgent, and native
+menu-bar companion. The user approved the paired
+[implementation plan](implementation-plans/000013-macos-daemon-plan.md).
+FSEvents/local watching remains a separate follow-up.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus

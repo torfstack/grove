@@ -306,3 +306,13 @@ leases remain outside its ownership.
 contract; [desktop instructions](../contrib/desktop/README.md) cover manual
 installation. No full GUI toolkit or daemon IPC is required. Waybar desktop
 acceptance is recorded in TESTBED; independent-host compatibility remains unverified.
+
+## Proposed macOS desktop runtime
+
+[Spec 000013](spec/000013-macos-daemon-design.md) proposes using the shared Go
+daemon with a per-profile launchd user agent and a native menu-bar companion.
+The companion would reuse the Linux status and control invariants while using
+macOS-specific launchd and AppKit adapters. This remains proposed behavior until
+the implementation is verified; work follows the approved scope's plan
+([000013](implementation-plans/000013-macos-daemon-plan.md)). Local watching is
+out of scope.

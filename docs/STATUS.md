@@ -31,16 +31,11 @@ Owned service/desktop fixture artifacts were cleaned; no live Drive access ran.
 A second independent tray host is unavailable, so broader tested compatibility
 is not claimed. Login/autostart remains untested; the desktop-entry template
 validates statically. Repeatable gates and limits are in
-[TESTBED](TESTBED.md#linux-desktop-tray-acceptance). The macOS design remains a
-separate unapproved proposal. [PR #21](https://github.com/torfstack/grove/pull/21)
-is open against `main`.
-Final-head CI exposed a timing race in the SIGTERM process test: it could signal
-after item registration but before the initial status publication. The test now
-waits for the published state before sending SIGTERM, and the event loop exits
-cleanly when cancellation races with queued observations. The lifecycle test
-passed 30 repeated runs; full lint, formatting, offline and race suites passed
-locally. Fresh hosted checks are pending for the fix. Linux CI, CodeQL
-Go/Actions and dependency review passed on reviewed publication head `4b0bcf9`.
+[TESTBED](TESTBED.md#linux-desktop-tray-acceptance). PR #21 was squash-merged
+into `main` at `357f239` on 2026-10-27 after its initial CodeRabbit review found
+no actionable findings and the final Linux CI, CodeQL, and dependency checks
+passed. The final head included a fix for a SIGTERM test timing race; the
+lifecycle test passed 30 repeated runs and fresh hosted checks passed.
 Automatic CodeRabbit review was skipped because the repository
 has fewer than ten stars; the manually requested initial full review completed
 on `7499f6c..4b0bcf9`, processed all 36 eligible text files, and reported no
@@ -48,15 +43,18 @@ actionable findings or concrete merge-blocking issue. Its full summary and
 walkthrough were retrieved and assessed; submitted-review records, inline
 comments and GraphQL review threads are all empty. The 20 icon files and go.sum
 were filtered by the reviewer; local icon/runtime and Go module checks cover
-those artifacts. No second review was requested. Final documentation-head CI is
-tracked in the PR checks; no feature merge has been requested.
+those artifacts. No second review was requested.
 
-## macOS daemon design
+## macOS desktop integration design
 
-A separate proposed slice is a foreground periodic `groved` runtime on macOS,
-without local filesystem watching or launchd integration. The repo-grounded
-design is in [spec 000013](spec/000013-macos-daemon-design.md) and awaits user
-approval before implementation planning.
+The user approved full desktop integration analogous to Linux: periodic
+`groved`, optional per-profile launchd service, and a native menu-bar companion
+with status and service controls. Implementation is underway on
+`design/macos-desktop-integration`, following [spec 000013](spec/000013-macos-daemon-design.md)
+and its [paired plan](implementation-plans/000013-macos-daemon-plan.md).
+The plan targets macOS 13+, shares the Go tray model, and proposes a Go AppKit
+adapter with separate LaunchAgents. FSEvents remains outside this slice;
+`watch_local` will be rejected on macOS until a separate design covers it.
 
 ## Authenticated systemd acceptance
 
