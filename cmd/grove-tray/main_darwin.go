@@ -35,5 +35,10 @@ func main() {
 			os.Exit(1)
 		}
 	case <-ctx.Done():
+		err := <-errCh
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "grove-tray: %v\n", err)
+			os.Exit(1)
+		}
 	}
 }
