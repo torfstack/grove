@@ -35,6 +35,8 @@ type nativeWatcher struct {
 	closeErr    error
 }
 
+func localWatchSupported() bool { return true }
+
 func openWatcher(ctx context.Context, root string, clock Clock) (Watcher, error) {
 	rootFD, err := unix.Open(root, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
 	if err != nil {

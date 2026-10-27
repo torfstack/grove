@@ -53,8 +53,15 @@ func Run(ctx context.Context, configPath string, deps Dependencies) (err error) 
 	if err != nil {
 		return err
 	}
+	return runWithConfig(ctx, cfg, deps, localWatchSupported())
+}
+
+func runWithConfig(ctx context.Context, cfg Config, deps Dependencies, supportsLocalWatch bool) (err error) {
 	if ctx.Err() != nil {
 		return nil
+	}
+	if cfg.WatchLocal && !supportsLocalWatch {
+		return configError("watch_local is not supported on this platform; set it to false or omit it")
 	}
 	service := syncengine.Service{}
 	if deps.InspectProfile == nil {
