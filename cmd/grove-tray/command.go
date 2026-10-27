@@ -10,7 +10,7 @@ import (
 
 func newCommand(run func(context.Context, tray.Options) error) *cobra.Command {
 	opts := tray.Options{}
-	cmd := &cobra.Command{Use: "grove-tray", Short: "Show one Grove profile in a Freedesktop system tray", SilenceErrors: true, SilenceUsage: true, Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "grove-tray", Short: "Show one Grove profile in the desktop status area", SilenceErrors: true, SilenceUsage: true, Args: cobra.NoArgs}
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		if cmd.Context().Err() != nil {
 			return nil

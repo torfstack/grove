@@ -66,6 +66,7 @@ tests also require an SNI host that is not available in this workspace.
 Task 3 moves the tray coordinator to shared Go code and gives platform adapters
 ownership of bus/controller opening; Linux tray tests and race tests pass.
 Task 4 adds a fail-closed launchd controller, strict launchctl output parser, private plist validation, and daemon LaunchAgent template. Focused launchd tests and the tray race suite pass. Native launchctl acceptance is deferred to macOS CI; no macOS host is available in this workspace.
+Task 5 adds the fyne systray AppKit adapter, reusable Cobra command, menu mapping/action tests, and Darwin entry point. Linux tray/CLI tests, race tests, and all-package compile-only checks pass. AppKit execution and Darwin test compilation remain for the macOS CI runner. Tasks 6–7 are underway.
 
 ## Authenticated systemd acceptance
 

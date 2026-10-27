@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
@@ -47,5 +48,29 @@ func TestTrayCommand(t *testing.T) {
 	before = calls
 	if err := cmd.ExecuteContext(ctx); err != nil || calls != before {
 		t.Fatalf("cancellation: %v", err)
+	}
+}
+
+func TestMacOSBundleMetadata(t *testing.T) {
+	info, err := os.ReadFile("../../contrib/macos/Grove-Info.plist")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(info, []byte("<key>LSUIElement</key><true/>")) || !bytes.Contains(info, []byte("13.0")) {
+		t.Fatal("bundle metadata must hide the Dock icon and declare macOS 13 minimum")
+	}
+	trayAgent, err := os.ReadFile("../../contrib/macos/launchagents/com.torfstack.grove-tray.plist.in")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(trayAgent, []byte("com.torfstack.grove-tray.")) || !bytes.Contains(trayAgent, []byte("@GROVE_APP@/Contents/MacOS/grove-tray")) || !bytes.Contains(trayAgent, []byte("@GROVE_PROFILE@")) {
+		t.Fatal("companion LaunchAgent needs a distinct label and absolute app/profile arguments")
+	}
+	build, err := os.ReadFile("../../contrib/macos/build-app.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(build, []byte("launchctl bootstrap")) || bytes.Contains(build, []byte("launchctl enable")) {
+		t.Fatal("app build must not register or enable login services")
 	}
 }

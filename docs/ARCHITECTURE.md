@@ -1,3 +1,5 @@
+macOS daemon runtime boundaries, a validated launchd controller, and a native menu-bar adapter are under implementation in [spec 000013](spec/000013-macos-daemon-design.md). The adapter shares tray presentation and lifecycle code with Linux. Native macOS behavior remains unverified until the macOS CI job runs.
+
 # Architecture
 
 Authentication, the Drive fixture lifecycle, and initial/incremental download sync

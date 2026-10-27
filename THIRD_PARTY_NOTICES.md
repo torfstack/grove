@@ -29,3 +29,7 @@ LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
+Grove macOS menu bar uses fyne.io/systray v1.12.2 (Apache-2.0). The license
+text is available in the dependency source at
+https://github.com/fyne-io/systray/blob/v1.12.2/LICENSE.

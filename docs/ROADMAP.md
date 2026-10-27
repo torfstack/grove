@@ -39,12 +39,12 @@ Offline/race checks, actual processes, isolated Waybar acceptance and disposable
 user-service controls pass; a second tray host and the user's login/autostart
 workflow remain unverified.
 
-The next platform slice is in progress from
+The macOS platform slice is in progress from
 [spec 000013](spec/000013-macos-daemon-design.md): full macOS desktop integration
 with the shared periodic daemon, optional per-profile LaunchAgent, and native
 menu-bar companion. The user approved the paired
 [implementation plan](implementation-plans/000013-macos-daemon-plan.md).
-FSEvents/local watching remains a separate follow-up.
+The LaunchAgent controller, AppKit adapter, and app bundle are implemented on the feature branch; native macOS CI and desktop behavior remain to be verified. FSEvents/local watching remains a separate follow-up.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus
