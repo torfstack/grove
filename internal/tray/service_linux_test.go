@@ -109,7 +109,7 @@ func newFakeManager(t *testing.T) (*Service, *fakeManager, Sample) {
 	addr := NewTestBus(t)
 	c := testConn(t, addr)
 	opts := optionsFixture(t)
-	opts.SystemdInstance = "personal"
+	opts.ServiceInstance = "personal"
 	config := filepath.Join(t.TempDir(), "private config.json")
 	if err := privatefs.WriteJSON(config, map[string]any{"version": 1, "profile_dir": opts.ProfileDir, "mode": "download"}); err != nil {
 		t.Fatal(err)

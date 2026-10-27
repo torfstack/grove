@@ -26,14 +26,14 @@ func TestNormalizeOptions(t *testing.T) {
 	if err := os.Symlink(opts.ProfileDir, alias); err != nil {
 		t.Fatal(err)
 	}
-	got, err = NormalizeOptions(Options{ProfileDir: alias, Name: "Persönlich <&_>", SystemdInstance: "personal-2_X"})
+	got, err = NormalizeOptions(Options{ProfileDir: alias, Name: "Persönlich <&_>", ServiceInstance: "personal-2_X"})
 	if err != nil || got.ProfileDir != opts.ProfileDir {
 		t.Fatalf("alias: %+v %v", got, err)
 	}
 	for _, change := range []func(*Options){
 		func(o *Options) { o.ProfileDir = "relative" }, func(o *Options) { o.ProfileDir = filepath.Join(t.TempDir(), "missing") },
 		func(o *Options) { o.Name = "bad\nname" }, func(o *Options) { o.Name = string([]byte{255}) }, func(o *Options) { o.Name = strings.Repeat("x", 81) },
-		func(o *Options) { o.SystemdInstance = "../private" }, func(o *Options) { o.SystemdInstance = "other.service" },
+		func(o *Options) { o.ServiceInstance = "../private" }, func(o *Options) { o.ServiceInstance = "other.service" },
 	} {
 		bad := opts
 		change(&bad)

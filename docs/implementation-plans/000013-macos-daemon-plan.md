@@ -49,12 +49,12 @@
 - Produces Darwin `openConfig(path string) (*os.File, error)` with the same privacy/error contract as Linux.
 - Produces `platformSupported() bool` and `processContext(context.Context) (context.Context, context.CancelFunc)` for Darwin; the context handles `os.Interrupt` and `syscall.SIGTERM`.
 
-- [ ] **Step 1: Write Darwin config and runtime rejection tests.** Add `TestDarwinConfigSecurity` for private regular files, symlinks, non-regular files, and sanitized errors; add `TestDarwinLocalWatchRejectedBeforeStartup` with dependencies that fail if profile inspection or lease acquisition runs.
-- [ ] **Step 2: Run the Darwin-only tests on a macOS runner and confirm they fail for the missing platform implementation.** Run: `go test ./internal/daemon ./cmd/groved -run 'TestDarwin(ConfigSecurity|LocalWatchRejectedBeforeStartup)' -count=1`. Expected: tests fail because Darwin secure open/platform hooks are not implemented.
-- [ ] **Step 3: Implement Darwin config opening and runtime boundaries.** Use `O_NOFOLLOW`, `O_CLOEXEC`, and `O_NONBLOCK`; require a regular file, permissions no broader than 0600, and current effective-user ownership. Reject `WatchLocal` immediately after config loading and before profile or lease work. Change non-Linux build constraints to exclude Darwin where Darwin implementations now exist.
-- [ ] **Step 4: Run daemon, command, and privatefs tests natively on macOS.** Run: `go test ./internal/daemon ./internal/privatefs ./cmd/groved`. Expected: all pass, including lease exclusion/probe and signal-aware command tests.
-- [ ] **Step 5: Run Linux regression tests.** Run: `go test ./internal/daemon ./internal/privatefs ./cmd/groved`. Expected: all existing Linux tests pass and Linux watcher behavior is unchanged.
-- [ ] **Step 6: Commit.** `git add internal/daemon cmd/groved && git commit -m "feat: enable safe macOS daemon runtime"`
+- [x] **Step 1: Write Darwin config and runtime rejection tests.** Add `TestDarwinConfigSecurity` for private regular files, symlinks, non-regular files, and sanitized errors; add `TestDarwinLocalWatchRejectedBeforeStartup` with dependencies that fail if profile inspection or lease acquisition runs.
+- [x] **Step 2: Prove the unsupported-watch regression fails before the boundary exists, then cross-compile the Darwin tests.** Native Darwin execution is included in Task 7's macOS CI job.
+- [x] **Step 3: Implement Darwin config opening and runtime boundaries.** Use `O_NOFOLLOW`, `O_CLOEXEC`, and `O_NONBLOCK`; require a regular file, permissions no broader than 0600, and current effective-user ownership. Reject `WatchLocal` immediately after config loading and before profile or lease work. Change non-Linux build constraints to exclude Darwin where Darwin implementations now exist.
+- [ ] **Step 4: Run daemon, command, and privatefs tests natively on macOS.** Run: `go test ./internal/daemon ./internal/privatefs ./cmd/groved`. Deferred to Task 7's native macOS CI job; expected to cover lease exclusion/probe and signal-aware command tests.
+- [x] **Step 5: Run Linux regression tests.** Run: `go test ./internal/daemon ./internal/privatefs ./cmd/groved`. Expected: all existing Linux tests pass and Linux watcher behavior is unchanged.
+- [x] **Step 6: Commit.** `git add internal/daemon cmd/groved && git commit -m "feat: enable safe macOS daemon runtime"`
 
 ### Task 2: Share tray presentation across Linux and macOS
 
@@ -65,18 +65,20 @@
 - Rename: `internal/tray/presentation_linux_test.go` → `internal/tray/presentation_test.go`
 - Rename: `internal/tray/options_linux_test.go` → `internal/tray/options_test.go`
 - Modify: `internal/tray/service_linux.go`, `internal/tray/run_linux_test.go`
+- Modify: `cmd/grove-tray/command_linux.go`, `cmd/grove-tray/command_linux_test.go`
 - Modify: `contrib/desktop/README.md`, `docs/spec/000014-linux-freedesktop-tray-design.md`
+- Modify: `docs/implementation-plans/000014-linux-freedesktop-tray-plan.md`
 
 **Interfaces:**
 - Produces platform-neutral `Action`, `Sample`, `ServiceState`, `Row`, `View`, `Memory`, and `Options` types in package `internal/tray`.
 - `Options` uses `ServiceInstance string` rather than a systemd-specific field; `Reduce(previous Memory, sample Sample, service ServiceState, opts Options) (Memory, View)` remains the shared presentation contract.
 
-- [ ] **Step 1: Move reducer/options tests to platform-neutral filenames and update the service-instance field assertions.** Add coverage for menu rows with a generic service label while retaining all existing status-state tables.
-- [ ] **Step 2: Run the presentation tests before moving implementation.** Run: `go test ./internal/tray -run 'TestTray(Presentation|RetainedFacts|StartupBusyHistory|Options)' -count=1`. Expected: compile/test failure until generic files and field names exist.
-- [ ] **Step 3: Move the pure model, option validation, and reducer into untagged files.** Rename `SystemdInstance` to `ServiceInstance` and update Linux service labels without changing the reducer’s status or action rules.
-- [ ] **Step 4: Run the tray package tests on Linux and macOS.** Run: `go test ./internal/tray`. Expected: shared deterministic presentation passes on both targets; Linux-only transport tests remain Linux-tagged.
-- [ ] **Step 5: Update Linux tray instructions to use `--service-instance`.** Verify all references with `rg -- '--systemd-instance|SystemdInstance' cmd internal contrib docs`; expected: no stale public option names remain.
-- [ ] **Step 6: Commit.** `git add internal/tray contrib/desktop docs/spec/000014-linux-freedesktop-tray-design.md && git commit -m "refactor: share tray presentation model"`
+- [x] **Step 1: Move reducer/options tests to platform-neutral filenames and update the service-instance field assertions.** Add coverage for menu rows with a generic service label while retaining all existing status-state tables.
+- [x] **Step 2: Run the presentation tests before moving implementation.** Run: `go test ./internal/tray -run 'TestTray(Presentation|RetainedFacts|StartupBusyHistory|Options)' -count=1`. Expected: compile/test failure until generic files and field names exist.
+- [x] **Step 3: Move the pure model, option validation, and reducer into untagged files.** Rename the service-instance field to its platform-neutral name and update Linux service labels without changing the reducer’s status or action rules.
+- [x] **Step 4: Run the tray package tests on Linux and cross-compile the shared tests for Darwin.** Native Darwin execution is included in Task 7's macOS CI job; Linux-only transports remain build-tagged.
+- [x] **Step 5: Update Linux tray instructions to use `--service-instance`.** Verify code and user-facing docs with `rg --glob '!docs/implementation-plans/000013-macos-daemon-plan.md' -- '--systemd-instance|SystemdInstance' cmd internal contrib docs`; expected: no stale public option names remain.
+- [x] **Step 6: Commit.** `git add internal/tray cmd/grove-tray contrib/desktop docs/spec/000014-linux-freedesktop-tray-design.md docs/implementation-plans/000014-linux-freedesktop-tray-plan.md docs/implementation-plans/000013-macos-daemon-plan.md docs/STATUS.md && git commit -m "refactor: share tray presentation model"`
 
 ### Task 3: Make the tray coordinator platform-neutral
 
@@ -138,7 +140,7 @@
 - [ ] **Step 1: Add an injectable native-menu wrapper and mapping tests.** Test all reducer view rows, enabled/disabled states, separators, dynamic menu refresh, icon/tooltip updates, and ActionRefresh/Start/Stop/Quit dispatch without launching AppKit.
 - [ ] **Step 2: Run adapter tests before implementation.** Run on macOS: `go test ./internal/tray ./cmd/grove-tray -run 'Test(MenuBar|TrayCommand)' -count=1`. Expected: new menu mapping tests fail before the adapter exists.
 - [ ] **Step 3: Add `fyne.io/systray` v1.12.2 and implement the AppKit adapter.** Use `RunWithExternalLoop` to run the native event loop around the shared coordinator, plus `ResetMenu`, menu item click channels, `SetTemplateIcon`, `SetTooltip`, and `Quit`; keep blocking status inspection off AppKit callbacks and preserve graceful cancellation.
-- [ ] **Step 4: Share Cobra command validation across Linux and Darwin.** Rename the service option to `--service-instance` on Linux and macOS and keep profile canonicalization and duplicate-process identity behavior unchanged.
+- [ ] **Step 4: Share Cobra command validation across Linux and Darwin.** Keep the Linux command on the generic `--service-instance` option and make that same command reusable by macOS; preserve profile canonicalization and duplicate-process identity behavior.
 - [ ] **Step 5: Run Darwin adapter and Linux protocol tests.** Run: `go test ./internal/tray ./cmd/grove-tray` on macOS and `go test ./internal/tray ./cmd/grove-tray` on Linux. Expected: native menu mapping tests and existing StatusNotifierItem/D-BusMenu tests pass on their respective targets.
 - [ ] **Step 6: Commit.** `git add internal/tray cmd/grove-tray go.mod go.sum THIRD_PARTY_NOTICES && git commit -m "feat: add native macOS Grove menu bar"`
 

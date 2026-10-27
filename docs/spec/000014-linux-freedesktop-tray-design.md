@@ -143,7 +143,7 @@ cannot launch concurrent service-control requests.
 
 ## Optional service controls
 
-Add `--systemd-instance personal` to opt into controls for the fixed user unit
+Add `--service-instance personal` to opt into controls for the fixed user unit
 `groved@personal.service`. Accept the simple instance-label character set already
 documented for Grove (letters, digits, underscores, hyphens), not arbitrary unit
 names, shell commands, or paths. The ordinary tray protocol and offline status

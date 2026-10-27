@@ -165,7 +165,7 @@ func (s *testController) Request(_ context.Context, a Action, current Sample) er
 func (s *testController) Close() error { s.mu.Lock(); defer s.mu.Unlock(); s.closed = true; return nil }
 func TestTrayActions(t *testing.T) {
 	opts := optionsFixture(t)
-	opts.SystemdInstance = "personal"
+	opts.ServiceInstance = "personal"
 	bus := newTestTray()
 	ctrl := &testController{state: ServiceState{Unit: "groved@personal.service", Phase: "inactive", CanStart: true}}
 	var calls atomic.Int32
@@ -302,7 +302,7 @@ func (c *startupController) Observe(ctx context.Context) (ServiceState, error) {
 }
 func TestTrayStartupControlCancellation(t *testing.T) {
 	opts := optionsFixture(t)
-	opts.SystemdInstance = "personal"
+	opts.ServiceInstance = "personal"
 	bus := newTestTray()
 	bus.fail = errors.New("connection closed after cancellation")
 	controller := &startupController{started: make(chan struct{})}

@@ -96,11 +96,11 @@ func Run(ctx context.Context, opts Options, deps Dependencies) (err error) {
 		}
 	}()
 	service := ServiceState{}
-	if opts.SystemdInstance != "" {
+	if opts.ServiceInstance != "" {
 		controller, err = deps.OpenService(life, opts)
 		if err != nil {
 			controller = nil
-			service = ServiceState{Unit: "groved@" + opts.SystemdInstance + ".service", Phase: "unavailable", Reason: "service monitoring unavailable"}
+			service = ServiceState{Unit: "groved@" + opts.ServiceInstance + ".service", Phase: "unavailable", Reason: "service monitoring unavailable"}
 			err = nil
 		} else {
 			service, _ = controller.Observe(life)

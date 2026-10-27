@@ -46,12 +46,12 @@ type Service struct {
 }
 
 func OpenService(ctx context.Context, conn *dbus.Conn, opts Options) (*Service, error) {
-	if !validInstance(opts.SystemdInstance) {
+	if !validInstance(opts.ServiceInstance) {
 		_ = conn.Close()
 		return nil, errors.New("invalid service instance")
 	}
 	life, cancel := context.WithCancel(ctx)
-	s := &Service{conn: conn, opts: opts, unit: "groved@" + opts.SystemdInstance + ".service", ctx: life, cancel: cancel, results: map[dbus.ObjectPath]string{}}
+	s := &Service{conn: conn, opts: opts, unit: "groved@" + opts.ServiceInstance + ".service", ctx: life, cancel: cancel, results: map[dbus.ObjectPath]string{}}
 	if err := conn.AddMatchSignal(dbus.WithMatchSender(managerName), dbus.WithMatchInterface(managerInterface), dbus.WithMatchMember("JobRemoved")); err != nil {
 		cancel()
 		_ = conn.Close()

@@ -15,11 +15,11 @@ func TestTrayCommand(t *testing.T) {
 	calls := 0
 	run := func(_ context.Context, o tray.Options) error { calls++; got = o; return nil }
 	cmd := newCommand(run)
-	cmd.SetArgs([]string{"--profile-dir", "/private/profile", "--name", "Personal", "--systemd-instance", "personal"})
-	if err := cmd.Execute(); err != nil || got.ProfileDir != "/private/profile" || got.Name != "Personal" || got.SystemdInstance != "personal" || calls != 1 {
+	cmd.SetArgs([]string{"--profile-dir", "/private/profile", "--name", "Personal", "--service-instance", "personal"})
+	if err := cmd.Execute(); err != nil || got.ProfileDir != "/private/profile" || got.Name != "Personal" || got.ServiceInstance != "personal" || calls != 1 {
 		t.Fatalf("routing: %+v %v", got, err)
 	}
-	for _, args := range [][]string{{}, {"--profile-dir", "relative"}, {"--profile-dir", "/profile", "extra"}, {"--profile-dir", "/profile", "--name", ""}, {"--profile-dir", "/profile", "--name", "bad\nname"}, {"--profile-dir", "/profile", "--systemd-instance", ""}, {"--profile-dir", "/profile", "--systemd-instance", "../other"}} {
+	for _, args := range [][]string{{}, {"--profile-dir", "relative"}, {"--profile-dir", "/profile", "extra"}, {"--profile-dir", "/profile", "--name", ""}, {"--profile-dir", "/profile", "--name", "bad\nname"}, {"--profile-dir", "/profile", "--service-instance", ""}, {"--profile-dir", "/profile", "--service-instance", "../other"}} {
 		before := calls
 		cmd = newCommand(run)
 		cmd.SetArgs(args)

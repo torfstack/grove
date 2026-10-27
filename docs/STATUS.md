@@ -55,6 +55,14 @@ and its [paired plan](implementation-plans/000013-macos-daemon-plan.md).
 The plan targets macOS 13+, shares the Go tray model, and proposes a Go AppKit
 adapter with separate LaunchAgents. FSEvents remains outside this slice;
 `watch_local` will be rejected on macOS until a separate design covers it.
+Task 1 enables the Darwin daemon runtime, secure config opening, and explicit
+local-watch rejection. Linux daemon/privatefs/CLI tests pass; Darwin arm64 test
+binaries cross-compile. Native macOS execution remains for the macOS CI job.
+Task 2 shares tray presentation/options and renames the public service option to
+`--service-instance`; Linux unit/protocol tests pass and shared tray tests
+cross-compile for Darwin. The default test temp path is unusable here because
+`/tmp/.git` exists; use `TMPDIR=/run/user/1000`. Desktop-dependent tray process
+tests also require an SNI host that is not available in this workspace.
 
 ## Authenticated systemd acceptance
 

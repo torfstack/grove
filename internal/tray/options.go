@@ -12,7 +12,7 @@ import (
 	"github.com/torfstack/grove/internal/privatefs"
 )
 
-type Options struct{ ProfileDir, Name, SystemdInstance string }
+type Options struct{ ProfileDir, Name, ServiceInstance string }
 
 func validName(name string) bool {
 	if !utf8.ValidString(name) || utf8.RuneCountInString(name) > 80 || name == "" {
@@ -44,7 +44,7 @@ func ValidateArguments(opts Options) (Options, error) {
 	if !validName(opts.Name) {
 		return Options{}, errors.New("invalid tray display name")
 	}
-	if opts.SystemdInstance != "" && !validInstance(opts.SystemdInstance) {
+	if opts.ServiceInstance != "" && !validInstance(opts.ServiceInstance) {
 		return Options{}, errors.New("invalid service instance")
 	}
 	if !filepath.IsAbs(opts.ProfileDir) {
