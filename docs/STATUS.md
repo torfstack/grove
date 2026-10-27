@@ -1,6 +1,23 @@
 # Project status
 
-Updated: 2026-10-26.
+Updated: 2026-10-27.
+
+## Linux desktop tray implementation
+
+The user approved spec/plan 000014 and native execution. Implementation is on
+`feat/linux-tray` in the managed worktree. The unchanged baseline offline suite
+passes. Task 1's validated options and deterministic status presentation pass
+their focused tests, including unavailable/busy observations and retained
+conflict/recovery facts. Task 2 (SNI/D-BusMenu transport) is next. The original
+checkout's draft records remain preserved. No live Drive or ordinary desktop
+configuration has been touched.
+
+## macOS daemon design
+
+A separate proposed slice is a foreground periodic `groved` runtime on macOS,
+without local filesystem watching or launchd integration. The repo-grounded
+design is in [spec 000013](spec/000013-macos-daemon-design.md) and awaits user
+approval before implementation planning.
 
 ## Authenticated systemd acceptance
 
@@ -24,8 +41,9 @@ loopback and private-path restrictions; the approved unsandboxed rerun passed.
 CodeRabbit's completed review found the test inherited an infinite stop timeout;
 the disposable unit now sets 15s and the test asserts systemd loaded that bound.
 Its sole finding was fixed in commit `cb2e155`; no second review was requested.
-[PR #20](https://github.com/torfstack/grove/pull/20) is open, and Linux CI,
-CodeQL Go/Actions, and dependency review pass on that head.
+[PR #20](https://github.com/torfstack/grove/pull/20) merged into `main` at
+`7499f6c` on 2026-10-26 after Linux CI, CodeQL Go/Actions, and dependency review
+passed on final head `1d14bea`.
 
 ## Remote change detection implementation
 

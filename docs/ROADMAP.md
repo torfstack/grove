@@ -15,7 +15,9 @@ user-service template and installation instructions, merged in PR #16 at `23c583
 Static validation, isolated manager lifecycle checks, actual-daemon invalid-config
 rejection, and existing daemon process tests pass. Dedicated-account authenticated
 download acceptance through the actual user service passed six times on 2026-10-25–26;
-logout/boot/linger behavior remains untested. The user selected opt-in native local watching next;
+PR #20 merged into main at `7499f6c` on 2026-10-26. Logout/boot/linger behavior
+remains untested. The next broad roadmap milestone is native macOS and Windows support;
+macOS one-shot sync cross-builds, but the daemon still rejects non-Linux hosts.
 [approved spec 000011](spec/000011-local-watching-design.md) is implemented following its
 [paired plan](implementation-plans/000011-local-watching-plan.md). Deterministic,
 native filesystem, and subprocess verification pass. Independent review findings
@@ -28,6 +30,14 @@ slice: opt-in account-level Drive hints with unchanged periodic scans. Offline,
 process and dedicated-account remote/local live acceptance pass; final checks
 and independent review findings are addressed. PR #19 merged into main at
 `f6d23b5` on 2026-10-25 after final CI/security checks passed.
+
+The current work prioritizes Linux desktop visibility:
+[approved spec 000014](spec/000014-linux-freedesktop-tray-design.md) defines a
+Freedesktop tray companion for Waybar and other compatible hosts. The
+[paired plan](implementation-plans/000014-linux-freedesktop-tray-plan.md) covers
+status, menu behavior, and optional service controls and awaits review before
+implementation. [Spec 000013](spec/000013-macos-daemon-design.md) remains a separate
+unapproved macOS foreground-daemon proposal.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus
