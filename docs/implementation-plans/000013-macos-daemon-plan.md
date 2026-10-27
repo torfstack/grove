@@ -158,11 +158,11 @@
 - `contrib/macos/build-app.sh` places `grove-tray` at `Contents/MacOS/grove-tray`, `grove` and `groved` at `Contents/Helpers/`, and writes `LSUIElement=1`, menu-bar resources, and both LaunchAgent templates into a local `bin/Grove.app`.
 - The companion LaunchAgent starts only the menu-bar process with explicit profile/name/service arguments; it is separate from the daemon LaunchAgent.
 
-- [ ] **Step 1: Add static bundle/plist tests and documentation checks.** Verify `Info.plist` hides the Dock icon, both LaunchAgent templates use absolute paths and distinct labels, daemon `ExitTimeOut` is zero, and no service auto-enable command is run by the build.
-- [ ] **Step 2: Implement the app-bundle build script and mise task.** Use the pinned Go toolchain and native cgo/AppKit toolchain; do not codesign, notarize, install, or register login items during build.
-- [ ] **Step 3: Write manual install, start, enable-at-login, stop, upgrade, and removal instructions.** Explain absolute paths, XML/plist validation, one profile per pair of agents, explicit opt-in, safe data retention, and that app quit does not stop daemon sync.
-- [ ] **Step 4: Update Linux instructions for `--service-instance`.** Verify all linked template and bundle paths resolve.
-- [ ] **Step 5: Run formatting and document checks.** Run: `gofmt -l cmd internal tests` and `git diff --check`; expected: no Go formatting output and no whitespace errors. On macOS, run `plutil -lint contrib/macos/Grove-Info.plist` and both plist templates after sample substitution.
+- [x] **Step 1: Add static bundle/plist tests and documentation checks.** Verify `Info.plist` hides the Dock icon, both LaunchAgent templates use absolute paths and distinct labels, daemon `ExitTimeOut` is zero, and no service auto-enable command is run by the build.
+- [x] **Step 2: Implement the app-bundle build script and mise task.** Use the pinned Go toolchain and native cgo/AppKit toolchain; do not codesign, notarize, install, or register login items during build.
+- [x] **Step 3: Write manual install, start, enable-at-login, stop, upgrade, and removal instructions.** Explain absolute paths, XML/plist validation, one profile per pair of agents, explicit opt-in, safe data retention, and that app quit does not stop daemon sync.
+- [x] **Step 4: Update Linux instructions for `--service-instance`** (already documented by Task 2; searched and found no stale option). Verify all linked template and bundle paths resolve.
+- [x] **Step 5: Run XML parse, Go static tests, `git diff --check`, and Linux build.** `plutil` is unavailable on this Linux host; native plist lint is deferred to macOS CI. Run: `gofmt -l cmd internal tests` and `git diff --check`; expected: no Go formatting output and no whitespace errors. On macOS, run `plutil -lint contrib/macos/Grove-Info.plist` and both plist templates after sample substitution.
 - [ ] **Step 6: Commit.** `git add mise.toml contrib/macos contrib/systemd/README.md docs && git commit -m "build: package and document macOS desktop integration"`
 
 ### Task 7: Verify native macOS runtime and add CI coverage
