@@ -39,6 +39,9 @@ token; persistence failures fail the request. Windows auth remains deferred.
   attempts, cancellation, and graceful shutdown. A distributed systemd user
   template supplies optional Linux background lifecycle; opt-in local watching
   requests debounced sequential attempts while retaining periodic scans.
+- `grove-tray`: Linux graphical-session companion; offline profile observations,
+  StatusNotifierItem/D-BusMenu, and optional validated user-service controls.
+  Its lifetime is independent of the daemon.
 - Shared Go packages: Drive access, local scanning, persisted sync state,
   deterministic planning, and operation execution.
 
@@ -276,3 +279,30 @@ lifetime ownership. Native watcher semantics remain intact. Ephemeral cursor
 initialization emits a dirty hint to close the startup gap, and account-wide
 My Drive hints deliberately allow false-positive scans. No event path/ID reaches
 the planner, and periodic full scans remain authoritative.
+
+
+## Linux tray boundary
+
+`cmd/grove-tray` wires the Linux-only `internal/tray` coordinator to the existing
+`daemon.Inspect` service. A pure reducer maps observations and bounded last-known
+profile facts into icon/tooltip/menu snapshots. One worker serializes offline
+inspections; refresh requests coalesce and D-Bus handlers use immutable snapshots.
+No profile state decoding, OAuth session, Drive request, or engine mutation is
+added to the companion.
+
+A private session-bus connection exports `org.kde.StatusNotifierItem` and
+`com.canonical.dbusmenu`, owns one opaque canonical-profile-derived bus name,
+and registers with the existing watcher. It re-registers when the watcher
+changes. Embedded pixmaps complement named SVG icons. A separate optional
+connection observes the user systemd manager, validates the selected unit's
+resolved identity/effective ExecStart and private daemon config, then dispatches
+explicit start/stop requests and observes their asynchronous jobs. Profile
+ownership and manager state remain separate facts. Cancellation joins owned
+workers and closes only companion resources; accepted manager jobs and daemon
+leases remain outside its ownership.
+
+[Spec 000014](spec/000014-linux-freedesktop-tray-design.md) and its
+[plan](implementation-plans/000014-linux-freedesktop-tray-plan.md) record the
+contract; [desktop instructions](../contrib/desktop/README.md) cover manual
+installation. No full GUI toolkit or daemon IPC is required. Waybar desktop
+acceptance is recorded in TESTBED; independent-host compatibility remains unverified.

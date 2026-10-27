@@ -1,6 +1,6 @@
 # 0013: Linux tray companion
 
-Date: 2026-10-27. Status: design approved by the user; implementation plan awaits review.
+Date: 2026-10-27. Status: approved design/plan implemented; final review pending.
 
 The user uses Waybar and wants a Grove status icon through a general Linux
 desktop protocol. [Approved spec 000014](../spec/000014-linux-freedesktop-tray-design.md)
@@ -18,4 +18,7 @@ Starting or quitting the companion does not change daemon lifecycle. Service
 actions require explicit target configuration and never change sync mode,
 conflict policy, or recovery intent. The
 [paired plan](../implementation-plans/000014-linux-freedesktop-tray-plan.md)
-is prepared for review; native execution is the user's preserved preference.
+is implemented natively. Named SVG icons plus embedded PNG pixmaps avoid theme
+dependence. The pinned godbus v5.2.4 library provides native Go D-Bus support
+under BSD-2-Clause. Waybar and actual disposable service controls are verified;
+a second independent host and login/autostart remain untested.

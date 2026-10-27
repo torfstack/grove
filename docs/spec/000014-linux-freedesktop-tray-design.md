@@ -1,6 +1,6 @@
 # Linux Freedesktop tray companion
 
-Date: 2026-10-27. Status: design approved by the user; implementation plan approved for native execution.
+Date: 2026-10-27. Status: approved and implemented on `feat/linux-tray`; final review pending.
 
 Independent builder check: no important unanswered questions remain for planning.
 
@@ -247,7 +247,9 @@ exact D-Bus helper interfaces, icon artwork, private identity encoding, and the
 second test host, documenting any acceptance environment limitation.
 
 The [paired implementation plan](../implementation-plans/000014-linux-freedesktop-tray-plan.md)
-uses number 000014 and awaits user review before implementation.
+uses number 000014 and was approved for native execution. See
+[TESTBED](../TESTBED.md#linux-desktop-tray-acceptance) for verified Waybar/process/
+service behavior and unverified second-host/login acceptance.
 
 ## References
 

@@ -35,8 +35,10 @@ The current work prioritizes Linux desktop visibility:
 [approved spec 000014](spec/000014-linux-freedesktop-tray-design.md) defines a
 Freedesktop tray companion for Waybar and other compatible hosts. The
 [paired plan](implementation-plans/000014-linux-freedesktop-tray-plan.md) covers
-status, menu behavior, and optional service controls and awaits review before
-implementation. [Spec 000013](spec/000013-macos-daemon-design.md) remains a separate
+status, menu behavior, and optional service controls. All six implementation
+slices are present; offline/race checks, actual processes, isolated Waybar
+acceptance and real disposable-user-service controls pass. Final independent
+review is next; a second tray host remains unverified. [Spec 000013](spec/000013-macos-daemon-design.md) remains a separate
 unapproved macOS foreground-daemon proposal.
 
 1. **Development foundation and testbed**: establish project records, design

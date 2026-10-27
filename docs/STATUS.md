@@ -4,22 +4,29 @@ Updated: 2026-10-27.
 
 ## Linux desktop tray implementation
 
-The user approved spec/plan 000014 and native execution. Implementation is on
-`feat/linux-tray` in the managed worktree. The unchanged baseline offline suite
-passes. Task 1's validated options and deterministic status presentation pass
-their focused tests, including unavailable/busy observations and retained
-conflict/recovery facts. Task 2's SNI registration, watcher replacement, D-BusMenu wire protocol,
-read-only properties, signal metadata and embedded icon tests also pass, including
-race checks. Task 3's optional systemd boundary passes mapping, command/config validation,
-early job completion, denied/absent-manager, duplicate request and long-stop
-tests, including the tray race suite. Task 4's coordinator passes serialized/coalesced polling, fresh action checks,
-busy/invalid startup, later unavailability, cancellation, bus loss and joined
-shutdown tests with race detection. Task 5 adds the validated Linux command, inert desktop-entry template, manual
-installation/Waybar guide, Linux build and explicit CI bus prerequisite. Command
-and package race tests, tray build, both Darwin arm64 cross-builds and Darwin
-package exclusion pass. Task 6 process/desktop acceptance and final review remain. The original
-checkout's draft records remain preserved. No live Drive or ordinary desktop
-configuration has been touched.
+The user approved spec/plan 000014 and native execution. `grove-tray` is
+implemented on `feat/linux-tray` in the managed worktree, with offline status,
+StatusNotifierItem/D-BusMenu, distinct icon states, and optional validated
+systemd user-service controls. All six slices are implemented; the independent
+whole-change review remains next.
+
+Pinned formatting, lint (0 issues), full offline/race suites (13 packages),
+module verification, all three Linux builds and both existing Darwin arm64
+cross-builds pass. Local checks used the exact pinned task equivalents to avoid
+the recorded host mise cleanup issue. Actual-binary lifecycle/fake-provider
+daemon tests pass. Isolated Sway 1.12/Waybar 0.15.0 acceptance visually verified
+icon, tooltip, menu, state transitions, watcher restart and tray-only quit. A
+root-menu-property warning found by the host was reproduced and fixed before
+the fresh warning-free run. The actual systemd adapter also validated/started/
+stopped a unique disposable runtime service, observing active/inactive leases.
+No service was enabled; lingering and ordinary desktop config were unchanged.
+Owned service/desktop fixture artifacts were cleaned; no live Drive access ran.
+
+A second independent tray host is unavailable, so broader tested compatibility
+is not claimed. Login/autostart remains untested; the desktop-entry template
+validates statically. Repeatable gates and limits are in
+[TESTBED](TESTBED.md#linux-desktop-tray-acceptance). The macOS design remains a
+separate unapproved proposal. Work remains local on the feature branch; no new PR or merge has occurred.
 
 ## macOS daemon design
 

@@ -109,3 +109,16 @@ func TestDBusMenuGroupedEvents(t *testing.T) {
 		t.Fatal("activate must not change services")
 	}
 }
+
+func TestDBusMenuRootProperties(t *testing.T) {
+	b, _ := testBusItem(t)
+	obj := b.conn.Object(b.conn.Names()[0], menuPath)
+	var value dbus.Variant
+	if err := obj.Call(menuInterface+".GetProperty", 0, int32(0), "children-display").Store(&value); err != nil || value.Value() != "submenu" {
+		t.Fatalf("host cannot inspect menu root: %v %v", value, err)
+	}
+	var groups []menuProperties
+	if err := obj.Call(menuInterface+".GetGroupProperties", 0, []int32{0}, []string{"children-display"}).Store(&groups); err != nil || len(groups) != 1 || groups[0].ID != 0 {
+		t.Fatalf("root group: %+v %v", groups, err)
+	}
+}

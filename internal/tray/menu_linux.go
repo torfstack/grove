@@ -77,6 +77,27 @@ func (m *menuMethods) GetGroupProperties(ids []int32, names []string) ([]menuPro
 	m.bus.mu.RLock()
 	defer m.bus.mu.RUnlock()
 	result := []menuProperties{}
+	includeRoot := len(ids) == 0
+	for _, id := range ids {
+		if id == 0 {
+			includeRoot = true
+		}
+	}
+	if includeRoot {
+		props := map[string]dbus.Variant{}
+		for key, value := range map[string]any{"children-display": "submenu", "visible": true, "enabled": true} {
+			if len(names) == 0 {
+				props[key] = dbus.MakeVariant(value)
+			} else {
+				for _, name := range names {
+					if name == key {
+						props[key] = dbus.MakeVariant(value)
+					}
+				}
+			}
+		}
+		result = append(result, menuProperties{0, props})
+	}
 	for _, row := range m.bus.view.Rows {
 		include := len(ids) == 0
 		for _, id := range ids {

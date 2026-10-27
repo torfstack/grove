@@ -5,6 +5,8 @@ platform; Windows and macOS are planned.
 
 The `grove` CLI performs individual operations such as authentication, sync, and
 status. The Linux `groved` daemon schedules the same shared sync engine.
+`grove-tray` displays offline status in compatible Freedesktop trays, including
+Waybar, with optional validated systemd user-service controls.
 Authentication, disposable fixture tooling, incremental downloads, explicit
 two-way uploads, safe deletion propagation, conflict controls, and upload
 recovery commands, periodic scheduling, opt-in local watching, and offline daemon/profile status are
@@ -29,7 +31,8 @@ Its explicit rule set is in `.golangci.yml` and includes test files.
 
 GitHub Actions runs lint/formatting checks, offline tests, race tests, and a build
 on Linux for pull requests and pushes to `main`. It uses the versions in
-`mise.toml`; live Drive tests are separate.
+`mise.toml`; live Drive tests are separate. Offline Linux tray tests also require
+`dbus-daemon` and run on private session buses.
 
 CodeQL analyzes Go and Actions workflows on PRs, main pushes, and a weekly schedule.
 Dependency review rejects newly introduced known high or critical vulnerabilities.
@@ -337,3 +340,26 @@ does not resolve conflicts implicitly. Ownership/record/cleanup failures stop
 it with a nonzero exit. A [systemd user-service template and installation
 guide](contrib/systemd/README.md) supports background operation of existing
 profiles. Hot reload and non-Linux daemon runtime remain future work.
+
+
+## Linux desktop tray
+
+After building, launch an indicator for your existing profile:
+
+```sh
+./bin/grove-tray --profile-dir /absolute/path/to/profile --name Personal
+```
+
+Enable the `tray` module in your Waybar right-hand modules if it is not already
+present. The indicator shows daemon ownership, last recorded sync, and available
+conflict/recovery information. It stays visible when the daemon is stopped;
+Quit tray closes only the indicator. Status inspection needs no credentials or
+network connection. A completed attempt is historical, not proof the remote
+is currently synchronized.
+
+Optionally append `--systemd-instance personal` for start/stop controls targeting
+`groved@personal.service`. Controls require the unit's effective direct command
+and private config to match the selected profile. Starting the indicator never
+starts a service automatically. See the [desktop guide](contrib/desktop/README.md)
+for installation, service linkage, icons, and opt-in session autostart.
+Waybar 0.15.0 is verified; another independent tray host remains untested.
