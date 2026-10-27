@@ -1,6 +1,6 @@
 # Linux Freedesktop tray companion
 
-Date: 2026-10-27. Status: approved and implemented on `feat/linux-tray`; final review pending.
+Date: 2026-10-27. Status: approved and implemented on `feat/linux-tray`; independent review findings verified.
 
 Independent builder check: no important unanswered questions remain for planning.
 

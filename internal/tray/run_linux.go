@@ -106,6 +106,9 @@ func Run(ctx context.Context, opts Options, deps Dependencies) (err error) {
 			service, _ = controller.Observe(life)
 		}
 	}
+	if ctx.Err() != nil {
+		return nil
+	}
 	memory := Memory{}
 	current := Sample{Status: report}
 	var view View

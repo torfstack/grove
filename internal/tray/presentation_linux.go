@@ -92,7 +92,7 @@ func Reduce(previous Memory, sample Sample, service ServiceState, opts Options) 
 			headline = "Needs attention"
 		}
 	}
-	if sample.Err != nil || owner == "unknown" || report.ProfileState == "unavailable" || report.ProfileState == "busy" && observed == nil {
+	if sample.Err != nil || owner == "unknown" || report.ProfileState == "unavailable" || !fresh && m.facts == nil {
 		headline = "Status unavailable"
 		v.Status = "NeedsAttention"
 		v.IconName = "grove-attention"

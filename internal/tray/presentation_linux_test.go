@@ -38,9 +38,11 @@ func TestTrayPresentation(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			opts := Options{Name: "Personal", ProfileDir: "/private/profile"}
+			memory, _ := Reduce(Memory{}, healthy(), ServiceState{}, opts)
 			s := healthy()
 			tc.alter(&s)
-			_, v := Reduce(Memory{}, s, ServiceState{}, Options{Name: "Personal", ProfileDir: "/private/profile"})
+			_, v := Reduce(memory, s, ServiceState{}, opts)
 			if v.IconName != tc.icon || v.Status != tc.status || !strings.Contains(v.TooltipText, tc.text) {
 				t.Fatalf("view: %+v", v)
 			}
@@ -85,6 +87,27 @@ func TestTrayRetainedFacts(t *testing.T) {
 	for _, row := range v.Rows {
 		if row.Action == ActionStart && row.Enabled {
 			t.Fatal("start enabled over active owner")
+		}
+	}
+}
+
+func TestTrayStartupBusyHistory(t *testing.T) {
+	for _, phase := range []string{"waiting", "syncing", "stopped"} {
+		for _, owner := range []string{"active", "inactive"} {
+			t.Run(phase+" "+owner, func(t *testing.T) {
+				sample := healthy()
+				sample.Status.Owner = owner
+				sample.Status.LastRecorded.Phase = phase
+				sample.Status.Profile = nil
+				sample.Status.ProfileState = "busy"
+				_, view := Reduce(Memory{}, sample, ServiceState{}, Options{Name: "Grove", ProfileDir: "/profile"})
+				if view.Status != "NeedsAttention" || view.IconName != "grove-attention" || !strings.Contains(view.TooltipText, "Status unavailable") {
+					t.Fatalf("unvalidated profile looks normal: %+v", view)
+				}
+				if !strings.Contains(view.TooltipText, "Last recorded phase: "+phase) {
+					t.Fatal("historical phase discarded")
+				}
+			})
 		}
 	}
 }

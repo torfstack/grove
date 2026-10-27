@@ -63,8 +63,9 @@ or mismatching/unsafe configs disable controls. Instance labels use only ASCII
 letters, digits, underscores and hyphens (maximum 128 characters).
 
 A foreground daemon can own the profile while this unit is inactive. Status
-shows these separately and disables start over an active/unknown owner. Start
-and stop target the named service, not a PID. Requests use systemd's `fail` job
+shows these separately and disables start over an active/unknown owner. Stop remains available for a freshly validated active service even when offline
+profile inspection fails. Start requires fresh available profile details and
+confirmed inactive ownership. Start and stop target the named service, not a PID. Requests use systemd's `fail` job
 mode, so conflicting queued jobs are not replaced. Accepted start is not proof
 of a running profile or successful sync. Long graceful stops remain stopping;
 the tray supplies no force-kill timeout. Unknown/denied control outcomes remain

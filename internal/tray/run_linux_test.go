@@ -289,3 +289,35 @@ func TestTrayCanceledBus(t *testing.T) {
 		}
 	}
 }
+
+type startupController struct {
+	testController
+	started chan struct{}
+}
+
+func (c *startupController) Observe(ctx context.Context) (ServiceState, error) {
+	close(c.started)
+	<-ctx.Done()
+	return ServiceState{}, ctx.Err()
+}
+func TestTrayStartupControlCancellation(t *testing.T) {
+	opts := optionsFixture(t)
+	opts.SystemdInstance = "personal"
+	bus := newTestTray()
+	bus.fail = errors.New("connection closed after cancellation")
+	controller := &startupController{started: make(chan struct{})}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	result := make(chan error, 1)
+	go func() {
+		result <- Run(ctx, opts, Dependencies{Inspect: func(context.Context, string) (daemon.StatusReport, error) { return healthy().Status, nil }, OpenBus: func(context.Context, Options) (TrayBus, error) { return bus, nil }, OpenService: func(context.Context, Options) (Controller, error) { return controller, nil }})
+	}()
+	<-controller.started
+	cancel()
+	if err := <-result; err != nil {
+		t.Fatalf("graceful startup cancellation failed: %v", err)
+	}
+	if !bus.closed.Load() {
+		t.Fatal("startup bus resources not released")
+	}
+}

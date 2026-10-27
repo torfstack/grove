@@ -29,20 +29,20 @@ type serviceJob struct {
 	Path dbus.ObjectPath
 }
 type Service struct {
-	conn                                      *dbus.Conn
-	opts                                      Options
-	unit                                      string
-	ctx                                       context.Context
-	cancel                                    context.CancelFunc
-	wg                                        sync.WaitGroup
-	mu                                        sync.Mutex
-	queryMu                                   sync.Mutex
-	requestMu                                 sync.Mutex
-	owner, subscribed, pending, phase, reason string
-	requesting, uncertain                     bool
-	results                                   map[dbus.ObjectPath]string
-	closeOnce                                 sync.Once
-	closeErr                                  error
+	conn                                               *dbus.Conn
+	opts                                               Options
+	unit                                               string
+	ctx                                                context.Context
+	cancel                                             context.CancelFunc
+	wg                                                 sync.WaitGroup
+	mu                                                 sync.Mutex
+	queryMu                                            sync.Mutex
+	requestMu                                          sync.Mutex
+	owner, subscribed, pending, tracked, phase, reason string
+	requesting, uncertain                              bool
+	results                                            map[dbus.ObjectPath]string
+	closeOnce                                          sync.Once
+	closeErr                                           error
 }
 
 func OpenService(ctx context.Context, conn *dbus.Conn, opts Options) (*Service, error) {
@@ -114,6 +114,7 @@ func (s *Service) Observe(ctx context.Context) (ServiceState, error) {
 		}
 		s.owner = owner
 		s.pending = ""
+		s.tracked = ""
 		s.requesting = false
 		s.results = map[dbus.ObjectPath]string{}
 	}
@@ -171,20 +172,26 @@ func (s *Service) Observe(ctx context.Context) (ServiceState, error) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if result, ok := s.results[dbus.ObjectPath(s.pending)]; ok && s.pending != "" {
+	wasUncertain := s.uncertain
+	if result, ok := s.results[dbus.ObjectPath(s.tracked)]; ok && s.tracked != "" {
 		if result != "done" {
 			s.reason = "service action failed"
+		} else if s.reason == "service action outcome unknown" {
+			s.reason = ""
 		}
-		delete(s.results, dbus.ObjectPath(s.pending))
+		delete(s.results, dbus.ObjectPath(s.tracked))
 		s.pending = ""
+		s.tracked = ""
 		s.phase = ""
+		s.uncertain = false
 	}
 	transitional := state != "active" && state != "inactive" && state != "failed"
 	if s.pending != "" && job.ID == 0 && !transitional {
 		s.pending = ""
 		s.phase = ""
-	}
-	if s.uncertain && job.ID == 0 && !transitional {
+		s.reason = "service action outcome unknown"
+		s.uncertain = true
+	} else if wasUncertain && job.ID == 0 && !transitional {
 		s.uncertain = false
 	}
 	view := ServiceState{Unit: s.unit, Phase: state, Reason: s.reason}
@@ -207,7 +214,7 @@ func (s *Service) Request(ctx context.Context, action Action, current Sample) er
 	if action != ActionStart && action != ActionStop {
 		return errors.New("unsupported service action")
 	}
-	if current.Err != nil || current.Status.Owner == "unknown" {
+	if action == ActionStart && (current.Err != nil || current.Status.Owner == "unknown") {
 		return errors.New("profile ownership unavailable")
 	}
 	if action == ActionStart && (current.Status.Owner != "inactive" || current.Status.ProfileState != "available") {
@@ -225,6 +232,7 @@ func (s *Service) Request(ctx context.Context, action Action, current Sample) er
 	s.requesting = true
 	s.reason = ""
 	s.results = map[dbus.ObjectPath]string{}
+	s.tracked = ""
 	s.phase = "starting"
 	if action == ActionStop {
 		s.phase = "stopping"
@@ -248,11 +256,13 @@ func (s *Service) Request(ctx context.Context, action Action, current Sample) er
 		return errors.New("service action unavailable or outcome unknown")
 	}
 	s.pending = string(job)
+	s.tracked = string(job)
 	if result, ok := s.results[job]; ok {
 		if result != "done" {
 			s.reason = "service action failed"
 		}
 		s.pending = ""
+		s.tracked = ""
 		s.phase = ""
 		delete(s.results, job)
 	}

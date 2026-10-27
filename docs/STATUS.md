@@ -7,8 +7,14 @@ Updated: 2026-10-27.
 The user approved spec/plan 000014 and native execution. `grove-tray` is
 implemented on `feat/linux-tray` in the managed worktree, with offline status,
 StatusNotifierItem/D-BusMenu, distinct icon states, and optional validated
-systemd user-service controls. All six slices are implemented; the independent
-whole-change review remains next.
+systemd user-service controls. All six slices and the independent
+whole-change review are complete. The review of `ac1ec50` found four Important
+issues, with no Critical or Minor issues. All four were reproduced by failing
+regressions and fixed: busy startup with history cannot advertise normal health
+before profile validation; delayed service job results retain correlation;
+requested startup cancellation stays graceful; and Stop remains available for a
+validated active service even if profile inspection is unavailable. Fresh full
+offline/race/lint/build checks pass after those fixes. No rereview was requested.
 
 Pinned formatting, lint (0 issues), full offline/race suites (13 packages),
 module verification, all three Linux builds and both existing Darwin arm64

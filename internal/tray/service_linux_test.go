@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/godbus/dbus/v5"
+	"github.com/torfstack/grove/internal/daemon"
 	"github.com/torfstack/grove/internal/privatefs"
 )
 
@@ -302,5 +303,46 @@ func TestServiceLongStop(t *testing.T) {
 	state, err := s.Observe(testContext(t))
 	if err != nil || state.Phase != "inactive" || !state.CanStart {
 		t.Fatalf("stopped: %+v %v", state, err)
+	}
+}
+
+func TestServiceDelayedFailureResult(t *testing.T) {
+	s, m, sample := newFakeManager(t)
+	if err := s.Request(testContext(t), ActionStart, sample); err != nil {
+		t.Fatal(err)
+	}
+	<-m.requests
+	m.mu.Lock()
+	m.job = fakeJob{0, "/"}
+	m.mu.Unlock()
+	state, err := s.Observe(testContext(t))
+	if err != nil || state.Reason != "service action outcome unknown" || state.CanStart || state.CanStop {
+		t.Fatalf("missing job must stay explicitly unknown: %+v %v", state, err)
+	}
+	m.finish("start", "failed")
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		state, err := s.Observe(testContext(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if state.Reason == "service action failed" {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatal("late failed job result lost after manager state settled")
+}
+func TestServiceStopUnavailableProfile(t *testing.T) {
+	s, m, _ := newFakeManager(t)
+	m.mu.Lock()
+	m.state = "active"
+	m.mu.Unlock()
+	sample := Sample{Status: daemon.StatusReport{Owner: "unknown", ProfileState: "unavailable"}, Err: errors.New("private read failure")}
+	if err := s.Request(testContext(t), ActionStop, sample); err != nil {
+		t.Fatalf("cannot stop explicitly validated service: %v", err)
+	}
+	if got := <-m.requests; got != "stop:groved@personal.service:fail" {
+		t.Fatalf("wrong stop target: %s", got)
 	}
 }

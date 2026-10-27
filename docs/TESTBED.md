@@ -379,3 +379,17 @@ are not a substitute for desktop acceptance: broader host compatibility remains
 unverified. The next gate is the same icon/menu/tooltip/restart/quit checklist in
 an independent host such as KDE Plasma or another panel. Desktop-entry autostart
 has static validation and documented quoting; actual login/autostart is untested.
+
+
+Independent whole-change review at `ac1ec50` produced four Important findings;
+`TestTrayStartupBusyHistory`, `TestServiceDelayedFailureResult`,
+`TestTrayStartupControlCancellation`, and `TestServiceStopUnavailableProfile`
+all failed before their production fixes, then passed. A job disappearing before
+its completion signal now shows an explicit unknown outcome and retains its job
+identity so a delayed failure remains visible. A further fresh stable observation
+can restore control eligibility without clearing that historical warning.
+Fresh formatting/lint/full offline/full race/build/module checks pass after the
+fixes. The actual user-manager adapter acceptance also passed again afterward.
+The rebuilt final binary also passed the isolated pointer-driven Waybar checklist
+again after review fixes, with no menu/property warnings; its owned temporary
+profile/session artifacts were removed.

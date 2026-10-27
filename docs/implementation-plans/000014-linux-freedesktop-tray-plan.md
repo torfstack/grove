@@ -111,7 +111,7 @@
 - [x] If the user manager is available, verify controls using a unique disposable `groved@<instance>.service`, explicit private config and temporary override. Match effective command/profile; start, observe lease, stop gracefully, and remove only owned artifacts. Do not enable anything or touch lingering. Otherwise record fake-manager coverage and the unverified runtime gate.
 - [x] Update PRODUCT/ARCHITECTURE/README/ROADMAP/TESTBED/STATUS/spec/decision and mark only demonstrated plan steps complete. Check relative documentation links, `git diff --check`, dependency notices and `go mod verify`.
 - [x] Run required pinned fmt/lint/full offline/race/build checks once on the integrated tree, plus both Darwin cross-builds. Repeat affected checks only for subsequent changes/failures. Expect PASS; distinguish skipped/unavailable desktop gates from successful acceptance.
-- [ ] Invoke the requesting-code-review skill for one fresh whole-change review under the preserved native workflow. Assess findings, fix valid issues with meaningful regression coverage and fresh affected checks. Publication/review/merge follow the session's existing explicit authorizations and AGENTS requirements; never infer merge authorization from design/plan approval. If published, obtain one completed initial CodeRabbit review and retrieve its summary/comments/threads; fixes require fresh CI, not another CodeRabbit review.
+- [x] Invoke the requesting-code-review skill for one fresh whole-change review under the preserved native workflow. Assess findings, fix valid issues with meaningful regression coverage and fresh affected checks. Publication/review/merge follow the session's existing explicit authorizations and AGENTS requirements; never infer merge authorization from design/plan approval. If published, obtain one completed initial CodeRabbit review and retrieve its summary/comments/threads; fixes require fresh CI, not another CodeRabbit review.
 
 ## Self-review and handoff
 
@@ -129,3 +129,14 @@ preference; no new execution-method choice is needed.
 Dependency references: [godbus v5.2.4 release](https://github.com/godbus/dbus/releases/tag/v5.2.4),
 [godbus API](https://pkg.go.dev/github.com/godbus/dbus/v5@v5.2.4), and
 [systemd manager D-Bus API](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.systemd1.html).
+
+
+## Completion evidence
+
+All six tasks are implemented and verified. One independent whole-change review
+of `ac1ec50` found four Important issues and no Critical/Minor issues; all four
+regressions were observed failing and pass after the fixes. Full pinned
+formatting/lint/offline/race/build/module checks pass. Actual Waybar and disposable
+real-service acceptance pass; second-host/login acceptance remains explicitly
+unverified, with follow-up gates recorded in TESTBED. Work is local on
+`feat/linux-tray`; no new PR/merge has occurred.
