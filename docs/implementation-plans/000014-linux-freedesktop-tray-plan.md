@@ -138,5 +138,6 @@ of `ac1ec50` found four Important issues and no Critical/Minor issues; all four
 regressions were observed failing and pass after the fixes. Full pinned
 formatting/lint/offline/race/build/module checks pass. Actual Waybar and disposable
 real-service acceptance pass; second-host/login acceptance remains explicitly
-unverified, with follow-up gates recorded in TESTBED. Work is local on
-`feat/linux-tray`; no new PR/merge has occurred.
+unverified, with follow-up gates recorded in TESTBED. The user requested PR publication from
+`feat/linux-tray`; hosted CI and one completed initial CodeRabbit review follow.
+No feature merge has been requested.

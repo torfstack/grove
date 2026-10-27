@@ -32,7 +32,9 @@ A second independent tray host is unavailable, so broader tested compatibility
 is not claimed. Login/autostart remains untested; the desktop-entry template
 validates statically. Repeatable gates and limits are in
 [TESTBED](TESTBED.md#linux-desktop-tray-acceptance). The macOS design remains a
-separate unapproved proposal. Work remains local on the feature branch; no new PR or merge has occurred.
+separate unapproved proposal. The user requested a PR against `main`; publication is authorized. Initial
+hosted CI/security checks and the required CodeRabbit review are pending. No
+merge has been requested for this feature.
 
 ## macOS daemon design
 
