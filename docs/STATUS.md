@@ -8,7 +8,9 @@ The user approved spec/plan 000014 and native execution. Implementation is on
 `feat/linux-tray` in the managed worktree. The unchanged baseline offline suite
 passes. Task 1's validated options and deterministic status presentation pass
 their focused tests, including unavailable/busy observations and retained
-conflict/recovery facts. Task 2 (SNI/D-BusMenu transport) is next. The original
+conflict/recovery facts. Task 2's SNI registration, watcher replacement, D-BusMenu wire protocol,
+read-only properties, signal metadata and embedded icon tests also pass, including
+race checks. Task 3 (optional service controls) is next. The original
 checkout's draft records remain preserved. No live Drive or ordinary desktop
 configuration has been touched.
 
