@@ -92,11 +92,11 @@
 - `Controller` remains `Observe(context.Context) (ServiceState, error)`, `Request(context.Context, Action, Sample) error`, and `Close() error`.
 - `Dependencies` continues to inject `Inspect`, `Clock`, `OpenBus`, and `OpenService`; platform `OpenBus(context.Context, Options)` and `OpenService(context.Context, Options)` implementations supply native adapters.
 
-- [ ] **Step 1: Move the existing coordinator tests to a platform-neutral filename and add `TestTrayCancellationBeforeQueuedPublish` to assert queued observations do not publish after cancellation.**
-- [ ] **Step 2: Run the coordinator suite before refactoring.** Run: `go test ./internal/tray -run 'TestTray(StartupAndPolling|CanceledBus|StartupControlCancellation|CancellationBeforeQueuedPublish)' -count=1`. Expected: all pass, establishing the current shutdown contract before moving platform startup code.
-- [ ] **Step 3: Move `Run` and its shared interfaces into `run.go`.** Remove direct D-Bus construction from the coordinator; change Linux `OpenService` to own session-bus connection setup and keep all per-platform opening in build-tagged adapters.
-- [ ] **Step 4: Run coordinator and Linux transport suites.** Run: `go test ./internal/tray`. Expected: shared fake-bus tests and actual private-bus tests pass.
-- [ ] **Step 5: Commit.** `git add internal/tray && git commit -m "refactor: share tray lifecycle coordinator"`
+- [x] **Step 1: Move the existing coordinator tests to a platform-neutral filename and add `TestTrayCancellationBeforeQueuedPublish` to assert queued observations do not publish after cancellation.**
+- [x] **Step 2: Run the coordinator suite before refactoring.** Run: `go test ./internal/tray -run 'TestTray(StartupAndPolling|CanceledBus|StartupControlCancellation|CancellationBeforeQueuedPublish)' -count=1`. Expected: all pass, establishing the current shutdown contract before moving platform startup code.
+- [x] **Step 3: Move `Run` and its shared interfaces into `run.go`.** Remove direct D-Bus construction from the coordinator; change Linux `OpenService` to own session-bus connection setup and keep all per-platform opening in build-tagged adapters.
+- [x] **Step 4: Run coordinator and Linux transport suites.** Run: `go test ./internal/tray` and `go test -race ./internal/tray`. Expected: shared fake-bus tests and actual private-bus tests pass.
+- [x] **Step 5: Commit.** `git add internal/tray && git commit -m "refactor: share tray lifecycle coordinator"`
 
 ### Task 4: Add a fail-closed LaunchAgent controller
 

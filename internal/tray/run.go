@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/godbus/dbus/v5"
 	"github.com/torfstack/grove/internal/daemon"
 	"github.com/torfstack/grove/internal/syncengine"
 )
@@ -57,11 +56,7 @@ func Run(ctx context.Context, opts Options, deps Dependencies) (err error) {
 	}
 	if deps.OpenService == nil {
 		deps.OpenService = func(ctx context.Context, o Options) (Controller, error) {
-			conn, err := dbus.ConnectSessionBus(dbus.WithContext(ctx))
-			if err != nil {
-				return nil, trayFailed("user service bus unavailable", err)
-			}
-			return OpenService(ctx, conn, o)
+			return OpenService(ctx, o)
 		}
 	}
 	life, cancel := context.WithCancel(ctx)

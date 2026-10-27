@@ -124,7 +124,7 @@ func newFakeManager(t *testing.T) (*Service, *fakeManager, Sample) {
 	if _, err := c.RequestName("org.freedesktop.systemd1", dbus.NameFlagDoNotQueue); err != nil {
 		t.Fatal(err)
 	}
-	s, err := OpenService(context.Background(), testConn(t, addr), opts)
+	s, err := openLinuxService(context.Background(), testConn(t, addr), opts)
 	if err != nil {
 		t.Fatal(err)
 	}

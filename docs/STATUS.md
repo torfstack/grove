@@ -63,6 +63,8 @@ Task 2 shares tray presentation/options and renames the public service option to
 cross-compile for Darwin. The default test temp path is unusable here because
 `/tmp/.git` exists; use `TMPDIR=/run/user/1000`. Desktop-dependent tray process
 tests also require an SNI host that is not available in this workspace.
+Task 3 moves the tray coordinator to shared Go code and gives platform adapters
+ownership of bus/controller opening; Linux tray tests and race tests pass.
 
 ## Authenticated systemd acceptance
 
