@@ -65,6 +65,7 @@ cross-compile for Darwin. The default test temp path is unusable here because
 tests also require an SNI host that is not available in this workspace.
 Task 3 moves the tray coordinator to shared Go code and gives platform adapters
 ownership of bus/controller opening; Linux tray tests and race tests pass.
+Task 4 adds a fail-closed launchd controller, strict launchctl output parser, private plist validation, and daemon LaunchAgent template. Focused launchd tests and the tray race suite pass. Native launchctl acceptance is deferred to macOS CI; no macOS host is available in this workspace.
 
 ## Authenticated systemd acceptance
 
