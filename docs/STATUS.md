@@ -12,7 +12,9 @@ conflict/recovery facts. Task 2's SNI registration, watcher replacement, D-BusMe
 read-only properties, signal metadata and embedded icon tests also pass, including
 race checks. Task 3's optional systemd boundary passes mapping, command/config validation,
 early job completion, denied/absent-manager, duplicate request and long-stop
-tests, including the tray race suite. Task 4 (coordinator lifecycle) is next. The original
+tests, including the tray race suite. Task 4's coordinator passes serialized/coalesced polling, fresh action checks,
+busy/invalid startup, later unavailability, cancellation, bus loss and joined
+shutdown tests with race detection. Task 5 (command and distribution) is next. The original
 checkout's draft records remain preserved. No live Drive or ordinary desktop
 configuration has been touched.
 
