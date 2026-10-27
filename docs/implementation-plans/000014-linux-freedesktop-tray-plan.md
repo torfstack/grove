@@ -138,6 +138,10 @@ of `ac1ec50` found four Important issues and no Critical/Minor issues; all four
 regressions were observed failing and pass after the fixes. Full pinned
 formatting/lint/offline/race/build/module checks pass. Actual Waybar and disposable
 real-service acceptance pass; second-host/login acceptance remains explicitly
-unverified, with follow-up gates recorded in TESTBED. The user requested PR publication from
-`feat/linux-tray`; hosted CI and one completed initial CodeRabbit review follow.
-No feature merge has been requested.
+unverified, with follow-up gates recorded in TESTBED. [PR #21](https://github.com/torfstack/grove/pull/21) publishes
+`feat/linux-tray`; Linux/security CI passes on reviewed head `4b0bcf9`. The
+manually requested initial CodeRabbit full review completed with no actionable
+findings across 36 eligible text files. Its summary/walkthrough, submitted-review
+records (empty), inline comments (empty) and GraphQL threads (empty) were
+retrieved and assessed. No second review was requested; final documentation-head
+CI is tracked in PR checks. No feature merge has been requested.

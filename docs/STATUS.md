@@ -32,9 +32,17 @@ A second independent tray host is unavailable, so broader tested compatibility
 is not claimed. Login/autostart remains untested; the desktop-entry template
 validates statically. Repeatable gates and limits are in
 [TESTBED](TESTBED.md#linux-desktop-tray-acceptance). The macOS design remains a
-separate unapproved proposal. The user requested a PR against `main`; publication is authorized. Initial
-hosted CI/security checks and the required CodeRabbit review are pending. No
-merge has been requested for this feature.
+separate unapproved proposal. [PR #21](https://github.com/torfstack/grove/pull/21) is open against `main`.
+Linux CI, CodeQL Go/Actions and dependency review pass on reviewed publication
+head `4b0bcf9`. Automatic CodeRabbit review was skipped because the repository
+has fewer than ten stars; the manually requested initial full review completed
+on `7499f6c..4b0bcf9`, processed all 36 eligible text files, and reported no
+actionable findings or concrete merge-blocking issue. Its full summary and
+walkthrough were retrieved and assessed; submitted-review records, inline
+comments and GraphQL review threads are all empty. The 20 icon files and go.sum
+were filtered by the reviewer; local icon/runtime and Go module checks cover
+those artifacts. No second review was requested. Final documentation-head CI is
+tracked in the PR checks; no feature merge has been requested.
 
 ## macOS daemon design
 
