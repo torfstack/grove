@@ -104,7 +104,11 @@ func TestLaunchdLoadedAgentUsesOnlyVerifiedControls(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer lease.Close()
+	defer func() {
+		if err := lease.Close(); err != nil {
+			t.Errorf("close profile lease: %v", err)
+		}
+	}()
 	runner.output = launchdPrintOutput(service.domain+"/com.torfstack.groved.personal", "com.torfstack.groved.personal", "running", plistPath, "/Applications/Grove.app/Contents/Helpers/groved", filepath.Join(filepath.Dir(plistPath), "config with spaces.json"))
 	state, err = service.Observe(context.Background())
 	if err != nil || !state.CanStop || state.CanStart {
@@ -133,7 +137,11 @@ func TestLaunchdUnverifiedOwnerCannotStop(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer lease.Close()
+			defer func() {
+				if err := lease.Close(); err != nil {
+					t.Errorf("close profile lease: %v", err)
+				}
+			}()
 			state, err := service.Observe(context.Background())
 			if state.CanStop {
 				t.Fatalf("unverified stop state = %+v, %v", state, err)

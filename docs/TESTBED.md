@@ -393,3 +393,15 @@ fixes. The actual user-manager adapter acceptance also passed again afterward.
 The rebuilt final binary also passed the isolated pointer-driven Waybar checklist
 again after review fixes, with no menu/property warnings; its owned temporary
 profile/session artifacts were removed.
+
+## macOS desktop integration
+
+Spec 000013's daemon, LaunchAgent controller, shared tray coordinator and native
+menu-bar adapter are implemented on `design/macos-desktop-integration`. Linux
+formatting, lint, full offline tests, race tests, and build pass. The macOS-15 CI
+job runs native format/lint/offline/race/build checks, app bundle construction,
+plist lint, Darwin subprocess lifecycle tests, and Linux amd64 CLI/daemon
+cross-builds. No macOS runner result or interactive desktop acceptance is
+available yet. Do not describe AppKit appearance, actual launchd lifecycle, or
+login behavior as locally verified until that hosted run and a user desktop
+check complete. Live Drive acceptance was not run.

@@ -5,9 +5,12 @@ package tray
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"fyne.io/systray"
+	"github.com/torfstack/grove/internal/privatefs"
 )
 
 type nativeMenu interface {
@@ -48,11 +51,20 @@ type nativeBus struct {
 	once    sync.Once
 	mu      sync.Mutex
 	items   []nativeMenuItem
+	lock    *privatefs.Lock
 }
 
-func OpenBus(ctx context.Context, _ Options) (TrayBus, error) {
+func OpenBus(ctx context.Context, opts Options) (TrayBus, error) {
+	cacheDir, err := os.UserCacheDir()
+	if err != nil || privatefs.OutsideGit(cacheDir) != nil {
+		return nil, errors.New("tray runtime directory unavailable")
+	}
+	lock, err := privatefs.Acquire(filepath.Join(cacheDir, "grove", "tray-"+Identity(opts.ProfileDir)+".lock"))
+	if err != nil {
+		return nil, errors.New("tray already running or identity lock unavailable")
+	}
 	life, cancel := context.WithCancel(ctx)
-	b := &nativeBus{menu: systrayMenu{}, actions: make(chan Action, 8), done: make(chan struct{}), cancel: cancel}
+	b := &nativeBus{menu: systrayMenu{}, actions: make(chan Action, 8), done: make(chan struct{}), cancel: cancel, lock: lock}
 	go func() { <-life.Done(); close(b.done) }()
 	return b, nil
 }
@@ -60,8 +72,15 @@ func OpenBus(ctx context.Context, _ Options) (TrayBus, error) {
 func (b *nativeBus) Actions() <-chan Action { return b.actions }
 func (b *nativeBus) Done() <-chan struct{}  { return b.done }
 func (b *nativeBus) Close() error {
-	b.once.Do(func() { b.cancel(); b.menu.Quit() })
-	return nil
+	var err error
+	b.once.Do(func() {
+		b.cancel()
+		b.menu.Quit()
+		if b.lock != nil {
+			err = b.lock.Close()
+		}
+	})
+	return err
 }
 
 func (b *nativeBus) Publish(view View) error {

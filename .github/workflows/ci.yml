@@ -35,3 +35,30 @@ jobs:
         run: mise run test-race
       - name: Build
         run: mise run build
+
+  macos:
+    name: macOS checks
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e
+        with:
+          version: "2026.10.6"
+          install_args: "go golangci-lint"
+      - name: Lint and formatting
+        run: mise run lint
+      - name: Tests
+        run: mise run test
+      - name: Race tests
+        run: mise run test-race
+      - name: Validate macOS property lists
+        run: plutil -lint contrib/macos/Grove-Info.plist contrib/macos/launchagents/*.plist.in
+      - name: Build
+        run: mise run build
+      - name: Linux cross-build regression
+        run: |
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o /tmp/grove-linux ./cmd/grove
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o /tmp/groved-linux ./cmd/groved
