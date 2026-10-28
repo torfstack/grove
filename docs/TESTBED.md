@@ -401,7 +401,8 @@ menu-bar adapter are implemented on `design/macos-desktop-integration`. Linux
 formatting, lint, full offline tests, race tests, and build pass. The macOS-15 CI
 job runs native format/lint/offline/race/build checks, app bundle construction,
 plist lint, Darwin subprocess lifecycle tests, and Linux amd64 CLI/daemon
-cross-builds. No macOS runner result or interactive desktop acceptance is
-available yet. Do not describe AppKit appearance, actual launchd lifecycle, or
-login behavior as locally verified until that hosted run and a user desktop
-check complete. Live Drive acceptance was not run.
+cross-builds. The first hosted macOS lint run exposed Darwin-only issues; those
+findings are fixed, and a fresh native run is pending. Interactive desktop
+appearance and login acceptance are also pending. Do not describe AppKit
+appearance, actual launchd lifecycle, or login behavior as verified until those
+checks complete. Live Drive acceptance was not run.
