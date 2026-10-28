@@ -25,7 +25,15 @@ type fakeNativeMenu struct {
 	quit       bool
 }
 
-func (m *fakeNativeMenu) ResetMenu() { m.resets++; m.labels = nil; m.items = nil; m.separators = 0 }
+func (m *fakeNativeMenu) ResetMenu() {
+	m.resets++
+	for _, item := range m.items {
+		close(item.clicked)
+	}
+	m.labels = nil
+	m.items = nil
+	m.separators = 0
+}
 func (m *fakeNativeMenu) AddMenuItem(label, _ string) nativeMenuItem {
 	i := &fakeNativeItem{clicked: make(chan struct{}, 1)}
 	m.labels = append(m.labels, label)
@@ -65,8 +73,17 @@ func TestMenuBarPublishAndActionDispatch(t *testing.T) {
 			t.Fatalf("action %v not dispatched", want)
 		}
 	}
+	oldItem := menu.items[0]
 	view.Rows = []Row{{Label: "Updated", Enabled: true}}
 	if err := bus.Publish(view); err != nil || menu.resets != 2 || len(menu.labels) != 1 || menu.labels[0] != "Updated" {
 		t.Fatalf("menu refresh: %v %+v", err, menu)
+	}
+	if _, open := <-oldItem.clicked; open {
+		t.Fatal("removed native menu item remained open")
+	}
+	select {
+	case action := <-bus.Actions():
+		t.Fatalf("removed menu item dispatched stale action %v", action)
+	case <-time.After(10 * time.Millisecond):
 	}
 }

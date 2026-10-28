@@ -19,6 +19,7 @@ func TestDarwinTrayCoordinatorClosesOnlyItsPresentation(t *testing.T) {
 	bus := newTestTray()
 	opts := optionsFixture(t)
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	result := make(chan error, 1)
 	go func() {
 		result <- Run(ctx, opts, Dependencies{

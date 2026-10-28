@@ -11,6 +11,7 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -36,6 +37,25 @@ type nativeWatcher struct {
 }
 
 func localWatchSupported() bool { return true }
+
+func (m *watchMailbox) hint(now time.Time) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.batch.First.IsZero() {
+		m.batch.First = now
+	}
+	m.batch.Last = now
+	m.notify()
+}
+
+func (m *watchMailbox) fail(err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.batch.Err == nil {
+		m.batch.Err = err
+	}
+	m.notify()
+}
 
 func openWatcher(ctx context.Context, root string, clock Clock) (Watcher, error) {
 	rootFD, err := unix.Open(root, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)

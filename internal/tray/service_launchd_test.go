@@ -42,7 +42,10 @@ func (f *fakeLaunchctl) Kickstart(_ context.Context, target string) error {
 
 func launchdServiceFixture(t *testing.T, state string, loaded bool) (*launchdService, *fakeLaunchctl, string, string) {
 	t.Helper()
-	root := t.TempDir()
+	root, err := privatefs.Canonical(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	profile, config := launchdConfigFixture(t, root, "profile")
 	label := "com.torfstack.groved.personal"
 	program := "/Applications/Grove.app/Contents/Helpers/groved"

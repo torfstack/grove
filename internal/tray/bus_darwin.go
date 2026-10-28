@@ -44,14 +44,14 @@ func (i systrayMenuItem) Disable()                 { i.item.Disable() }
 func (i systrayMenuItem) Clicked() <-chan struct{} { return i.item.ClickedCh }
 
 type nativeBus struct {
-	menu    nativeMenu
-	actions chan Action
-	done    chan struct{}
-	cancel  context.CancelFunc
-	once    sync.Once
-	mu      sync.Mutex
-	items   []nativeMenuItem
-	lock    *privatefs.Lock
+	menu       nativeMenu
+	actions    chan Action
+	done       chan struct{}
+	cancel     context.CancelFunc
+	once       sync.Once
+	mu         sync.Mutex
+	lock       *privatefs.Lock
+	itemCancel context.CancelFunc
 }
 
 func OpenBus(ctx context.Context, opts Options) (TrayBus, error) {
@@ -75,6 +75,12 @@ func (b *nativeBus) Close() error {
 	var err error
 	b.once.Do(func() {
 		b.cancel()
+		b.mu.Lock()
+		if b.itemCancel != nil {
+			b.itemCancel()
+			b.itemCancel = nil
+		}
+		b.mu.Unlock()
 		b.menu.Quit()
 		if b.lock != nil {
 			err = b.lock.Close()
@@ -86,8 +92,12 @@ func (b *nativeBus) Close() error {
 func (b *nativeBus) Publish(view View) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if b.itemCancel != nil {
+		b.itemCancel()
+	}
+	itemCtx, itemCancel := context.WithCancel(context.Background())
+	b.itemCancel = itemCancel
 	b.menu.ResetMenu()
-	b.items = b.items[:0]
 	for _, row := range view.Rows {
 		if row.Separator {
 			b.menu.AddSeparator()
@@ -97,16 +107,19 @@ func (b *nativeBus) Publish(view View) error {
 		if !row.Enabled {
 			item.Disable()
 		}
-		b.items = append(b.items, item)
 		go func(item nativeMenuItem, action Action) {
 			select {
-			case <-item.Clicked():
+			case _, ok := <-item.Clicked():
+				if !ok {
+					return
+				}
 				if action != ActionNone {
 					select {
 					case b.actions <- action:
 					default:
 					}
 				}
+			case <-itemCtx.Done():
 			case <-b.done:
 			}
 		}(item, row.Action)
