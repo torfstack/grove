@@ -1,10 +1,11 @@
-//go:build linux
+//go:build linux || darwin
 
 package main
 
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"testing"
 	"time"
@@ -96,6 +97,9 @@ func TestGrovedRemoteDownload(t *testing.T) {
 func TestGrovedRemoteSignals(t *testing.T) {
 	for _, kind := range []string{"remote-only", "combined", "during-check"} {
 		t.Run(kind, func(t *testing.T) {
+			if kind == "combined" && runtime.GOOS != "linux" {
+				t.Skip("local watching requires Linux")
+			}
 			f := newProcessFixture(t)
 			remoteProcessConfig(t, f, kind == "combined")
 			var started chan struct{}

@@ -1,6 +1,6 @@
 # macOS foreground daemon
 
-Date: 2026-10-27. Status: proposed; awaiting user approval.
+Date: 2026-10-27. Status: approved on 2026-10-28.
 
 ## Intent
 

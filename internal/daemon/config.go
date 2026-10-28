@@ -109,6 +109,9 @@ func LoadConfig(path string) (Config, error) {
 		}
 		watch = string(raw) == "true"
 	}
+	if watch && !localWatchSupported() {
+		return Config{}, configError("watch_local is unavailable on this platform")
+	}
 	remoteInterval := time.Duration(0)
 	if _, exists := fields["remote_poll_interval"]; exists {
 		value, readErr := readString("remote_poll_interval")

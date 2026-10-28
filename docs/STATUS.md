@@ -2,6 +2,10 @@
 
 Updated: 2026-10-27.
 
+## macOS daemon work
+
+2026-10-28: PR #21 merged as `357f239`; final Linux and security checks passed. The user approved the macOS foreground daemon in spec 000013 and requested a branch. Implementation is on `feat/macos-daemon`; the paired implementation plan is `implementation-plans/000013-macos-daemon-plan.md`. Secure Unix configuration opening and signal handling now include macOS, and unsupported local watching is rejected before startup. Native process and cross-process lease tests passed, including fake-provider remote polling. Formatting, lint, full native offline and race suites, native build and final Linux cross-build passed. An independent review found no runtime defects; FIFO and early rejection coverage and stale roadmap wording were addressed. Foreign-owner rejection was not exercised with another account, and no live Drive test ran. A pre-existing status test fixture used noncanonical macOS temporary paths and was corrected. PR #23's initial CodeRabbit review completed on `0cb752d`, with two valid documentation findings, both addressed by clarifying macOS periodic sync and Linux-only watching. Linux CI and security checks passed on the reviewed head; fresh checks for the documentation fix are pending. No second review is requested.
+
 ## Linux desktop tray implementation
 
 The user approved spec/plan 000014 and native execution. `grove-tray` is
@@ -53,10 +57,10 @@ tracked in the PR checks; no feature merge has been requested.
 
 ## macOS daemon design
 
-A separate proposed slice is a foreground periodic `groved` runtime on macOS,
-without local filesystem watching or launchd integration. The repo-grounded
-design is in [spec 000013](spec/000013-macos-daemon-design.md) and awaits user
-approval before implementation planning.
+The approved slice is a foreground periodic `groved` runtime on macOS,
+without local filesystem watching or launchd integration. The design is in
+[spec 000013](spec/000013-macos-daemon-design.md); implementation is in progress
+on `feat/macos-daemon` as described above.
 
 ## Authenticated systemd acceptance
 

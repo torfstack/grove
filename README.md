@@ -1,10 +1,10 @@
 # Grove
 
 A Google Drive sync client written in Go. Linux is the first supported
-platform; Windows and macOS are planned.
+platform; macOS supports foreground operation and Windows is planned.
 
 The `grove` CLI performs individual operations such as authentication, sync, and
-status. The Linux `groved` daemon schedules the same shared sync engine.
+status. The Linux and macOS `groved` daemon schedules the same shared sync engine.
 `grove-tray` displays offline status in compatible Freedesktop trays, including
 Waybar, with optional validated systemd user-service controls.
 Authentication, disposable fixture tooling, incremental downloads, explicit
@@ -254,7 +254,7 @@ verify downloaded content with `fixture verify --manifest
  testdata/fixtures/baseline/manifest.json --local-dir PATH`. See command help for
 required flags. Cleanup refuses unrecorded descendants or changed ownership.
 
-## Periodic sync on Linux
+## Periodic sync on Linux and macOS
 
 Build with `mise run build`. Initialize a profile with `grove sync` first; the
 daemon uses that profile's saved remote root, destination, and token binding.
@@ -287,7 +287,7 @@ the minimum is one second. Restart to apply config changes. `mode` is required:
 upload and deletion behavior and requires a fully populated profile.
 
 Set `watch_local` to `true` to react to local changes as well as periodic scans.
-Watching requires an existing destination directory and Linux `/proc/self/fd`.
+Watching is Linux-only and requires an existing destination directory and `/proc/self/fd`; macOS rejects this option when enabled.
 Changes wait for one quiet second, capped at five seconds from the first hint;
 changes during sync request one follow-up. Grove's own writes can cause a no-op
 follow-up, but unchanged scans settle back to waiting. Event-driven attempts do
@@ -339,7 +339,7 @@ reconciliation keeps its existing deadline. The daemon
 does not resolve conflicts implicitly. Ownership/record/cleanup failures stop
 it with a nonzero exit. A [systemd user-service template and installation
 guide](contrib/systemd/README.md) supports background operation of existing
-profiles. Hot reload and non-Linux daemon runtime remain future work.
+profiles on Linux. Hot reload and macOS background installation remain future work.
 
 
 ## Linux desktop tray

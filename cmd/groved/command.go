@@ -20,7 +20,7 @@ func newCommand(run func(context.Context, string) error) *cobra.Command {
 			return errors.New("--config must be an absolute path")
 		}
 		if !platformSupported() {
-			return errors.New("groved requires Linux")
+			return errors.New("groved requires Linux or macOS")
 		}
 		if run == nil {
 			return errors.New("daemon service unavailable")
