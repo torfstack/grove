@@ -17,7 +17,8 @@ rejection, and existing daemon process tests pass. Dedicated-account authenticat
 download acceptance through the actual user service passed six times on 2026-10-25–26;
 PR #20 merged into main at `7499f6c` on 2026-10-26. Logout/boot/linger behavior
 remains untested. The next broad roadmap milestone is native macOS and Windows support;
-macOS one-shot sync is supported; foreground daemon support is being implemented.
+macOS one-shot sync and foreground daemon support are implemented; dedicated-account
+periodic daemon download and upload acceptance passed on 2026-10-28.
 [approved spec 000011](spec/000011-local-watching-design.md) is implemented following its
 [paired plan](implementation-plans/000011-local-watching-plan.md). Deterministic,
 native filesystem, and subprocess verification pass. Independent review findings
@@ -41,7 +42,8 @@ acceptance and real disposable-user-service controls pass. Independent review
 findings are fixed with regression coverage and fresh checks; a second tray host
 remains unverified. PR #21 has since merged. The user approved the separate
 macOS foreground-daemon slice in [spec 000013](spec/000013-macos-daemon-design.md);
-implementation is in progress on `feat/macos-daemon`.
+PR #23 merged at `e326049`. Dedicated-account periodic download and upload
+acceptance passed on macOS on 2026-10-28.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus
