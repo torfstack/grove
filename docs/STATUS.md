@@ -19,6 +19,13 @@ reauthentication, cleanup searches found no matching fixture objects and
 conservatively refused to resolve either pending creation. These records remain
 for future reconciliation; no deletion was inferred from the empty listing.
 
+PR #24 is open. CodeRabbit's initial manual review request on `44660fe` was
+rate-limited on 2026-10-28 at approximately 11:15 UTC, with the next included
+review reported available in 29 minutes. No completed review or findings have
+been received. Retry the initial review after the allowance resets, inspect its
+summary, inline comments and threads, address valid findings, and wait for
+fresh CI before the authorized merge.
+
 ## macOS daemon work
 
 2026-10-28: PR #21 merged as `357f239`; final Linux and security checks passed. The user approved the macOS foreground daemon in spec 000013 and requested a branch. Implementation is on `feat/macos-daemon`; the paired implementation plan is `implementation-plans/000013-macos-daemon-plan.md`. Secure Unix configuration opening and signal handling now include macOS, and unsupported local watching is rejected before startup. Native process and cross-process lease tests passed, including fake-provider remote polling. Formatting, lint, full native offline and race suites, native build and final Linux cross-build passed. An independent review found no runtime defects; FIFO and early rejection coverage and stale roadmap wording were addressed. Foreign-owner rejection was not exercised with another account, and no live Drive test ran. A pre-existing status test fixture used noncanonical macOS temporary paths and was corrected. PR #23's initial CodeRabbit review completed on `0cb752d`, with two valid documentation findings, both addressed by clarifying macOS periodic sync and Linux-only watching. Linux CI and security checks passed on the reviewed head; fresh checks for the documentation fix are pending. No second review is requested.
