@@ -164,7 +164,7 @@ with real local files and journal-save faults; kernel fsync failure is not
 independently injected at every transition. Linux runtime evidence comes from
 Linux execution/CI, not the cross-build.
 
-## Daemon acceptance on Linux
+## Daemon acceptance on Linux and macOS
 
 The opt-in live suite includes `TestDaemonPeriodicDownloadLive` and
 `TestDaemonPeriodicUploadLive`. Each passes the dedicated-token gate before
@@ -177,6 +177,12 @@ offline command status, SIGTERM exit, inactive ownership, and owned cleanup.
 Bounded token-acquisition retries stop once fixture work begins; uncertain
 mutations are never retried. Failed runs retain private process/status/fixture
 records. Stop the process before inspecting or cleaning its recorded fixture.
+On macOS, dedicated-account download and upload acceptance passed on 2026-10-28
+in 82.94s and 52.93s, including independent content checks and owned fixture
+cleanup. An earlier attempt stopped during fixture seeding because the dedicated
+token refresh returned `invalid_grant`. After reauthentication, cleanup found
+no matching objects but conservatively left both initial creations pending;
+their private records remain for reconciliation.
 
 Offline process tests use a test-only fake HTTP Drive with real token/profile/
 destination leases. They exercise active and idle signal cancellation, a second
