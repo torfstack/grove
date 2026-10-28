@@ -100,10 +100,11 @@ indefinitely; force-abandon and unrecorded artifact reconciliation remain
 deferred. Multiple preserved cloud candidates can be inspected and selected
 explicitly under spec 000006.
 
-## Periodic Linux sync
+## Periodic Linux and macOS sync
 
 [Spec 000009](spec/000009-linux-daemon-design.md) adds foreground `groved` for
-one existing profile and offline `grove status`. A private JSON config requires
+one existing profile and offline `grove status`; [spec 000013](spec/000013-macos-daemon-design.md)
+extends foreground operation to macOS. A private JSON config requires
 explicit download or two-way mode and defaults to five minutes between completed
 attempts. Configuration changes require restart. Status separates lock-observed
 ownership from historical attempts and unavailable/busy profile summaries.
