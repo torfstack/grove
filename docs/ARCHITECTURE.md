@@ -35,7 +35,7 @@ token; persistence failures fail the request. Windows auth remains deferred.
 ## Binaries and shared engine
 
 - `grove`: one-shot commands, including interactive authentication.
-- `groved`: foreground periodic sync of one existing Linux profile, sequential
+- `groved`: foreground periodic sync of one existing Linux or macOS profile, sequential
   attempts, cancellation, and graceful shutdown. A distributed systemd user
   template supplies optional Linux background lifecycle; opt-in local watching
   requests debounced sequential attempts while retaining periodic scans.

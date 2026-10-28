@@ -6,7 +6,7 @@ Grove is a personal Google Drive sync client, similar in purpose to InSync.
 It uses Go and targets Linux first, followed by Windows and macOS.
 
 `grove` provides individual CLI operations such as `auth`, `sync`, and `status`.
-`groved` provides foreground periodic sync for one existing Linux profile.
+`groved` provides foreground periodic sync for one existing Linux or macOS profile.
 `grove fixture` implements disposable fixture management. `grove sync` supports
 initial and incremental downloads, plus explicit `--two-way` uploads and safe
 local deletion propagation on populated profiles. Local deletions move matching

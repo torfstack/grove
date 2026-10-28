@@ -29,7 +29,15 @@ import (
 
 func TestServicesStatusUsesOfflineProfile(t *testing.T) {
 	profile := t.TempDir()
-	state := syncengine.State{Version: 2, PopulationComplete: true, Binding: syncengine.Binding{RemoteRoot: "private-drive-id", LocalDir: t.TempDir(), TokenFile: filepath.Join(t.TempDir(), "missing-token.json")}}
+	local, err := privatefs.Canonical(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokenDir, err := privatefs.Canonical(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := syncengine.State{Version: 2, PopulationComplete: true, Binding: syncengine.Binding{RemoteRoot: "private-drive-id", LocalDir: local, TokenFile: filepath.Join(tokenDir, "missing-token.json")}}
 	if err := privatefs.WriteJSON(filepath.Join(profile, "state.json"), state); err != nil {
 		t.Fatal(err)
 	}
