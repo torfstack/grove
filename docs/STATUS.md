@@ -2,6 +2,10 @@
 
 Updated: 2026-10-29.
 
+## Selective folder sync design
+
+The user chose folder selection as the next slice. [Spec 000016](spec/000016-selective-folder-sync-design.md) proposes stable Drive-folder identity, editable selections, non-destructive deselection, and explicit confirmation of local deletions under partial selection. The proposed behavior and open questions need user review; no implementation plan or code changes have been made. The design branch starts from current main at `2d18377`.
+
 ## macOS desktop integration
 
 PR #25 implements the optional macOS LaunchAgent and independent menu-bar companion on the foreground daemon merged in PR #23. [Spec 000015](spec/000015-macos-desktop-design.md) and its [plan](implementation-plans/000015-macos-desktop-plan.md) record the contract. The tray does not bootstrap an unloaded plist; the user loads it manually. Stop targets and unloads the verified service, so starting after Stop requires manual loading again. Login start is a separate opt-in.
