@@ -31,8 +31,8 @@ func (f *fakeLaunchctl) Bootstrap(_ context.Context, domain, path string) error 
 	f.calls = append(f.calls, "bootstrap:"+domain+":"+path)
 	return f.bootstrapErr
 }
-func (f *fakeLaunchctl) Bootout(_ context.Context, domain, path string) error {
-	f.calls = append(f.calls, "bootout:"+domain+":"+path)
+func (f *fakeLaunchctl) Bootout(_ context.Context, target string) error {
+	f.calls = append(f.calls, "bootout:"+target)
 	return f.bootoutErr
 }
 func (f *fakeLaunchctl) Kickstart(_ context.Context, target string) error {
@@ -60,7 +60,8 @@ func launchdServiceFixture(t *testing.T, state string, loaded bool) (*launchdSer
 		runner.output = []byte(fmt.Sprintf("Bad request.\nCould not find service %q in domain for user gui: %d\n", label, uid))
 		runner.printErr = errors.New("exit status 113")
 	}
-	service, err := newLaunchdController(Options{ProfileDir: profile, ServiceInstance: "personal"}, runner, domain, plistPath, uid)
+	loginPlistPath := filepath.Join(root, "login", label+".plist")
+	service, err := newLaunchdController(Options{ProfileDir: profile, ServiceInstance: "personal"}, runner, domain, plistPath, loginPlistPath, uid)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +121,7 @@ func TestLaunchdLoadedAgentUsesOnlyVerifiedControls(t *testing.T) {
 	if err := service.Request(context.Background(), ActionStop, Sample{Status: daemon.StatusReport{Owner: "active"}}); err != nil {
 		t.Fatal(err)
 	}
-	if runner.calls[len(runner.calls)-1] != "bootout:"+service.domain+":"+plistPath {
+	if runner.calls[len(runner.calls)-1] != "bootout:"+service.target {
 		t.Fatalf("bootout call = %#v", runner.calls)
 	}
 }
@@ -237,5 +238,31 @@ func TestLaunchdPrivatePlistRequiresPrivateRegularCurrentUserFile(t *testing.T) 
 	}
 	if _, err := readPrivateLaunchAgent(alias, service.uid); err == nil {
 		t.Fatal("symlink plist accepted")
+	}
+}
+
+func TestLaunchdLoadedLoginAgentUsesVerifiedLoginPlist(t *testing.T) {
+	service, runner, _, runtimePath := launchdServiceFixture(t, "not running", true)
+	if err := os.MkdirAll(filepath.Dir(service.loginPlistPath), 0700); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(runtimePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(service.loginPlistPath, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	runner.output = []byte(strings.Replace(string(runner.output), runtimePath, service.loginPlistPath, 1))
+	state, err := service.Observe(context.Background())
+	if err != nil || !state.CanStart || state.CanStop {
+		t.Fatalf("verified login agent: %+v %v", state, err)
+	}
+	if err := os.WriteFile(service.loginPlistPath, []byte("bad plist"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	state, err = service.Observe(context.Background())
+	if err == nil || state.CanStart || state.CanStop {
+		t.Fatalf("unverified login agent accepted: %+v %v", state, err)
 	}
 }

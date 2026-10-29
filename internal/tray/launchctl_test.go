@@ -39,12 +39,15 @@ func TestLaunchdUnknownOrMismatchedJob(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, output := range map[string][]byte{
-		"unknown layout":      []byte("service is running\n"),
-		"wrong label":         valid,
-		"unknown state":       []byte(strings.Replace(string(valid), "state = running", "state = maybe", 1)),
-		"missing program":     []byte(strings.Replace(string(valid), "\tprogram = /Applications/Grove.app/Contents/Helpers/groved\n", "", 1)),
-		"missing plist path":  []byte(strings.Replace(string(valid), "\tpath = /Users/test/Library/LaunchAgents/com.torfstack.groved.personal.plist\n", "", 1)),
-		"malformed arguments": []byte(strings.Replace(string(valid), "\t}\n\n\tdomain", "\targuments are malformed\n\n\tdomain", 1)),
+		"unknown layout":        []byte("service is running\n"),
+		"wrong label":           valid,
+		"unknown state":         []byte(strings.Replace(string(valid), "state = running", "state = maybe", 1)),
+		"missing program":       []byte(strings.Replace(string(valid), "\tprogram = /Applications/Grove.app/Contents/Helpers/groved\n", "", 1)),
+		"missing plist path":    []byte(strings.Replace(string(valid), "\tpath = /Users/test/Library/LaunchAgents/com.torfstack.groved.personal.plist\n", "", 1)),
+		"malformed arguments":   []byte(strings.Replace(string(valid), "\t}\n\n\tdomain", "\targuments are malformed\n\n\tdomain", 1)),
+		"truncated job":         []byte(strings.TrimSuffix(string(valid), "}\n")),
+		"trailing data":         append(append([]byte(nil), valid...), []byte("unexpected\n")...),
+		"unclosed nested block": []byte(strings.Replace(string(valid), "\tdomain =", "\tenvironment = {\n\t\tdomain =", 1)),
 	} {
 		t.Run(name, func(t *testing.T) {
 			label := "com.torfstack.groved.personal"

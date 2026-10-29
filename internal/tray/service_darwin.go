@@ -23,6 +23,7 @@ func OpenService(ctx context.Context, opts Options) (Controller, error) {
 	uid := uint32(os.Geteuid())
 	domain := "gui/" + strconv.FormatUint(uint64(uid), 10)
 	label := "com.torfstack.groved." + opts.ServiceInstance
-	plistPath := filepath.Join(home, "Library", "LaunchAgents", label+".plist")
-	return newLaunchdController(opts, systemLaunchctl{}, domain, plistPath, uid)
+	plistPath := filepath.Join(home, "Library", "Application Support", "Grove", "LaunchAgents", label+".plist")
+	loginPlistPath := filepath.Join(home, "Library", "LaunchAgents", label+".plist")
+	return newLaunchdController(opts, systemLaunchctl{}, domain, plistPath, loginPlistPath, uid)
 }

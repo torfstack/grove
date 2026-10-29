@@ -5,8 +5,7 @@ package tray
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
+	"slices"
 	"sync"
 
 	"fyne.io/systray"
@@ -50,16 +49,14 @@ type nativeBus struct {
 	cancel     context.CancelFunc
 	once       sync.Once
 	mu         sync.Mutex
+	actionMu   sync.Mutex
 	lock       *privatefs.Lock
 	itemCancel context.CancelFunc
+	rows       []Row
 }
 
 func OpenBus(ctx context.Context, opts Options) (TrayBus, error) {
-	cacheDir, err := os.UserCacheDir()
-	if err != nil || privatefs.OutsideGit(cacheDir) != nil {
-		return nil, errors.New("tray runtime directory unavailable")
-	}
-	lock, err := privatefs.Acquire(filepath.Join(cacheDir, "grove", "tray-"+Identity(opts.ProfileDir)+".lock"))
+	lock, err := acquireTrayLease(opts.ProfileDir)
 	if err != nil {
 		return nil, errors.New("tray already running or identity lock unavailable")
 	}
@@ -92,41 +89,42 @@ func (b *nativeBus) Close() error {
 func (b *nativeBus) Publish(view View) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if b.itemCancel != nil {
-		b.itemCancel()
+	if len(view.Rows) == 0 {
+		return errors.New("empty tray menu")
 	}
-	itemCtx, itemCancel := context.WithCancel(context.Background())
-	b.itemCancel = itemCancel
-	b.menu.ResetMenu()
-	for _, row := range view.Rows {
-		if row.Separator {
-			b.menu.AddSeparator()
-			continue
+	if !slices.Equal(b.rows, view.Rows) {
+		if b.itemCancel != nil {
+			b.itemCancel()
 		}
-		item := b.menu.AddMenuItem(row.Label, "")
-		if !row.Enabled {
-			item.Disable()
-		}
-		go func(item nativeMenuItem, action Action) {
-			for {
-				select {
-				case _, ok := <-item.Clicked():
-					if !ok {
+		itemCtx, itemCancel := context.WithCancel(context.Background())
+		b.itemCancel = itemCancel
+		b.menu.ResetMenu()
+		for _, row := range view.Rows {
+			if row.Separator {
+				b.menu.AddSeparator()
+				continue
+			}
+			item := b.menu.AddMenuItem(row.Label, "")
+			if !row.Enabled {
+				item.Disable()
+			}
+			go func(item nativeMenuItem, action Action) {
+				for {
+					select {
+					case _, ok := <-item.Clicked():
+						if !ok {
+							return
+						}
+						enqueueAction(b.actions, &b.actionMu, action)
+					case <-itemCtx.Done():
+						return
+					case <-b.done:
 						return
 					}
-					if action != ActionNone {
-						select {
-						case b.actions <- action:
-						default:
-						}
-					}
-				case <-itemCtx.Done():
-					return
-				case <-b.done:
-					return
 				}
-			}
-		}(item, row.Action)
+			}(item, row.Action)
+		}
+		b.rows = append([]Row(nil), view.Rows...)
 	}
 	icon := iconFor(view.IconName)
 	if len(icon) == 0 {
@@ -134,8 +132,5 @@ func (b *nativeBus) Publish(view View) error {
 	}
 	b.menu.SetTemplateIcon(icon, icon)
 	b.menu.SetTooltip(view.TooltipTitle + ": " + view.TooltipText)
-	if len(view.Rows) == 0 {
-		return errors.New("empty tray menu")
-	}
 	return nil
 }

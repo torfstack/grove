@@ -36,8 +36,29 @@ func parseLaunchctlJob(output []byte, label string) (launchdJob, error) {
 
 	job := launchdJob{Target: target, Label: label}
 	var sawState, sawPath, sawProgram, sawArguments bool
+	depth := 1
 	for i := 1; i < len(lines); i++ {
 		line := strings.TrimSpace(strings.TrimSuffix(lines[i], "\r"))
+		if depth == 0 {
+			if line != "" {
+				return launchdJob{}, fmt.Errorf("unexpected launchctl trailing data")
+			}
+			continue
+		}
+		if line == "}" {
+			depth--
+			continue
+		}
+		if depth != 1 {
+			if strings.HasSuffix(line, " = {") {
+				depth++
+			}
+			continue
+		}
+		if line != "arguments = {" && strings.HasSuffix(line, " = {") {
+			depth++
+			continue
+		}
 		if strings.HasPrefix(line, "state = ") {
 			if sawState {
 				return launchdJob{}, fmt.Errorf("duplicate launchctl state")
@@ -98,7 +119,7 @@ func parseLaunchctlJob(output []byte, label string) (launchdJob, error) {
 			return launchdJob{}, fmt.Errorf("unterminated launchctl arguments")
 		}
 	}
-	if !sawState || !sawPath || !sawProgram || !sawArguments || len(job.Arguments) == 0 || job.Arguments[0] != job.Program {
+	if depth != 0 || !sawState || !sawPath || !sawProgram || !sawArguments || len(job.Arguments) == 0 || job.Arguments[0] != job.Program {
 		return launchdJob{}, fmt.Errorf("incomplete launchctl job")
 	}
 	return job, nil

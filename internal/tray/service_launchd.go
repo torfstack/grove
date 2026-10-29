@@ -14,18 +14,19 @@ import (
 type launchctlRunner interface {
 	Print(context.Context, string) ([]byte, error)
 	Bootstrap(context.Context, string, string) error
-	Bootout(context.Context, string, string) error
+	Bootout(context.Context, string) error
 	Kickstart(context.Context, string) error
 }
 
 type launchdService struct {
-	profileDir string
-	label      string
-	domain     string
-	target     string
-	plistPath  string
-	uid        uint32
-	runner     launchctlRunner
+	profileDir     string
+	label          string
+	domain         string
+	target         string
+	plistPath      string
+	loginPlistPath string
+	uid            uint32
+	runner         launchctlRunner
 }
 
 type launchdObservation struct {
@@ -33,8 +34,8 @@ type launchdObservation struct {
 	job    launchdJob
 }
 
-func newLaunchdController(opts Options, runner launchctlRunner, domain, plistPath string, uid uint32) (*launchdService, error) {
-	if !validInstance(opts.ServiceInstance) || !filepath.IsAbs(opts.ProfileDir) || !filepath.IsAbs(plistPath) || runner == nil {
+func newLaunchdController(opts Options, runner launchctlRunner, domain, plistPath, loginPlistPath string, uid uint32) (*launchdService, error) {
+	if !validInstance(opts.ServiceInstance) || !filepath.IsAbs(opts.ProfileDir) || !filepath.IsAbs(plistPath) || !filepath.IsAbs(loginPlistPath) || filepath.Clean(plistPath) == filepath.Clean(loginPlistPath) || runner == nil {
 		return nil, errors.New("invalid launchd service configuration")
 	}
 	wantDomain := "gui/" + strconv.FormatUint(uint64(uid), 10)
@@ -46,17 +47,18 @@ func newLaunchdController(opts Options, runner launchctlRunner, domain, plistPat
 		return nil, errors.New("invalid launchd profile")
 	}
 	label := "com.torfstack.groved." + opts.ServiceInstance
-	if filepath.Base(plistPath) != label+".plist" {
+	if filepath.Base(plistPath) != label+".plist" || filepath.Base(loginPlistPath) != label+".plist" {
 		return nil, errors.New("invalid launchd plist path")
 	}
 	return &launchdService{
-		profileDir: profileDir,
-		label:      label,
-		domain:     domain,
-		target:     domain + "/" + label,
-		plistPath:  plistPath,
-		uid:        uid,
-		runner:     runner,
+		profileDir:     profileDir,
+		label:          label,
+		domain:         domain,
+		target:         domain + "/" + label,
+		plistPath:      plistPath,
+		loginPlistPath: loginPlistPath,
+		uid:            uid,
+		runner:         runner,
 	}, nil
 }
 
@@ -73,13 +75,14 @@ func (s *launchdService) observe(ctx context.Context) (ServiceState, launchdObse
 	output, printErr := s.runner.Print(ctx, s.target)
 	if printErr == nil {
 		job, err := parseLaunchctlJob(output, s.label)
-		if err != nil || job.Target != s.target || filepath.Clean(job.Path) != filepath.Clean(s.plistPath) {
+		jobPath := filepath.Clean(job.Path)
+		if err != nil || job.Target != s.target || (jobPath != filepath.Clean(s.plistPath) && jobPath != filepath.Clean(s.loginPlistPath)) {
 			return state, launchdObservation{}, errors.New("selected launchd job is unverified")
 		}
 		if err := validateLaunchInvocation(job.Program, job.Arguments, s.profileDir); err != nil {
 			return state, launchdObservation{}, errors.New("selected launchd job does not match the profile")
 		}
-		plistData, err := readPrivateLaunchAgent(s.plistPath, s.uid)
+		plistData, err := readPrivateLaunchAgent(jobPath, s.uid)
 		if err != nil || validateLaunchAgent(plistData, s.label, s.profileDir) != nil {
 			return state, launchdObservation{}, errors.New("selected launchd plist is unverified")
 		}
@@ -148,7 +151,7 @@ func (s *launchdService) Request(ctx context.Context, action Action, current Sam
 		if !state.CanStop || !observation.loaded {
 			return errors.New("service stop is unavailable")
 		}
-		if err := s.runner.Bootout(ctx, s.domain, s.plistPath); err != nil {
+		if err := s.runner.Bootout(ctx, s.target); err != nil {
 			return errors.New("launchd stop failed")
 		}
 		return nil

@@ -33,8 +33,8 @@ func (systemLaunchctl) Bootstrap(ctx context.Context, domain, path string) error
 	return runLaunchctl(ctx, "bootstrap", domain, path)
 }
 
-func (systemLaunchctl) Bootout(ctx context.Context, domain, path string) error {
-	return runLaunchctl(ctx, "bootout", domain, path)
+func (systemLaunchctl) Bootout(ctx context.Context, target string) error {
+	return runLaunchctl(ctx, "bootout", target)
 }
 
 func (systemLaunchctl) Kickstart(ctx context.Context, target string) error {

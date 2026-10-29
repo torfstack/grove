@@ -48,7 +48,10 @@ func TestDarwinTrayCoordinatorClosesOnlyItsPresentation(t *testing.T) {
 func TestDarwinDisposableLaunchAgentStartStop(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	root := t.TempDir()
+	root, err := privatefs.Canonical(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	profile, config := launchdConfigFixture(t, root, "profile")
 	program := filepath.Join(root, "groved")
 	if err := os.WriteFile(program, []byte("#!/bin/sh\nexec /bin/sleep 120\n"), 0700); err != nil {
@@ -57,15 +60,7 @@ func TestDarwinDisposableLaunchAgentStartStop(t *testing.T) {
 	uid := uint32(os.Geteuid())
 	instance := fmt.Sprintf("acceptance-%d", os.Getpid())
 	label := "com.torfstack.groved." + instance
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	launchAgents := filepath.Join(home, "Library", "LaunchAgents")
-	if err := os.MkdirAll(launchAgents, 0700); err != nil {
-		t.Fatal(err)
-	}
-	plistPath := filepath.Join(launchAgents, label+".plist")
+	plistPath := filepath.Join(root, label+".plist")
 	if _, err := os.Lstat(plistPath); err == nil || !os.IsNotExist(err) {
 		t.Fatalf("fixture plist already exists or cannot be checked: %v", err)
 	}
@@ -74,7 +69,7 @@ func TestDarwinDisposableLaunchAgentStartStop(t *testing.T) {
 	}
 	defer cleanupDisposableAgent(t, uid, label, plistPath)
 	domain := "gui/" + strconv.FormatUint(uint64(uid), 10)
-	service, err := newLaunchdController(Options{ProfileDir: profile, ServiceInstance: instance}, systemLaunchctl{}, domain, plistPath, uid)
+	service, err := newLaunchdController(Options{ProfileDir: profile, ServiceInstance: instance}, systemLaunchctl{}, domain, plistPath, filepath.Join(root, "login", label+".plist"), uid)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +114,10 @@ func TestDarwinDisposableLaunchAgentStartStop(t *testing.T) {
 func TestDarwinDisposableLaunchAgentFatalExitStaysStopped(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	root := t.TempDir()
+	root, err := privatefs.Canonical(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	profile, config := launchdConfigFixture(t, root, "profile")
 	marker := filepath.Join(root, "launch-count")
 	program := filepath.Join(root, "groved")
@@ -130,15 +128,7 @@ func TestDarwinDisposableLaunchAgentFatalExitStaysStopped(t *testing.T) {
 	uid := uint32(os.Geteuid())
 	instance := fmt.Sprintf("fatal-%d", os.Getpid())
 	label := "com.torfstack.groved." + instance
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	launchAgents := filepath.Join(home, "Library", "LaunchAgents")
-	if err := os.MkdirAll(launchAgents, 0700); err != nil {
-		t.Fatal(err)
-	}
-	plistPath := filepath.Join(launchAgents, label+".plist")
+	plistPath := filepath.Join(root, label+".plist")
 	if _, err := os.Lstat(plistPath); err == nil || !os.IsNotExist(err) {
 		t.Fatalf("fixture plist already exists or cannot be checked: %v", err)
 	}
@@ -147,7 +137,7 @@ func TestDarwinDisposableLaunchAgentFatalExitStaysStopped(t *testing.T) {
 	}
 	defer cleanupDisposableAgent(t, uid, label, plistPath)
 	domain := "gui/" + strconv.FormatUint(uint64(uid), 10)
-	service, err := newLaunchdController(Options{ProfileDir: profile, ServiceInstance: instance}, systemLaunchctl{}, domain, plistPath, uid)
+	service, err := newLaunchdController(Options{ProfileDir: profile, ServiceInstance: instance}, systemLaunchctl{}, domain, plistPath, filepath.Join(root, "login", label+".plist"), uid)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,6 +150,16 @@ func TestDarwinDisposableLaunchAgentFatalExitStaysStopped(t *testing.T) {
 		data, _ := os.ReadFile(marker)
 		state, observeErr := service.Observe(ctx)
 		if observeErr == nil && state.CanStart && len(data) == 1 {
+			select {
+			case <-time.After(3 * time.Second):
+			case <-ctx.Done():
+				t.Fatal("timed out observing fatal exit")
+			}
+			data, err := os.ReadFile(marker)
+			state, observeErr := service.Observe(ctx)
+			if err != nil || len(data) != 1 || observeErr != nil || !state.CanStart {
+				t.Fatalf("fatal agent restarted or became unavailable: starts=%d state=%+v err=%v observe=%v", len(data), state, err, observeErr)
+			}
 			return
 		}
 		time.Sleep(100 * time.Millisecond)
@@ -177,7 +177,7 @@ func cleanupDisposableAgent(t *testing.T, uid uint32, label, plistPath string) {
 	target := domain + "/" + label
 	output, err := runner.Print(ctx, target)
 	if err == nil {
-		if err := runner.Bootout(ctx, domain, plistPath); err != nil {
+		if err := runner.Bootout(ctx, target); err != nil {
 			t.Errorf("boot out fixture: %v", err)
 			return
 		}

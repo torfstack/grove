@@ -62,6 +62,9 @@ func TestMenuBarPublishAndActionDispatch(t *testing.T) {
 	if len(menu.labels) != 4 || menu.labels[0] != "Refresh" || menu.separators != 1 || !menu.items[1].disabled || menu.tooltip != "Personal: Ready" || len(menu.icon) == 0 {
 		t.Fatalf("menu mapping: %+v", menu)
 	}
+	if err := bus.Publish(view); err != nil || menu.resets != 1 {
+		t.Fatalf("unchanged menu was rebuilt: %v, resets=%d", err, menu.resets)
+	}
 	for i, want := range []Action{ActionRefresh, ActionStart, ActionStop, ActionQuit} {
 		menu.items[i].clicked <- struct{}{}
 		select {
