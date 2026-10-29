@@ -1,0 +1,18 @@
+gui/501/com.torfstack.groved.personal = {
+	active count = 1
+	path = /Users/test/Library/LaunchAgents/com.torfstack.groved.personal.plist
+	type = LaunchAgent
+	state = running
+
+	program = /Applications/Grove.app/Contents/Helpers/groved
+	arguments = {
+		/Applications/Grove.app/Contents/Helpers/groved
+		--config
+		/Users/test/Library/Application Support/Grove Profiles/personal.json
+	}
+
+	domain = gui/501 [100001]
+	pid = 901
+	last exit code = 0
+	properties = runatload
+}

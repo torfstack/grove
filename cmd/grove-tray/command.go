@@ -10,7 +10,7 @@ import (
 
 func newCommand(run func(context.Context, tray.Options) error) *cobra.Command {
 	opts := tray.Options{}
-	cmd := &cobra.Command{Use: "grove-tray", Short: "Show one Grove profile in a Freedesktop system tray", SilenceErrors: true, SilenceUsage: true, Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "grove-tray", Short: "Show one Grove profile in the desktop status area", SilenceErrors: true, SilenceUsage: true, Args: cobra.NoArgs}
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		if cmd.Context().Err() != nil {
 			return nil
@@ -18,7 +18,7 @@ func newCommand(run func(context.Context, tray.Options) error) *cobra.Command {
 		if cmd.Flags().Changed("name") && opts.Name == "" {
 			return errors.New("display name cannot be empty")
 		}
-		if cmd.Flags().Changed("systemd-instance") && opts.SystemdInstance == "" {
+		if cmd.Flags().Changed("service-instance") && opts.ServiceInstance == "" {
 			return errors.New("service instance cannot be empty")
 		}
 		normalized, err := tray.ValidateArguments(opts)
@@ -40,6 +40,6 @@ func newCommand(run func(context.Context, tray.Options) error) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&opts.ProfileDir, "profile-dir", "", "Existing profile directory (required)")
 	cmd.Flags().StringVar(&opts.Name, "name", "Grove", "Public tray display name")
-	cmd.Flags().StringVar(&opts.SystemdInstance, "systemd-instance", "", "Optional groved user-service instance")
+	cmd.Flags().StringVar(&opts.ServiceInstance, "service-instance", "", "Optional service-manager instance for groved")
 	return cmd
 }

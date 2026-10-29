@@ -147,3 +147,7 @@ systemd user-service controls validate the effective unit command and profile
 configuration before start/stop. Quitting the tray leaves the daemon running.
 Installation and graphical-session autostart are manual. Waybar is verified;
 other compatible hosts need independent acceptance before a tested-support claim.
+
+## macOS desktop integration
+
+The foreground macOS daemon is merged. An optional per-profile LaunchAgent and independent menu-bar companion are implemented in PR #25 under [spec 000015](spec/000015-macos-desktop-design.md). Native CI passes; user desktop acceptance remains pending; local watching remains Linux-only.

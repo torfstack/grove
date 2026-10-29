@@ -165,7 +165,7 @@ func (s *testController) Request(_ context.Context, a Action, current Sample) er
 func (s *testController) Close() error { s.mu.Lock(); defer s.mu.Unlock(); s.closed = true; return nil }
 func TestTrayActions(t *testing.T) {
 	opts := optionsFixture(t)
-	opts.SystemdInstance = "personal"
+	opts.ServiceInstance = "personal"
 	bus := newTestTray()
 	ctrl := &testController{state: ServiceState{Unit: "groved@personal.service", Phase: "inactive", CanStart: true}}
 	var calls atomic.Int32
@@ -290,6 +290,40 @@ func TestTrayCanceledBus(t *testing.T) {
 	}
 }
 
+func TestTrayCancellationBeforeQueuedPublish(t *testing.T) {
+	var calls atomic.Int32
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	inspect := func(context.Context, string) (daemon.StatusReport, error) {
+		if calls.Add(1) == 2 {
+			cancel()
+		}
+		return healthy().Status, nil
+	}
+	bus := newTestTray()
+	opts := optionsFixture(t)
+	result := make(chan error, 1)
+	go func() {
+		result <- Run(ctx, opts, Dependencies{
+			Inspect: inspect,
+			OpenBus: func(context.Context, Options) (TrayBus, error) { return bus, nil },
+		})
+	}()
+	nextView(t, bus)
+	bus.actions <- ActionRefresh
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatalf("canceled tray returned an error: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("tray did not stop after cancellation")
+	}
+	if len(bus.views) != 0 {
+		t.Fatal("queued observation published after cancellation")
+	}
+}
+
 type startupController struct {
 	testController
 	started chan struct{}
@@ -302,7 +336,7 @@ func (c *startupController) Observe(ctx context.Context) (ServiceState, error) {
 }
 func TestTrayStartupControlCancellation(t *testing.T) {
 	opts := optionsFixture(t)
-	opts.SystemdInstance = "personal"
+	opts.ServiceInstance = "personal"
 	bus := newTestTray()
 	bus.fail = errors.New("connection closed after cancellation")
 	controller := &startupController{started: make(chan struct{})}

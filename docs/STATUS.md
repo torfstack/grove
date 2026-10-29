@@ -1,10 +1,16 @@
 # Project status
 
-Updated: 2026-10-27.
+Updated: 2026-10-29.
+
+## macOS desktop integration
+
+PR #25 implements the optional macOS LaunchAgent and independent menu-bar companion on the foreground daemon merged in PR #23. [Spec 000015](spec/000015-macos-desktop-design.md) and its [plan](implementation-plans/000015-macos-desktop-plan.md) record the contract. The tray does not bootstrap an unloaded plist; the user loads it manually. Stop targets and unloads the verified service, so starting after Stop requires manual loading again. Login start is a separate opt-in.
+
+The independent review's parser, target safety, login opt-in, action queue, profile identity and menu refresh findings are fixed. The initial CodeRabbit review on `73a6957` found three valid fixture issues; all were fixed without requesting another review. Linux and macOS CI passed on `5ae859d`, including format/lint, offline/race tests, rendered plist checks, native app build and Linux cross-builds. CodeQL and dependency review passed. The launchd fixture uses a sleep process with a test-owned lease; it does not prove graceful `groved` shutdown under launchd. Interactive macOS desktop and login acceptance remain outstanding. No live Drive test ran for this slice. See [TESTBED](TESTBED.md#macos-desktop-integration).
 
 ## macOS daemon work
 
-2026-10-28: PR #21 merged as `357f239`; final Linux and security checks passed. The user approved the macOS foreground daemon in spec 000013 and requested a branch. Implementation is on `feat/macos-daemon`; the paired implementation plan is `implementation-plans/000013-macos-daemon-plan.md`. Secure Unix configuration opening and signal handling now include macOS, and unsupported local watching is rejected before startup. Native process and cross-process lease tests passed, including fake-provider remote polling. Formatting, lint, full native offline and race suites, native build and final Linux cross-build passed. An independent review found no runtime defects; FIFO and early rejection coverage and stale roadmap wording were addressed. Foreign-owner rejection was not exercised with another account, and no live Drive test ran. A pre-existing status test fixture used noncanonical macOS temporary paths and was corrected. PR #23's initial CodeRabbit review completed on `0cb752d`, with two valid documentation findings, both addressed by clarifying macOS periodic sync and Linux-only watching. Linux CI and security checks passed on the reviewed head; fresh checks for the documentation fix are pending. No second review is requested.
+2026-10-28: PR #21 merged as `357f239`; final Linux and security checks passed. The user approved the macOS foreground daemon in spec 000013 and requested a branch. Implementation merged in PR #23 at `e326049`; the paired implementation plan is `implementation-plans/000013-macos-daemon-plan.md`. Secure Unix configuration opening and signal handling now include macOS, and unsupported local watching is rejected before startup. Native process and cross-process lease tests passed, including fake-provider remote polling. Formatting, lint, full native offline and race suites, native build and final Linux cross-build passed. An independent review found no runtime defects; FIFO and early rejection coverage and stale roadmap wording were addressed. Foreign-owner rejection was not exercised with another account, and no live Drive test ran. A pre-existing status test fixture used noncanonical macOS temporary paths and was corrected. PR #23's initial CodeRabbit review completed on `0cb752d`, with two valid documentation findings, both addressed by clarifying macOS periodic sync and Linux-only watching. Linux CI and security checks passed on the final merged head. No second review is requested.
 
 ## Linux desktop tray implementation
 
@@ -35,9 +41,7 @@ Owned service/desktop fixture artifacts were cleaned; no live Drive access ran.
 A second independent tray host is unavailable, so broader tested compatibility
 is not claimed. Login/autostart remains untested; the desktop-entry template
 validates statically. Repeatable gates and limits are in
-[TESTBED](TESTBED.md#linux-desktop-tray-acceptance). The macOS design remains a
-separate unapproved proposal. [PR #21](https://github.com/torfstack/grove/pull/21)
-is open against `main`.
+[TESTBED](TESTBED.md#linux-desktop-tray-acceptance). [PR #21](https://github.com/torfstack/grove/pull/21) merged into `main` at `357f239`.
 Final-head CI exposed a timing race in the SIGTERM process test: it could signal
 after item registration but before the initial status publication. The test now
 waits for the published state before sending SIGTERM, and the event loop exits
@@ -53,14 +57,13 @@ walkthrough were retrieved and assessed; submitted-review records, inline
 comments and GraphQL review threads are all empty. The 20 icon files and go.sum
 were filtered by the reviewer; local icon/runtime and Go module checks cover
 those artifacts. No second review was requested. Final documentation-head CI is
-tracked in the PR checks; no feature merge has been requested.
+passed before the feature merge.
 
 ## macOS daemon design
 
 The approved slice is a foreground periodic `groved` runtime on macOS,
 without local filesystem watching or launchd integration. The design is in
-[spec 000013](spec/000013-macos-daemon-design.md); implementation is in progress
-on `feat/macos-daemon` as described above.
+[spec 000013](spec/000013-macos-daemon-design.md); implementation merged in PR #23 at `e326049`.
 
 ## Authenticated systemd acceptance
 

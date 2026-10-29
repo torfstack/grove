@@ -17,7 +17,7 @@ rejection, and existing daemon process tests pass. Dedicated-account authenticat
 download acceptance through the actual user service passed six times on 2026-10-25–26;
 PR #20 merged into main at `7499f6c` on 2026-10-26. Logout/boot/linger behavior
 remains untested. The next broad roadmap milestone is native macOS and Windows support;
-macOS one-shot sync is supported; foreground daemon support is being implemented.
+macOS one-shot sync and the foreground daemon are supported; PR #23 merged at `e326049`.
 [approved spec 000011](spec/000011-local-watching-design.md) is implemented following its
 [paired plan](implementation-plans/000011-local-watching-plan.md). Deterministic,
 native filesystem, and subprocess verification pass. Independent review findings
@@ -41,7 +41,7 @@ acceptance and real disposable-user-service controls pass. Independent review
 findings are fixed with regression coverage and fresh checks; a second tray host
 remains unverified. PR #21 has since merged. The user approved the separate
 macOS foreground-daemon slice in [spec 000013](spec/000013-macos-daemon-design.md);
-implementation is in progress on `feat/macos-daemon`.
+implementation merged in PR #23. The optional macOS LaunchAgent and menu-bar companion is implemented in PR #25 under [spec 000015](spec/000015-macos-desktop-design.md) and its [plan](implementation-plans/000015-macos-desktop-plan.md). The closed PR #22 was used as a reference. Native CI passes; interactive desktop and login acceptance remain outstanding.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus

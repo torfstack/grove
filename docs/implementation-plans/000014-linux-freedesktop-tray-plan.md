@@ -13,7 +13,7 @@
 ## Global constraints
 
 - Linux only; preserve Linux CLI/daemon behavior and macOS cross-builds of both existing binaries.
-- Required absolute `--profile-dir`; optional `--name` defaults to `Grove`; optional `--systemd-instance` permits only letters, digits, underscores, and hyphens.
+- Required absolute `--profile-dir`; optional `--name` defaults to `Grove`; optional `--service-instance` permits only letters, digits, underscores, and hyphens.
 - One icon per canonical profile per session bus; no profile creation or path/remote-identity publication.
 - Immediate status observation, then every two seconds; one inspection at a time, coalesced refreshes, prompt D-Bus handlers.
 - Reuse `daemon.Inspect`; no Drive/OAuth access, lifetime lease acquisition, private-state decoding, or second sync engine.
@@ -49,7 +49,7 @@
 
 ## Task 1: Validated profile options and deterministic presentation
 
-**Interfaces:** In package `tray`, define `Options{ProfileDir, Name, SystemdInstance string}` and `NormalizeOptions(Options) (Options,error)`. Define `Sample{Status daemon.StatusReport; Err error}`, `ServiceState{Unit, Phase, Reason string; CanStart, CanStop bool}`, `Action` constants `ActionNone/Refresh/Start/Stop/Quit`, and `Row{ID int32; Label string; Enabled, Separator bool; Action Action}`. `View{Status, IconName, TooltipTitle, TooltipText string; Rows []Row}` is transport-independent. `Memory` retains last-known profile facts and observed identity. `Reduce(previous Memory, sample Sample, service ServiceState, opts Options) (Memory,View)` is pure. `Identity(canonicalProfile string) string` returns a full SHA-256 hex digest for a stable private-path-derived identity.
+**Interfaces:** In package `tray`, define `Options{ProfileDir, Name, ServiceInstance string}` and `NormalizeOptions(Options) (Options,error)`. Define `Sample{Status daemon.StatusReport; Err error}`, `ServiceState{Unit, Phase, Reason string; CanStart, CanStop bool}`, `Action` constants `ActionNone/Refresh/Start/Stop/Quit`, and `Row{ID int32; Label string; Enabled, Separator bool; Action Action}`. `View{Status, IconName, TooltipTitle, TooltipText string; Rows []Row}` is transport-independent. `Memory` retains last-known profile facts and observed identity. `Reduce(previous Memory, sample Sample, service ServiceState, opts Options) (Memory,View)` is pure. `Identity(canonicalProfile string) string` returns a full SHA-256 hex digest for a stable private-path-derived identity.
 
 - [x] Write `TestNormalizeOptions`: reject relative/missing/inside-Git/non-directory profile paths and non-regular/missing state files; resolve canonical aliases without reading credentials. Validate name as UTF-8, 1–80 Unicode code points, single-line with no control characters; allow ordinary Unicode/markup characters as text. Reject empty/invalid supplied service labels; omitted labels disable controls. Errors never echo paths/values.
 - [x] Write `TestTrayPresentation`: table-driven exact labels/status/icon states for every observation row in the spec, including failed/busy/cancelled attempts, remote-check warnings, no record, active ownership with stale stopped phase, and incomplete population. Assert waiting says `Last sync completed`, never `Up to date`.
@@ -92,7 +92,7 @@
 
 ## Task 5: User command, distribution assets, and CI integration
 
-**Interfaces:** `cmd/grove-tray/newCommand(run func(context.Context,tray.Options) error) *cobra.Command` exposes `--profile-dir`, `--name`, and `--systemd-instance`; its Linux main uses SIGINT/SIGTERM and the existing sanitized stderr/exit pattern. All command/package sources have Linux build constraints.
+**Interfaces:** `cmd/grove-tray/newCommand(run func(context.Context,tray.Options) error) *cobra.Command` exposes `--profile-dir`, `--name`, and `--service-instance`; its Linux main uses SIGINT/SIGTERM and the existing sanitized stderr/exit pattern. All command/package sources have Linux build constraints.
 
 - [x] Write `TestTrayCommand`: required absolute profile, no positional args, exact flag routing/default label, invalid instance/name refusal, successful help without bus/filesystem access, canceled context, and sanitized service failure. Observe failures, then implement command/main wiring.
 - [x] Add the tray build to `mise run build` on Linux; preserve existing builds on macOS. Update the task description and Linux CI to verify `dbus-daemon` availability explicitly before normal/race tests. CodeQL's existing `go build ./...` includes the new binary without a separate workflow. Keep existing immutable action pins and Go/lint versions.

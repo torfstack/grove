@@ -112,7 +112,7 @@ func Reduce(previous Memory, sample Sample, service ServiceState, opts Options) 
 		if service.Reason != "" {
 			state += "; " + service.Reason
 		}
-		v.Rows = append(v.Rows, Row{ID: 101, Label: state}, Row{ID: 102, Label: "Start " + opts.SystemdInstance + " service", Enabled: service.CanStart && owner == "inactive" && sample.Err == nil && fresh, Action: ActionStart}, Row{ID: 103, Label: "Stop " + opts.SystemdInstance + " service", Enabled: service.CanStop, Action: ActionStop})
+		v.Rows = append(v.Rows, Row{ID: 101, Label: state}, Row{ID: 102, Label: "Start " + opts.ServiceInstance + " service", Enabled: service.CanStart && owner == "inactive" && sample.Err == nil && fresh, Action: ActionStart}, Row{ID: 103, Label: "Stop " + opts.ServiceInstance + " service", Enabled: service.CanStop, Action: ActionStop})
 	}
 	v.Rows = append(v.Rows, Row{ID: 110, Separator: true}, Row{ID: 111, Label: "Quit tray", Enabled: true, Action: ActionQuit})
 	return m, v

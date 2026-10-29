@@ -75,38 +75,7 @@ func (b *Bus) Close() error {
 	b.closeOnce.Do(func() { b.cancel(); b.closeErr = b.conn.Close(); b.wg.Wait() })
 	return b.closeErr
 }
-func (b *Bus) enqueue(action Action) {
-	if action == ActionNone {
-		return
-	}
-	b.actionMu.Lock()
-	defer b.actionMu.Unlock()
-	var pending []Action
-	for {
-		select {
-		case a := <-b.actions:
-			pending = append(pending, a)
-		default:
-			goto drained
-		}
-	}
-drained:
-	found := false
-	for _, a := range pending {
-		if a == action {
-			found = true
-		}
-	}
-	if !found {
-		pending = append(pending, action)
-	}
-	for _, a := range pending {
-		select {
-		case b.actions <- a:
-		default:
-		}
-	}
-}
+func (b *Bus) enqueue(action Action) { enqueueAction(b.actions, &b.actionMu, action) }
 func (b *Bus) Publish(view View) error {
 	b.mu.Lock()
 	old := b.view

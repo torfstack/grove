@@ -393,3 +393,7 @@ fixes. The actual user-manager adapter acceptance also passed again afterward.
 The rebuilt final binary also passed the isolated pointer-driven Waybar checklist
 again after review fixes, with no menu/property warnings; its owned temporary
 profile/session artifacts were removed.
+
+## macOS desktop integration
+
+PR #25 builds on foreground-daemon PR #23. Linux and macOS CI passed on `5ae859d`: format/lint, full offline and race tests, rendered plist validation, native app build and Linux amd64 CLI/daemon cross-builds. The first macOS run found three temporary-path fixture failures; those and an independent fixture-overwrite issue were fixed after the initial CodeRabbit review of `73a6957`. No second review was requested. Interactive menu appearance and login behavior remain unverified. The unique-label launchd fixture uses a sleep process and a test-owned lease; it checks controller plumbing, not actual `groved` ownership or graceful daemon shutdown under launchd. Foreground daemon process tests separately cover ownership and shutdown. No live Drive test was run for this slice.
