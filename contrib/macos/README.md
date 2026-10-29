@@ -85,6 +85,5 @@ boot out the selected labels and remove only their plist files; retain profile,
 config, token, conflict, and recovery data unless you intentionally remove the
 profile using Grove's own commands.
 
-The app is unsigned and not notarized. Native menu-bar and LaunchAgent behavior
-requires macOS CI and desktop verification; use your desktop to confirm local appearance and login
-preferences before enabling agents.
+The app is unsigned and not notarized. Native macOS CI passes; use your desktop
+to verify menu appearance and login behavior before enabling agents.

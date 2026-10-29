@@ -41,7 +41,7 @@ acceptance and real disposable-user-service controls pass. Independent review
 findings are fixed with regression coverage and fresh checks; a second tray host
 remains unverified. PR #21 has since merged. The user approved the separate
 macOS foreground-daemon slice in [spec 000013](spec/000013-macos-daemon-design.md);
-implementation merged in PR #23. The next slice is the optional macOS LaunchAgent and menu-bar companion in [spec 000015](spec/000015-macos-desktop-design.md) and its [plan](implementation-plans/000015-macos-desktop-plan.md). The closed PR #22 is a reference for that work; it has not been merged.
+implementation merged in PR #23. The optional macOS LaunchAgent and menu-bar companion is implemented in PR #25 under [spec 000015](spec/000015-macos-desktop-design.md) and its [plan](implementation-plans/000015-macos-desktop-plan.md). The closed PR #22 was used as a reference. Native CI passes; interactive desktop and login acceptance remain outstanding.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus
