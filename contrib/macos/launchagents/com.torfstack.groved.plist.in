@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>@GROVE_LABEL@</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>@GROVED_PATH@</string>
+		<string>--config</string>
+		<string>@GROVE_CONFIG@</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>ExitTimeOut</key>
+	<integer>0</integer>
+</dict>
+</plist>
