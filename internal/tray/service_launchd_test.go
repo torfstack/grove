@@ -21,6 +21,7 @@ type fakeLaunchctl struct {
 	bootoutErr   error
 	kickstartErr error
 	calls        []string
+	onBootout    func()
 }
 
 func (f *fakeLaunchctl) Print(_ context.Context, target string) ([]byte, error) {
@@ -32,8 +33,35 @@ func (f *fakeLaunchctl) Bootstrap(_ context.Context, domain, path string) error 
 	return f.bootstrapErr
 }
 func (f *fakeLaunchctl) Bootout(_ context.Context, target string) error {
+	if f.onBootout != nil {
+		f.onBootout()
+	}
 	f.calls = append(f.calls, "bootout:"+target)
 	return f.bootoutErr
+}
+
+func TestLaunchdStopUsesFixedTargetIfPlistChanges(t *testing.T) {
+	service, runner, profile, plistPath := launchdServiceFixture(t, "running", true)
+	lease, err := privatefs.AcquireLease(filepath.Join(profile, "daemon.lock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := lease.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	runner.onBootout = func() {
+		if err := os.WriteFile(plistPath, []byte("replaced"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := service.Request(context.Background(), ActionStop, Sample{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := runner.calls[len(runner.calls)-1]; got != "bootout:"+service.target {
+		t.Fatalf("Stop followed changed plist: %q", got)
+	}
 }
 func (f *fakeLaunchctl) Kickstart(_ context.Context, target string) error {
 	f.calls = append(f.calls, "kickstart:"+target)
