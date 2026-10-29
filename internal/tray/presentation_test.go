@@ -111,3 +111,21 @@ func TestTrayStartupBusyHistory(t *testing.T) {
 		}
 	}
 }
+
+func TestTrayPresentationUsesGenericServiceInstance(t *testing.T) {
+	_, view := Reduce(Memory{}, healthy(), ServiceState{Unit: "groved@work.service", Phase: "inactive", CanStart: true}, Options{
+		Name: "Personal", ProfileDir: "/profile", ServiceInstance: "work",
+	})
+	want := map[Action]string{ActionStart: "Start work service", ActionStop: "Stop work service"}
+	for _, row := range view.Rows {
+		if label, ok := want[row.Action]; ok {
+			if row.Label != label {
+				t.Errorf("action %v label = %q, want %q", row.Action, row.Label, label)
+			}
+			delete(want, row.Action)
+		}
+	}
+	if len(want) != 0 {
+		t.Fatalf("missing service actions: %v", want)
+	}
+}

@@ -50,7 +50,7 @@ fallback is supplied.
 If you use the [Grove systemd template](../systemd/README.md), opt into controls:
 
 ```sh
-./bin/grove-tray --profile-dir /absolute/path/to/profile --name Personal --systemd-instance personal
+./bin/grove-tray --profile-dir /absolute/path/to/profile --name Personal --service-instance personal
 ```
 
 This targets only `groved@personal.service` in your user manager. It never
@@ -96,7 +96,7 @@ the provided scalable named icons, run from the source checkout:
 
 The inert [desktop-entry template](grove-tray.desktop.in) is for manual use.
 Copy it to a private temporary file and replace the executable/profile/name
-placeholders. Add `--systemd-instance personal` only if you want service controls.
+placeholders. Add `--service-instance personal` only if you want service controls.
 Review the resulting entry, then install it as
 `${XDG_CONFIG_HOME:-$HOME/.config}/autostart/grove-tray-personal.desktop`.
 Use a different filename for each profile and avoid overwriting existing entries.
