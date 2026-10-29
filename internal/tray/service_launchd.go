@@ -13,7 +13,6 @@ import (
 
 type launchctlRunner interface {
 	Print(context.Context, string) ([]byte, error)
-	Bootstrap(context.Context, string, string) error
 	Bootout(context.Context, string) error
 	Kickstart(context.Context, string) error
 }
@@ -119,7 +118,7 @@ func (s *launchdService) observe(ctx context.Context) (ServiceState, launchdObse
 		state.Reason = "profile already has an active owner"
 		return state, launchdObservation{}, nil
 	}
-	state.CanStart = true
+	state.Reason = "load agent manually before starting"
 	return state, launchdObservation{}, nil
 }
 
@@ -134,16 +133,10 @@ func (s *launchdService) Request(ctx context.Context, action Action, current Sam
 	}
 	switch action {
 	case ActionStart:
-		if !state.CanStart || current.Err != nil || current.Status.Owner != "inactive" || current.Status.ProfileState != "available" || current.Status.Profile == nil {
+		if !state.CanStart || !observation.loaded || current.Err != nil || current.Status.Owner != "inactive" || current.Status.ProfileState != "available" || current.Status.Profile == nil {
 			return errors.New("service start is unavailable")
 		}
-		if observation.loaded {
-			if err := s.runner.Kickstart(ctx, s.target); err != nil {
-				return errors.New("launchd start failed")
-			}
-			return nil
-		}
-		if err := s.runner.Bootstrap(ctx, s.domain, s.plistPath); err != nil {
+		if err := s.runner.Kickstart(ctx, s.target); err != nil {
 			return errors.New("launchd start failed")
 		}
 		return nil

@@ -17,7 +17,6 @@ import (
 type fakeLaunchctl struct {
 	output       []byte
 	printErr     error
-	bootstrapErr error
 	bootoutErr   error
 	kickstartErr error
 	calls        []string
@@ -27,10 +26,6 @@ type fakeLaunchctl struct {
 func (f *fakeLaunchctl) Print(_ context.Context, target string) ([]byte, error) {
 	f.calls = append(f.calls, "print:"+target)
 	return append([]byte(nil), f.output...), f.printErr
-}
-func (f *fakeLaunchctl) Bootstrap(_ context.Context, domain, path string) error {
-	f.calls = append(f.calls, "bootstrap:"+domain+":"+path)
-	return f.bootstrapErr
 }
 func (f *fakeLaunchctl) Bootout(_ context.Context, target string) error {
 	if f.onBootout != nil {
@@ -104,18 +99,18 @@ func inactiveLaunchdSample() Sample {
 	return Sample{Status: daemon.StatusReport{Owner: "inactive", ProfileState: "available", Profile: &daemon.ProfileView{PopulationComplete: true}}}
 }
 
-func TestLaunchdUnloadedAgentCanStart(t *testing.T) {
-	service, runner, _, plistPath := launchdServiceFixture(t, "not running", false)
+func TestLaunchdUnloadedAgentRequiresManualLoad(t *testing.T) {
+	service, runner, _, _ := launchdServiceFixture(t, "not running", false)
 	state, err := service.Observe(context.Background())
-	if err != nil || !state.CanStart || state.CanStop {
+	if err != nil || state.CanStart || state.CanStop || state.Reason == "" {
 		t.Fatalf("unloaded agent state = %+v, %v", state, err)
 	}
-	if err := service.Request(context.Background(), ActionStart, inactiveLaunchdSample()); err != nil {
-		t.Fatal(err)
+	before := len(runner.calls)
+	if err := service.Request(context.Background(), ActionStart, inactiveLaunchdSample()); err == nil {
+		t.Fatal("unloaded agent started automatically")
 	}
-	want := "bootstrap:" + service.domain + ":" + plistPath
-	if runner.calls[len(runner.calls)-1] != want {
-		t.Fatalf("last launchctl call = %q, want %q", runner.calls[len(runner.calls)-1], want)
+	if len(runner.calls) != before+1 {
+		t.Fatalf("unloaded Start issued control: %#v", runner.calls[before:])
 	}
 }
 

@@ -8,7 +8,7 @@ Main is `e326049`: PR #21 merged the Linux Freedesktop tray and PR #23 merged th
 
 ## macOS desktop review in progress
 
-The independent review found malformed launchctl output acceptance, mutable-plist control races, non-independent login opt-in, action queue saturation, duplicate tray identity tied to HOME, repeated menu rebuilding, and launchd fixture cleanup/acceptance gaps. Parser structure, exact-target Stop, coalesced actions, profile-scoped tray lease, stable menu refresh, temporary fixture paths and fatal-exit dwell coverage are fixed. Runtime and login plists now have separate fixed locations and the login copy is explicitly opted into. Linux tray/CLI tests, race tests and lint pass. The unloaded Bootstrap validation-to-use race still requires a safe design choice; native macOS verification is pending. No live Drive test has run.
+The independent review found malformed launchctl output acceptance, mutable-plist control races, non-independent login opt-in, action queue saturation, duplicate tray identity tied to HOME, repeated menu rebuilding, and launchd fixture cleanup/acceptance gaps. Parser structure, exact-target Stop, coalesced actions, profile-scoped tray lease, stable menu refresh, temporary fixture paths and fatal-exit dwell coverage are fixed. Runtime and login plists now have separate fixed locations and the login copy is explicitly opted into. Linux tray/CLI tests, race tests and lint pass. The user selected manual loading for unloaded agents: tray Start only kickstarts a verified loaded stopped job, and Stop bootouts the exact target. Starting after Stop requires manual bootstrap again. Native macOS verification is pending. No live Drive test has run.
 
 ## macOS daemon work
 

@@ -30,7 +30,9 @@ launchctl bootstrap "gui/$(id -u)" "$HOME/Library/Application Support/Grove/Laun
 ```
 
 This starts the selected agent for the current GUI session. It does not opt in
-to login start. Keep `RunAtLoad=true`, omit `KeepAlive`, and retain
+to login start. The tray can start a verified loaded stopped agent; it cannot
+load an unloaded agent. Tray Stop unloads the agent, so run this bootstrap
+command again before starting it after Stop. Keep `RunAtLoad=true`, omit `KeepAlive`, and retain
 `ExitTimeOut=0`. Check status using `launchctl print gui/$(id -u)/com.torfstack.groved.personal`.
 
 ## Opt into daemon start at login

@@ -29,10 +29,6 @@ func (systemLaunchctl) Print(ctx context.Context, target string) ([]byte, error)
 	return output.Bytes(), nil
 }
 
-func (systemLaunchctl) Bootstrap(ctx context.Context, domain, path string) error {
-	return runLaunchctl(ctx, "bootstrap", domain, path)
-}
-
 func (systemLaunchctl) Bootout(ctx context.Context, target string) error {
 	return runLaunchctl(ctx, "bootout", target)
 }
