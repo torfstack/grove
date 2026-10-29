@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key><string>com.torfstack.grove-tray.@GROVE_INSTANCE@</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>@GROVE_APP@/Contents/MacOS/grove-tray</string>
+		<string>--profile-dir</string><string>@GROVE_PROFILE@</string>
+		<string>--name</string><string>@GROVE_NAME@</string>
+		<string>--service-instance</string><string>@GROVE_INSTANCE@</string>
+	</array>
+	<key>RunAtLoad</key><true/>
+</dict>
+</plist>

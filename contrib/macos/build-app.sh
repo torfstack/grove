@@ -1,0 +1,22 @@
+#!/bin/sh
+set -eu
+
+if [ "$(uname -s)" != "Darwin" ]; then
+  echo "Grove.app must be built on macOS" >&2
+  exit 1
+fi
+repo=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+out=${1:-"$repo/bin/Grove.app"}
+case "$out" in /*) ;; *) echo "Output path must be absolute" >&2; exit 1 ;; esac
+macos="$out/Contents/MacOS"
+helpers="$out/Contents/Helpers"
+mkdir -p "$macos" "$helpers" "$out/Contents/Resources/launchagents"
+(
+  cd "$repo"
+  go build -o "$macos/grove-tray" ./cmd/grove-tray
+  go build -o "$helpers/grove" ./cmd/grove
+  go build -o "$helpers/groved" ./cmd/groved
+)
+cp "$repo/contrib/macos/Grove-Info.plist" "$out/Contents/Info.plist"
+cp "$repo/contrib/macos/launchagents/"*.plist.in "$out/Contents/Resources/launchagents/"
+cp "$repo/contrib/macos/render-agent.py" "$out/Contents/Resources/render-agent.py"
