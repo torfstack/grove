@@ -54,7 +54,10 @@ func TestLaunchdPlistValidatesPrivateDaemonInvocation(t *testing.T) {
 		t.Fatalf("valid plist rejected: %v", err)
 	}
 
-	_, otherProfileConfig := launchdConfigFixture(t, dir, "other profile")
+	_, otherProfileConfig := launchdConfigFixture(t, t.TempDir(), "other profile")
+	if err := validateLaunchAgent(valid, label, profile); err != nil {
+		t.Fatalf("first fixture changed after creating the second: %v", err)
+	}
 	for name, data := range map[string][]byte{
 		"wrong label":     launchdPlistFixture("com.torfstack.groved.other", program, configPath, true, false, 0),
 		"wrong profile":   launchdPlistFixture(label, program, otherProfileConfig, true, false, 0),
