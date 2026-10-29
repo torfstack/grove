@@ -393,3 +393,7 @@ fixes. The actual user-manager adapter acceptance also passed again afterward.
 The rebuilt final binary also passed the isolated pointer-driven Waybar checklist
 again after review fixes, with no menu/property warnings; its owned temporary
 profile/session artifacts were removed.
+
+## macOS desktop integration
+
+The reconciled implementation builds on foreground-daemon PR #23. Linux formatting, lint, full offline tests, race tests and builds pass locally. Native macOS CI is configured for the app, plist validation, race tests and unique-label disposable LaunchAgent acceptance. Those native checks and an interactive user desktop check are pending; no live Drive test was run for this slice.

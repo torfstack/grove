@@ -306,3 +306,7 @@ leases remain outside its ownership.
 contract; [desktop instructions](../contrib/desktop/README.md) cover manual
 installation. No full GUI toolkit or daemon IPC is required. Waybar desktop
 acceptance is recorded in TESTBED; independent-host compatibility remains unverified.
+
+## macOS desktop integration in progress
+
+The shared tray presentation and coordinator have Darwin-specific AppKit and launchd adapters on the feature branch. The daemon and companion use separate processes and optional LaunchAgents. The controller validates the selected job, private plist and profile lease before exposing controls. Native macOS CI and desktop acceptance remain pending.

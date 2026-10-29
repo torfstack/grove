@@ -4,6 +4,7 @@ import argparse
 import os
 import plistlib
 import re
+import unicodedata
 from pathlib import Path
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -20,7 +21,7 @@ if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", args.instance):
 required_paths = [args.app, args.output, args.config if args.kind == "daemon" else args.profile]
 if any(not path or not os.path.isabs(path) for path in required_paths):
     parser.error("app, output and selected config/profile must be absolute paths")
-if not args.name or any(ord(char) < 32 or ord(char) == 127 for char in args.name):
+if not args.name or len(args.name) > 80 or any(unicodedata.category(char) == "Cc" or char in "\u2028\u2029" for char in args.name):
     parser.error("name must be nonempty and contain no control characters")
 base = Path(__file__).resolve().parent
 name = "com.torfstack.groved.plist.in" if args.kind == "daemon" else "com.torfstack.grove-tray.plist.in"
