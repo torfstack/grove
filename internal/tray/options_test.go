@@ -5,11 +5,16 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/torfstack/grove/internal/privatefs"
 )
 
 func optionsFixture(t *testing.T) Options {
 	t.Helper()
-	dir := t.TempDir()
+	dir, err := privatefs.Canonical(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(dir, "state.json"), []byte(`{}`), 0600); err != nil {
 		t.Fatal(err)
 	}

@@ -7,10 +7,16 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/torfstack/grove/internal/privatefs"
 )
 
 func launchdConfigFixture(t *testing.T, parent, name string) (string, string) {
 	t.Helper()
+	parent, err := privatefs.Canonical(parent)
+	if err != nil {
+		t.Fatal(err)
+	}
 	profile := filepath.Join(parent, name)
 	if err := os.Mkdir(profile, 0700); err != nil {
 		t.Fatal(err)
