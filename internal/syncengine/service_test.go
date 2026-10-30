@@ -27,6 +27,19 @@ type remoteHTTP struct {
 	failTrashVerificationID string
 }
 
+func TestPartialSelectionFailsClosedBeforeOpeningDrive(t *testing.T) {
+	opened := false
+	dir := t.TempDir()
+	opts := Options{ProfileDir: filepath.Join(dir, "profile"), LocalDir: filepath.Join(dir, "destination")}
+	_, err := runLocked(context.Background(), opts, filepath.Join(dir, "registry"), State{Selection: &Selection{Mode: "include", Revision: 1}}, false, func(context.Context) (drive.API, func() error, error) {
+		opened = true
+		return nil, nil, errors.New("unexpected Drive access")
+	})
+	if err == nil || opened {
+		t.Fatalf("partial selection must fail before opening Drive: err=%v opened=%v", err, opened)
+	}
+}
+
 func (r *remoteHTTP) wire(f drive.File) map[string]any {
 	return map[string]any{"id": f.ID, "name": f.Name, "mimeType": f.MIMEType, "version": f.Version, "modifiedTime": f.ModifiedTime, "headRevisionId": f.HeadRevisionID, "parents": f.Parents, "size": strconv.FormatInt(f.Size, 10), "md5Checksum": f.MD5, "ownedByMe": f.OwnedByMe, "trashed": f.Trashed, "explicitlyTrashed": f.ExplicitlyTrashed, "capabilities": map[string]bool{"canDownload": f.CanDownload}}
 }

@@ -64,6 +64,9 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 }
 
 func runLocked(ctx context.Context, opts Options, registry string, state State, isNew bool, open func(context.Context) (drive.API, func() error, error)) (result Result, err error) {
+	if state.Selection != nil && state.Selection.Mode != "all" {
+		return result, errors.New("selective sync is not yet available")
+	}
 	if err = ctx.Err(); err != nil {
 		return result, err
 	}

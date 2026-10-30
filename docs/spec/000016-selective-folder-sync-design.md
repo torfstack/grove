@@ -1,6 +1,6 @@
 # Selective folder sync
 
-Status: proposal for review, 2026-10-29. The user chose folder selection as the first selective-sync slice. Editable selections and non-destructive deselection are proposed defaults pending confirmation.
+Status: approved, 2026-10-30. The user approved folder selection as the first slice, followed by exploration of a Wails desktop UI.
 
 ## Intent and alternatives
 
@@ -54,8 +54,6 @@ This slice covers owned My Drive folders under the existing profile root. It doe
 - Fake-provider process tests exercise initial selection, changes after stopping the daemon, restart, and recovery. Any authenticated Drive test requires explicit enablement, the dedicated test profile, disposable local directories and fixture-owned remote data.
 - Linux and macOS offline, race, lint and build checks remain required. User desktop acceptance remains separate.
 
-## Open questions for review
+## Interface detail
 
-1. Confirm that selections can be edited after profile creation and that deselected local files stay in place.
-2. Confirm whether re-selecting a locally deleted file should restore it from Drive as proposed, or require an explicit confirmation.
-3. Confirm the desired CLI experience for browsing folders and entering IDs; names alone cannot identify duplicate Drive folders safely.
+Folder discovery displays IDs and paths; selection commands accept IDs. Names alone are not stable or unique identifiers.

@@ -10,6 +10,33 @@ import (
 	"testing"
 )
 
+func TestStateAcceptsExplicitEmptySelection(t *testing.T) {
+	dir := t.TempDir()
+	data := `{"version":3,"binding":{"remote_root":"","local_dir":"","token_file":""},"completed":[],"population_complete":true,"selection":{"mode":"include","revision":1,"folder_ids":[]}}`
+	if err := os.WriteFile(filepath.Join(dir, "state.json"), []byte(data), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadState(dir, Binding{}); err != nil {
+		t.Fatalf("explicit empty selection rejected: %v", err)
+	}
+}
+
+func TestStateRejectsInvalidSelection(t *testing.T) {
+	for name, selection := range map[string]*Selection{
+		"unknown mode":  {Mode: "other", Revision: 1},
+		"zero revision": {Mode: "include"},
+		"all with ids":  {Mode: "all", Revision: 1, FolderIDs: []string{"a"}},
+		"duplicate id":  {Mode: "include", Revision: 1, FolderIDs: []string{"a", "a"}},
+		"empty id":      {Mode: "include", Revision: 1, FolderIDs: []string{""}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := validateState(State{Version: 3, Selection: selection}, Binding{}); err == nil {
+				t.Fatal("invalid selection accepted")
+			}
+		})
+	}
+}
+
 func baselineFile(path, id string, data []byte) Completed {
 	sum := sha256.Sum256(data)
 	md5sum := md5.Sum(data)

@@ -102,7 +102,13 @@ type Pending struct {
 	VerifiedSHA256 string        `json:"verified_sha256,omitempty"`
 	Phase          string        `json:"phase"`
 }
+type Selection struct {
+	Mode      string   `json:"mode"`
+	Revision  uint64   `json:"revision"`
+	FolderIDs []string `json:"folder_ids,omitempty"`
+}
 type State struct {
+	Selection          *Selection              `json:"selection,omitempty"`
 	ConflictPolicy     ConflictPolicy          `json:"conflict_policy,omitempty"`
 	Conflicts          []Conflict              `json:"conflicts,omitempty"`
 	ProbeIdentities    map[string]FileIdentity `json:"probe_identities,omitempty"`

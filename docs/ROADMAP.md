@@ -2,6 +2,8 @@
 
 Milestones are ordered proposals; detailed implementation plans come before code.
 
+The next approved slice is [selective folder sync](spec/000016-selective-folder-sync-design.md), followed by exploration of a Wails desktop interface. Folder selection and its safety rules belong in the shared engine independently of the UI.
+
 The download reliability fix in
 [spec 000008](spec/000008-download-metadata-version-design.md) is merged through
 PR #13 with local and full Linux live verification and clean implementation

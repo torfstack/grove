@@ -40,6 +40,18 @@ func validateState(s State, binding Binding) (State, error) {
 	if (s.Version != 1 && s.Version != 2 && s.Version != 3) || s.Binding != binding {
 		return State{}, errors.New("unsupported state or changed profile binding")
 	}
+	if s.Selection != nil {
+		if s.Selection.Revision == 0 || (s.Selection.Mode != "all" && s.Selection.Mode != "include") || (s.Selection.Mode == "all" && len(s.Selection.FolderIDs) != 0) {
+			return State{}, errors.New("invalid selection state")
+		}
+		ids := map[string]bool{}
+		for _, id := range s.Selection.FolderIDs {
+			if id == "" || ids[id] {
+				return State{}, errors.New("invalid selection identity")
+			}
+			ids[id] = true
+		}
+	}
 	if s.ConflictPolicy == "" {
 		s.ConflictPolicy = ConflictAsk
 	}

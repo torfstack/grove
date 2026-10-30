@@ -1,10 +1,10 @@
 # Project status
 
-Updated: 2026-10-29.
+Updated: 2026-10-30.
 
 ## Selective folder sync design
 
-The user chose folder selection as the next slice. [Spec 000016](spec/000016-selective-folder-sync-design.md) proposes stable Drive-folder identity, editable selections, non-destructive deselection, and explicit confirmation of local deletions under partial selection. The proposed behavior and open questions need user review; no implementation plan or code changes have been made. The design branch starts from current main at `2d18377`.
+The user approved [spec 000016](spec/000016-selective-folder-sync-design.md) and the [implementation plan](implementation-plans/000016-selective-folder-sync-plan.md): stable Drive-folder identity, editable selections, non-destructive deselection, and explicit confirmation of local deletions under partial selection. Implementation has begun: basic selection-state parsing and validation are present, and partial selection fails closed before Drive access while scoped execution is unimplemented. Task 1 remains incomplete: subtree states, journal revisions and full state/recovery tests are still needed. No selection CLI or usable selective sync exists yet. Explore Wails after the UI-independent feature. The design branch starts from current main at `2d18377`, refreshed on 2026-10-30.
 
 ## macOS desktop integration
 
