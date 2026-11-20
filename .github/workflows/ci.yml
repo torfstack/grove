@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d
         with:
           version: "2026.10.6"
           install_args: "go golangci-lint"
@@ -44,7 +44,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d
         with:
           version: "2026.10.6"
           install_args: "go golangci-lint"
