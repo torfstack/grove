@@ -1,6 +1,19 @@
 # Project status
 
-Updated: 2026-10-30.
+## Selective folder sync
+
+The isolated implementation checkout supports initial download-only selection
+through repeatable `grove sync --include-folder` flags or
+`--include-no-folders`. The `grove folders` command lists selectable IDs. Selected IDs are validated and persisted before
+transfer. Tests cover four top-level folders out of seven, excluded local
+symlinks, and interrupted initial sync resuming from the saved selection.
+
+The `grove select-folders` command validates and replaces the selection under
+the daemon lease and profile lock. Downloads preserve excluded local files
+and their baselines. Reconciliation of missing or edited retained files and
+partial-scope two-way sync remain open. Two-way runs after explicit selection
+and local moves under partial scope are guarded.
+See the [implementation plan](implementation-plans/000016-selective-folder-sync-plan.md).
 
 ## Selective folder sync design
 

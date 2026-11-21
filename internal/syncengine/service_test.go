@@ -27,10 +27,10 @@ type remoteHTTP struct {
 	failTrashVerificationID string
 }
 
-func TestPartialSelectionFailsClosedBeforeOpeningDrive(t *testing.T) {
+func TestPartialTwoWaySelectionFailsClosedBeforeOpeningDrive(t *testing.T) {
 	opened := false
 	dir := t.TempDir()
-	opts := Options{ProfileDir: filepath.Join(dir, "profile"), LocalDir: filepath.Join(dir, "destination")}
+	opts := Options{TwoWay: true, ProfileDir: filepath.Join(dir, "profile"), LocalDir: filepath.Join(dir, "destination")}
 	_, err := runLocked(context.Background(), opts, filepath.Join(dir, "registry"), State{Selection: &Selection{Mode: "include", Revision: 1}}, false, func(context.Context) (drive.API, func() error, error) {
 		opened = true
 		return nil, nil, errors.New("unexpected Drive access")
@@ -529,5 +529,63 @@ func TestIncrementalCaseAliasPreflight(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(opts.LocalDir, "!added")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("new operation executed before collision preflight")
+	}
+}
+
+func TestInitialPartialSyncPersistsSelection(t *testing.T) {
+	service, opts, remote := httpService(t)
+	opts.InitialFolderIDs = []string{"folder"}
+	remote.failDownloadID = "a"
+	if _, err := service.Run(context.Background(), opts); err == nil {
+		t.Fatal("expected initial transfer interruption")
+	}
+	state := testProfileState(t, opts)
+	if state.Selection == nil || len(state.Selection.FolderIDs) != 1 || state.Selection.FolderIDs[0] != "folder" {
+		t.Fatalf("saved selection = %+v", state.Selection)
+	}
+	opts.InitialFolderIDs = nil
+	remote.failDownloadID = ""
+	result, err := service.Run(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(opts.LocalDir, "old", "a"))
+	if err != nil || string(data) != "old" {
+		t.Fatalf("selected file = %q, error = %v, result = %+v", data, err, result)
+	}
+	if _, err := os.Stat(filepath.Join(opts.LocalDir, "b")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("unselected file stat = %v", err)
+	}
+}
+
+func TestSelectionEditPreservesExcludedFiles(t *testing.T) {
+	ctx := context.Background()
+	service, opts, _ := httpService(t)
+	if _, err := service.Run(ctx, opts); err != nil {
+		t.Fatal(err)
+	}
+	lease, err := privatefs.AcquireLease(filepath.Join(opts.ProfileDir, "daemon.lock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	editErr := service.ReplaceSelection(ctx, opts.ProfileDir, []string{"folder"})
+	if err := lease.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if !errors.Is(editErr, privatefs.ErrLocked) {
+		t.Fatalf("edit with daemon lease: %v", editErr)
+	}
+	if err := service.ReplaceSelection(ctx, opts.ProfileDir, []string{"folder"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Run(ctx, opts); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := os.ReadFile(filepath.Join(opts.LocalDir, "b")); err != nil || string(data) != "same" {
+		t.Fatalf("excluded file = %q, error = %v", data, err)
+	}
+	state := testProfileState(t, opts)
+	if len(state.Completed) != 3 {
+		t.Fatalf("retained baseline count = %d", len(state.Completed))
 	}
 }

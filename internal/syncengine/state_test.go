@@ -476,3 +476,44 @@ func TestStateRejectsMalformedJournal(t *testing.T) {
 		}
 	}
 }
+
+func TestSelectionRecoveryRevision(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		selection *Selection
+		revision  uint64
+		valid     bool
+	}{
+		{"legacy", nil, 0, true},
+		{"current", &Selection{Mode: "all", Revision: 2}, 2, true},
+		{"stale", &Selection{Mode: "all", Revision: 2}, 1, false},
+		{"missing", &Selection{Mode: "all", Revision: 2}, 0, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			state := State{Version: 3, Selection: tc.selection, Pending: &Pending{
+				Entry: Entry{Path: "file"}, Phase: "intent", SelectionRevision: tc.revision,
+			}}
+			state.Pending.Entry.Remote.ID = "remote-file"
+			dir := t.TempDir()
+			if err := saveState(dir, state); err != nil {
+				t.Fatal(err)
+			}
+			_, err := loadState(dir, Binding{})
+			if (err == nil) != tc.valid {
+				t.Fatalf("loadState error = %v, want valid = %t", err, tc.valid)
+			}
+		})
+	}
+}
+
+func TestSelectionSubtreeRevision(t *testing.T) {
+	for _, revision := range []uint64{0, 1, 2, 3} {
+		selection := &Selection{Mode: "include", Revision: 2, FolderIDs: []string{"folder"},
+			Subtrees: map[string]SelectionSubtree{"folder": {Phase: "pending", Revision: revision}},
+		}
+		_, err := validateState(State{Version: 3, Selection: selection}, Binding{})
+		if (err == nil) != (revision == 2) {
+			t.Errorf("pending subtree revision %d: %v", revision, err)
+		}
+	}
+}

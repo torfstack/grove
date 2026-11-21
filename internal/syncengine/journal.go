@@ -22,6 +22,7 @@ func (e *executor) persist(next State) error {
 }
 func (e *executor) journal(j Journal) error {
 	next := *e.state
+	j.SelectionRevision = next.selectionRevision()
 	next.Transaction = &j
 	return e.persist(next)
 }
@@ -39,6 +40,7 @@ func (e *executor) commitJournal(j Journal) error {
 		next.Conflicts = withoutConflict(next.Conflicts, j.Operation.Conflict.ID)
 	}
 	j.Phase = "committed"
+	j.SelectionRevision = next.selectionRevision()
 	next.Transaction = &j
 	return e.persist(next)
 }

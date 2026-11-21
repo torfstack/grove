@@ -64,8 +64,18 @@ func run(ctx context.Context, opts Options, registry string, open func(context.C
 }
 
 func runLocked(ctx context.Context, opts Options, registry string, state State, isNew bool, open func(context.Context) (drive.API, func() error, error)) (result Result, err error) {
-	if state.Selection != nil && state.Selection.Mode != "all" {
-		return result, errors.New("selective sync is not yet available")
+	if opts.InitialFolderIDs != nil {
+		if !isNew {
+			return result, errors.New("initial folder selection requires a new profile")
+		}
+		state.Selection = &Selection{Mode: "include", Revision: 1, FolderIDs: opts.InitialFolderIDs}
+		if _, err := validateState(state, state.Binding); err != nil {
+			return result, err
+		}
+	}
+	partial := state.Selection != nil && state.Selection.Mode == "include"
+	if state.Selection != nil && (opts.TwoWay || opts.deletionResolutionID != "") {
+		return result, errors.New("two-way sync is not yet available for selective profiles")
 	}
 	if err = ctx.Err(); err != nil {
 		return result, err
@@ -96,7 +106,12 @@ func runLocked(ctx context.Context, opts Options, registry string, state State, 
 			return result, errors.New("two-way sync requires a mutation-capable Drive API")
 		}
 	}
-	snapshot, err := Scan(ctx, api, opts.RemoteRoot)
+	var snapshot Snapshot
+	if partial {
+		snapshot, err = scanSelectedFolders(ctx, api, opts.RemoteRoot, state.Selection.FolderIDs)
+	} else {
+		snapshot, err = Scan(ctx, api, opts.RemoteRoot)
+	}
 	if err != nil {
 		return result, err
 	}
@@ -142,7 +157,11 @@ func runLocked(ctx context.Context, opts Options, registry string, state State, 
 			result.Trashed += len(recoveringTrash.Operation.RemoteSubtree)
 		}
 	}
-	local, err := scanLocal(ctx, root, nil)
+	var includes func(string) bool
+	if partial {
+		includes = selectedLocalScope(snapshot, state.Selection.FolderIDs)
+	}
+	local, err := scanLocalScope(ctx, root, nil, includes)
 	if err != nil {
 		return result, err
 	}
@@ -169,7 +188,11 @@ func runLocked(ctx context.Context, opts Options, registry string, state State, 
 	} else if !state.PopulationComplete && len(state.Conflicts) > 0 {
 		plan, err = BuildRestorationPlan(snapshot, local, state)
 	} else {
-		plan, err = BuildPlan(snapshot, local, state)
+		planningState := state
+		if partial {
+			planningState = scopedBaseline(state, snapshot, includes)
+		}
+		plan, err = BuildPlan(snapshot, local, planningState)
 	}
 	if err != nil {
 		return result, err
@@ -190,6 +213,9 @@ func runLocked(ctx context.Context, opts Options, registry string, state State, 
 	if work {
 		needsMove := false
 		for _, op := range plan.Operations {
+			if partial && op.Kind == OpMove {
+				return result, errors.New("selective sync needs reconciliation before moving local entries")
+			}
 			if op.Kind == OpMove || op.Kind == OpReplace {
 				needsMove = true
 			}

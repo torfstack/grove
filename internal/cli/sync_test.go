@@ -150,3 +150,32 @@ func TestCLIOutputRedacted(t *testing.T) {
 		t.Fatal("unsafe output")
 	}
 }
+
+func TestSyncInitialSelectionFlags(t *testing.T) {
+	root := NewRoot(Services{Sync: func(_ context.Context, opts syncengine.Options) (syncengine.Result, error) {
+		if len(opts.InitialFolderIDs) != 2 || opts.InitialFolderIDs[0] != "a" || opts.InitialFolderIDs[1] != "b" {
+			t.Fatalf("initial selection = %v", opts.InitialFolderIDs)
+		}
+		return syncengine.Result{}, nil
+	}})
+	root.SetArgs([]string{"sync", "--profile-dir", "p", "--remote-root", "r", "--local-dir", "l", "--token-file", "t", "--include-folder", "a", "--include-folder", "b"})
+	root.SetOut(&bytes.Buffer{})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDiscoverFoldersCommand(t *testing.T) {
+	root := NewRoot(Services{DiscoverFolders: func(_ context.Context, rootID, token string) ([]syncengine.SelectionFolder, error) {
+		if rootID != "r" || token != "t" {
+			t.Fatal("wrong discovery arguments")
+		}
+		return []syncengine.SelectionFolder{{ID: "a", Path: "A/B"}}, nil
+	}})
+	root.SetArgs([]string{"folders", "--remote-root", "r", "--token-file", "t"})
+	var out bytes.Buffer
+	root.SetOut(&out)
+	if err := root.Execute(); err != nil || out.String() != "a\tA/B\n" {
+		t.Fatalf("output = %q, error = %v", out.String(), err)
+	}
+}

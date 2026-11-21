@@ -10,12 +10,19 @@ import (
 
 func newSync(run func(context.Context, syncengine.Options) (syncengine.Result, error)) *cobra.Command {
 	opts := syncengine.Options{}
+	var emptySelection bool
 	cmd := &cobra.Command{Use: "sync", Short: "Download and reconcile an ordinary-file tree from Drive", Args: noArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		if opts.ProfileDir == "" || opts.RemoteRoot == "" || opts.LocalDir == "" || opts.TokenFile == "" {
 			return errors.New("--profile-dir, --remote-root, --local-dir, and --token-file are required")
 		}
 		if run == nil {
 			return errors.New("sync service unavailable")
+		}
+		if emptySelection {
+			if cmd.Flags().Changed("include-folder") {
+				return errors.New("--include-folder and --include-no-folders are mutually exclusive")
+			}
+			opts.InitialFolderIDs = []string{}
 		}
 		result, err := run(cmd.Context(), opts)
 		if err != nil {
@@ -29,5 +36,7 @@ func newSync(run func(context.Context, syncengine.Options) (syncengine.Result, e
 	cmd.Flags().StringVar(&opts.LocalDir, "local-dir", "", "Destination directory (required)")
 	cmd.Flags().StringVar(&opts.TokenFile, "token-file", "", "Authentication record path (required)")
 	cmd.Flags().BoolVar(&opts.TwoWay, "two-way", false, "Enable uploads, deletion propagation, and conflict handling for this run")
+	cmd.Flags().StringArrayVar(&opts.InitialFolderIDs, "include-folder", nil, "Include a Drive folder ID on initial sync (repeatable)")
+	cmd.Flags().BoolVar(&emptySelection, "include-no-folders", false, "Select no folders on initial sync")
 	return cmd
 }

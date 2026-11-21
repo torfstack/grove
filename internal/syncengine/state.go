@@ -35,6 +35,13 @@ func loadState(profile string, binding Binding) (State, error) {
 	return validateState(s, binding)
 }
 
+func (s State) selectionRevision() uint64 {
+	if s.Selection == nil {
+		return 0
+	}
+	return s.Selection.Revision
+}
+
 func validateState(s State, binding Binding) (State, error) {
 	s.Conflicts = normalizeConflicts(s.Conflicts)
 	if (s.Version != 1 && s.Version != 2 && s.Version != 3) || s.Binding != binding {
@@ -50,6 +57,23 @@ func validateState(s State, binding Binding) (State, error) {
 				return State{}, errors.New("invalid selection identity")
 			}
 			ids[id] = true
+		}
+		for id, subtree := range s.Selection.Subtrees {
+			if id == "" || subtree.Revision == 0 || subtree.Revision > s.Selection.Revision {
+				return State{}, errors.New("invalid selection subtree revision")
+			}
+			switch subtree.Phase {
+			case "pending", "active":
+				if !ids[id] || subtree.Revision != s.Selection.Revision {
+					return State{}, errors.New("invalid included subtree")
+				}
+			case "dormant":
+				if ids[id] {
+					return State{}, errors.New("included subtree cannot be dormant")
+				}
+			default:
+				return State{}, errors.New("invalid selection subtree phase")
+			}
 		}
 	}
 	if s.ConflictPolicy == "" {
@@ -80,6 +104,9 @@ func validateState(s State, binding Binding) (State, error) {
 	}
 	if s.Pending != nil {
 		p := s.Pending
+		if p.SelectionRevision != s.selectionRevision() {
+			return State{}, errors.New("pending selection revision does not match profile")
+		}
 		if p.Phase != "intent" && p.Phase != "downloading" && p.Phase != "verified" {
 			return State{}, errors.New("invalid pending phase")
 		}
@@ -112,6 +139,9 @@ func validateState(s State, binding Binding) (State, error) {
 	if s.Transaction != nil {
 		if (s.Version != 2 && s.Version != 3) || s.Pending != nil {
 			return State{}, errors.New("invalid journal version")
+		}
+		if s.Transaction.SelectionRevision != s.selectionRevision() {
+			return State{}, errors.New("journal selection revision does not match profile")
 		}
 		if err := validateJournal(*s.Transaction, s.Completed); err != nil {
 			return State{}, err

@@ -21,7 +21,7 @@ func services(authenticate cli.AuthenticateFunc, driveOptions drive.ClientOption
 		}
 		return drive.NewClient(session.HTTPClient, driveOptions), session.Close, nil
 	}}
-	return cli.Services{Status: func(ctx context.Context, profile string) (daemon.StatusReport, error) {
+	return cli.Services{ReplaceSelection: syncService.ReplaceSelection, DiscoverFolders: syncService.DiscoverFolders, Status: func(ctx context.Context, profile string) (daemon.StatusReport, error) {
 		return daemon.Inspect(ctx, profile, syncService)
 	}, Authenticate: authenticate, Seed: func(ctx context.Context, opts cli.FixtureOptions) (path string, err error) {
 		v, err := fixture.LoadManifest(opts.Manifest)
