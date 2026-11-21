@@ -13,6 +13,8 @@ import (
 type AuthenticateFunc func(context.Context, auth.Options) (string, error)
 type FixtureOptions struct{ Manifest, RunDir, LocalDir, TokenFile string }
 type Services struct {
+	ReplaceSelection  func(context.Context, string, []string) error
+	DiscoverFolders   func(context.Context, string, string) ([]syncengine.SelectionFolder, error)
 	Status            func(context.Context, string) (daemon.StatusReport, error)
 	InspectRecovery   func(context.Context, syncengine.Options) (syncengine.RecoveryReport, error)
 	RetryRecovery     func(context.Context, syncengine.Options) (syncengine.RecoveryReport, error)
@@ -36,7 +38,7 @@ func NewRoot(services Services) *cobra.Command {
 			return "", errors.New("authentication service unavailable")
 		}
 	}
-	root.AddCommand(newAuth(services.Authenticate), newFixture(services), newSync(services.Sync), newConfig(services), newConflicts(services), newRecovery(services), newStatus(services))
+	root.AddCommand(newAuth(services.Authenticate), newFixture(services), newSync(services.Sync), newConfig(services), newConflicts(services), newRecovery(services), newStatus(services), newFolders(services.DiscoverFolders), newSelection(services.ReplaceSelection))
 	return root
 }
 func noArgs(_ *cobra.Command, args []string) error {

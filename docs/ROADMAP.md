@@ -2,6 +2,8 @@
 
 Milestones are ordered proposals; detailed implementation plans come before code.
 
+The next approved slice is [selective folder sync](spec/000016-selective-folder-sync-design.md), followed by exploration of a Wails desktop interface. Folder selection and its safety rules belong in the shared engine independently of the UI.
+
 The download reliability fix in
 [spec 000008](spec/000008-download-metadata-version-design.md) is merged through
 PR #13 with local and full Linux live verification and clean implementation
@@ -42,6 +44,8 @@ findings are fixed with regression coverage and fresh checks; a second tray host
 remains unverified. PR #21 has since merged. The user approved the separate
 macOS foreground-daemon slice in [spec 000013](spec/000013-macos-daemon-design.md);
 implementation merged in PR #23. The optional macOS LaunchAgent and menu-bar companion is implemented in PR #25 under [spec 000015](spec/000015-macos-desktop-design.md) and its [plan](implementation-plans/000015-macos-desktop-plan.md). The closed PR #22 was used as a reference. Native CI passes; interactive desktop and login acceptance remain outstanding.
+
+The next proposed product slice is [selective folder sync](spec/000016-selective-folder-sync-design.md), with editable Drive-folder selection and non-destructive deselection under review. Pattern exclusions remain separate.
 
 1. **Development foundation and testbed**: establish project records, design
    authentication and fixture interfaces, and implement authenticated access plus

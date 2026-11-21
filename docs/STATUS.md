@@ -1,6 +1,23 @@
 # Project status
 
-Updated: 2026-10-29.
+## Selective folder sync
+
+The isolated implementation checkout supports initial download-only selection
+through repeatable `grove sync --include-folder` flags or
+`--include-no-folders`. The `grove folders` command lists selectable IDs. Selected IDs are validated and persisted before
+transfer. Tests cover four top-level folders out of seven, excluded local
+symlinks, and interrupted initial sync resuming from the saved selection.
+
+The `grove select-folders` command validates and replaces the selection under
+the daemon lease and profile lock. Downloads preserve excluded local files
+and their baselines. Reconciliation of missing or edited retained files and
+partial-scope two-way sync remain open. Two-way runs after explicit selection
+and local moves under partial scope are guarded.
+See the [implementation plan](implementation-plans/000016-selective-folder-sync-plan.md).
+
+## Selective folder sync design
+
+The user approved [spec 000016](spec/000016-selective-folder-sync-design.md) and the [implementation plan](implementation-plans/000016-selective-folder-sync-plan.md): stable Drive-folder identity, editable selections, non-destructive deselection, and explicit confirmation of local deletions under partial selection. Implementation has begun: basic selection-state parsing and validation are present, and partial selection fails closed before Drive access while scoped execution is unimplemented. Task 1 remains incomplete: subtree states, journal revisions and full state/recovery tests are still needed. No selection CLI or usable selective sync exists yet. Explore Wails after the UI-independent feature. The design branch starts from current main at `2d18377`, refreshed on 2026-10-30.
 
 ## macOS desktop integration
 

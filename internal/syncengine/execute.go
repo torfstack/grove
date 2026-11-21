@@ -90,7 +90,7 @@ func (e *executor) execute(ctx context.Context, op Operation) error {
 	if _, err := e.root.Lstat(entry.Path); !errors.Is(err, os.ErrNotExist) {
 		return errors.New("destination already exists or cannot be inspected")
 	}
-	p := &Pending{Entry: entry, Phase: "intent"}
+	p := &Pending{Entry: entry, Phase: "intent", SelectionRevision: e.state.selectionRevision()}
 	if op.Kind == "download" {
 		id := nonce()
 		if id == "" {

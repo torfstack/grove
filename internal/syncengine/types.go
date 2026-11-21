@@ -96,13 +96,26 @@ type FileIdentity struct {
 	Inode  uint64 `json:"inode"`
 }
 type Pending struct {
-	TempIdentity   *FileIdentity `json:"temp_identity,omitempty"`
-	Entry          Entry         `json:"entry"`
-	TempPath       string        `json:"temp_path,omitempty"`
-	VerifiedSHA256 string        `json:"verified_sha256,omitempty"`
-	Phase          string        `json:"phase"`
+	SelectionRevision uint64        `json:"selection_revision,omitempty"`
+	TempIdentity      *FileIdentity `json:"temp_identity,omitempty"`
+	Entry             Entry         `json:"entry"`
+	TempPath          string        `json:"temp_path,omitempty"`
+	VerifiedSHA256    string        `json:"verified_sha256,omitempty"`
+	Phase             string        `json:"phase"`
+}
+type SelectionSubtree struct {
+	Phase    string `json:"phase"`
+	Revision uint64 `json:"revision"`
+}
+
+type Selection struct {
+	Subtrees  map[string]SelectionSubtree `json:"subtrees,omitempty"`
+	Mode      string                      `json:"mode"`
+	Revision  uint64                      `json:"revision"`
+	FolderIDs []string                    `json:"folder_ids,omitempty"`
 }
 type State struct {
+	Selection          *Selection              `json:"selection,omitempty"`
 	ConflictPolicy     ConflictPolicy          `json:"conflict_policy,omitempty"`
 	Conflicts          []Conflict              `json:"conflicts,omitempty"`
 	ProbeIdentities    map[string]FileIdentity `json:"probe_identities,omitempty"`
@@ -145,6 +158,7 @@ type Operation struct {
 	RemoteSubtree   []Completed
 }
 type Journal struct {
+	SelectionRevision         uint64             `json:"selection_revision,omitempty"`
 	CandidateCaptures         []CandidateCapture `json:"candidate_captures,omitempty"`
 	TempIdentity              *FileIdentity      `json:"temp_identity,omitempty"`
 	Operation                 Operation          `json:"operation"`
@@ -179,6 +193,7 @@ type CandidateCapture struct {
 }
 type Plan struct{ Operations []Operation }
 type Options struct {
+	InitialFolderIDs                            []string
 	ProfileDir, RemoteRoot, LocalDir, TokenFile string
 	TwoWay                                      bool
 	deletionResolutionID                        string

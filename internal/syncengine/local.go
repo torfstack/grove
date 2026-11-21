@@ -11,6 +11,10 @@ import (
 )
 
 func scanLocal(ctx context.Context, root *os.Root, ignored map[string]bool) ([]LocalEntry, error) {
+	return scanLocalScope(ctx, root, ignored, nil)
+}
+
+func scanLocalScope(ctx context.Context, root *os.Root, ignored map[string]bool, includes func(string) bool) ([]LocalEntry, error) {
 	var entries []LocalEntry
 	err := fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -20,6 +24,12 @@ func scanLocal(ctx context.Context, root *os.Root, ignored map[string]bool) ([]L
 			return err
 		}
 		if path == "." {
+			return nil
+		}
+		if includes != nil && !includes(path) {
+			if d.IsDir() {
+				return fs.SkipDir
+			}
 			return nil
 		}
 		if err := rootPath(root, path); err != nil {
