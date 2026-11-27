@@ -34,18 +34,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78
         if: matrix.language == 'go'
         with:
           version: "2026.10.6"
           install_args: go
-      - uses: github/codeql-action/init@1fc58d04a4d4374f921bdac573c3811c240f9c26
+      - uses: github/codeql-action/init@915412ff23e8b7659517e607487dbeae018f2934
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
       - name: Build Go for analysis
         if: matrix.language == 'go'
         run: mise exec -- go build ./...
-      - uses: github/codeql-action/analyze@1fc58d04a4d4374f921bdac573c3811c240f9c26
+      - uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934
         with:
           category: /language:${{ matrix.language }}
